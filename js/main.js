@@ -89,6 +89,24 @@ function setMilestoneOf(id, on) {
   syncTabData(); renderAll();
 }
 
+function applyConsFromPanel(id) {
+  const t = T.find(x => x.id === id); if (!t || hasK(id)) return;
+  const type = $("spCons").value, date = $("spConsDate").value;
+  pushHistory();
+  const old = t.cons && t.cons.type;
+  if (type === "ASAP" || (CONS_NEEDS_DATE.includes(type) && !date)) delete t.cons;
+  else t.cons = { type, date: CONS_NEEDS_DATE.includes(type) ? date : null };
+  if (type !== "ALAP" || old !== "ALAP") delete t._alap;
+  syncTabData(); renderAll();
+}
+
+function setDeadlineOf(id, v) {
+  const t = T.find(x => x.id === id); if (!t) return;
+  pushHistory();
+  if (v) t.deadline = v; else delete t.deadline;
+  syncTabData(); renderAll();
+}
+
 function setNotesOf(id, v) {
   const t = T.find(x => x.id === id); if (!t) return;
   v = v.trim();
@@ -149,6 +167,24 @@ function renderSidePanel() {
       <input class="sp-in" value="${esc(depsStr)}" placeholder="ex: 1.1; 2.3SS+2" onchange="updDeps(${t.id},this.value)" ${key}></div>
     <div class="sp-info"><span>Succesori</span><b>${esc(succStr)}</b></div>
 
+    <div class="sp-sec">Restricții și termen</div>
+    <div class="sp-group"><label class="sp-lbl">Restricție</label>
+      <select class="sp-in" id="spCons" ${dis} onchange="applyConsFromPanel(${t.id})">
+        ${Object.keys(CONS_LABELS).map(k => `<option value="${k}" ${((t.cons && t.cons.type) || "ASAP") === k ? "selected" : ""}>${CONS_LABELS[k]}</option>`).join("")}
+      </select></div>
+    <div class="sp-2col">
+      <div class="sp-group"><label class="sp-lbl">Data restricției</label>
+        <input type="date" class="sp-in" id="spConsDate" value="${t.cons && t.cons.date ? t.cons.date : ""}" ${(isSumm || !(t.cons && CONS_NEEDS_DATE.includes(t.cons.type))) ? "disabled" : ""} onchange="applyConsFromPanel(${t.id})"></div>
+      <div class="sp-group"><label class="sp-lbl">Termen limită</label>
+        <input type="date" class="sp-in" value="${t.deadline || ""}" onchange="setDeadlineOf(${t.id},this.value)"></div>
+    </div>
+    ${taskWarn[t.id] ? `<div class="sp-warn">⚠ ${[taskWarn[t.id].lateText, taskWarn[t.id].cons, taskWarn[t.id].res].filter(Boolean).join("<br>⚠ ")}</div>` : ""}
+
+    <div class="sp-sec">Resurse și cost</div>
+    <div class="sp-info"><span>Cost</span><b>${costMap[t.id] ? fmtMoney(costMap[t.id]) : "—"}</b></div>
+    ${(t.assign || []).filter(a => resById(a.rid)).map(a => { const r = resById(a.rid); return `<div class="sp-info"><span>${esc(r.name)}</span><b>${r.type === "cost" ? fmtMoney(a.units) : a.units + (r.type === "work" ? "%" : " " + (r.unit || ""))}</b></div>`; }).join("")}
+    ${isSumm ? "" : `<button class="sp-btn" onclick="openTaskInfo(${t.id})">👥 Atribuie / schimbă resurse…</button>`}
+
     <div class="sp-sec">Analiză</div>
     <div class="sp-info"><span>Rezervă</span><b>${slack}</b></div>
     <div class="sp-info"><span>Capitol părinte</span><b>${parent ? esc((w[parent.id] || "") + " " + parent.nm) : "— (nivel principal)"}</b></div>
@@ -163,7 +199,7 @@ function renderStatus(){
   const tab = tabs.find(t=>t.id===activeTabId);
   const tabName = tab ? tab.name : 'Proiect';
   const n=T.length, b=ab(), td=b?dD(b.mn,b.mx)+1:0, av=n?(T.reduce((s,t)=>s+t.dur,0)/n).toFixed(1):0, ap=n?Math.round(T.reduce((s,t)=>s+t.prog,0)/n):0;
-  $("sbar").innerHTML=`<span style="color:#fff">📋 ${tabName} | Noduri: ${n} | Zile: ${td} | Durată Medie: ${av} zile | Progres Mediu: ${ap}%${showCritical&&cpmInfo.end?` | 🔴 Critice: ${cpmInfo.count} | Final proiect: ${fmtDate(pD(cpmInfo.end))}`:''}</span>${typeof fileStatusHtml==="function"?fileStatusHtml():""}`;
+  $("sbar").innerHTML=`<span style="color:#fff">📋 ${tabName} | Noduri: ${n} | Zile: ${td} | Durată Medie: ${av} zile | Progres Mediu: ${ap}%${showCritical&&cpmInfo.end?` | 🔴 Critice: ${cpmInfo.count} | Final proiect: ${fmtDate(pD(cpmInfo.end))}`:''}</span>${costMap.total?` | 💰 Buget: ${fmtMoney(costMap.total)}`:""}${behindCount()?` | <span title="Ar fi trebuit să fie gata până azi">⏰ ${behindCount()} întârziate</span>`:""}${typeof fileStatusHtml==="function"?fileStatusHtml():""}`;
 }
 
 function renderAll(){
@@ -176,6 +212,17 @@ function renderAll(){
     if (T.map(t => t.sd + '|' + t.dur).join(',') === snap) break;
   }
   computeCPM();
+  // ALAP: dacă s-a consumat rezerva, mai rulăm o dată planificarea (maxim 3 ori)
+  for (let k = 0; k < 3 && applyALAP(); k++) {
+    for (let i = 0; i < 20; i++) {
+      const snap = T.map(t => t.sd + '|' + t.dur).join(',');
+      recalcSchedule(); recalcSummaries();
+      if (T.map(t => t.sd + '|' + t.dur).join(',') === snap) break;
+    }
+    computeCPM();
+  }
+  computeResources();
+  computeWarnings();
   renderTH();
   renderTBody();
   if(view==="gantt") renderGantt();
@@ -383,6 +430,7 @@ renderAll();
 // Sincronizare inițială butoane View ribbon
 if ($("rbViewGantt")) $("rbViewGantt").classList.add("active");
 if (showCritical && $("btnCrit")) $("btnCrit").classList.add("active");
+if (typeof _refreshPlanUI === "function") _refreshPlanUI();
 if (hadData) toast('📂 Proiecte restaurate!');
 // Prima deschidere: se încarcă demo-ul, ca să se vadă imediat ce poate aplicația
 else { loadDemo(); }

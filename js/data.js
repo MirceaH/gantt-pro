@@ -153,6 +153,7 @@ function _topoDepOrder() {
 let _lastCycleWarnAt = 0;
 function recalcSchedule() {
   _ensureDeps();
+  consWarn = {};
   if (!T.length) return;
   const { order, hasCycle } = _topoDepOrder();
   if (hasCycle) {
@@ -164,12 +165,14 @@ function recalcSchedule() {
   }
   for (const tid of order) {
     const t = T.find(x => x.id === tid); if (!t) continue;
-    if (!t.deps || !t.deps.length) continue;
     if (hasK(t.id)) continue; // capitolele se derivă din copii
+    const hasDeps = !!(t.deps && t.deps.length);
+    const hasCons = !!(t.cons && t.cons.type && t.cons.type !== 'ASAP' && (t.cons.type === 'ALAP' || t.cons.date));
+    if (!hasDeps && !hasCons) continue;
 
     const sucDur = Math.max(1, t.dur);
     let bestStart = null;
-    for (const d of t.deps) {
+    for (const d of (t.deps || [])) {
       const pred = T.find(x => x.id === d.id); if (!pred) continue;
       const lag = +d.lag || 0;
       // Totul în ZILE LUCRĂTOARE (calendarul proiectului): lag-ul se numără în zile lucrătoare.
@@ -187,8 +190,47 @@ function recalcSchedule() {
       }
       if (!bestStart || newStart > bestStart) bestStart = newStart;
     }
-    if (bestStart) t.sd = fD(bestStart);
+    // Constrângeri: pornim de la data dată de legături (sau data curentă, dacă nu are legături)
+    let s = bestStart || pD(t.sd);
+    // ALAP: împinge activitatea cu rezerva calculată de CPM (doar pt. activități cu legături)
+    if (bestStart && t.cons && t.cons.type === 'ALAP') s = addWorkDays(s, t._alap || 0);
+    const r = _applyCons(t, s, bestStart);
+    s = r.s; if (r.w) consWarn[t.id] = r.w;
+    if (bestStart || hasCons) t.sd = fD(s);
   }
+}
+
+// ============================================================
+// CONSTRÂNGERI (ca în MS Project)
+// ============================================================
+// t.cons = { type: 'ASAP'|'ALAP'|'SNET'|'SNLT'|'FNET'|'FNLT'|'MSO'|'MFO', date: 'YYYY-MM-DD' }
+//  SNET: nu începe înainte de data   •  FNET: nu se termină înainte de data   (mută activitatea)
+//  SNLT: nu începe după data         •  FNLT: nu se termină după data         (doar avertizează)
+//  MSO / MFO: începe / se termină exact la data (rigid; legăturile care ar cere altfel dau avertisment)
+let consWarn = {};
+const CONS_LABELS = {
+  ASAP: 'Cât mai devreme (implicit)', ALAP: 'Cât mai târziu posibil',
+  SNET: 'Nu începe înainte de', SNLT: 'Nu începe după',
+  FNET: 'Nu se termină înainte de', FNLT: 'Nu se termină după',
+  MSO: 'Trebuie să înceapă pe', MFO: 'Trebuie să se termine pe'
+};
+const CONS_NEEDS_DATE = ['SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'];
+
+function _applyCons(t, s, depStart) {
+  const c = t.cons;
+  if (!c || !c.type || !c.date || !CONS_NEEDS_DATE.includes(c.type)) return { s, w: null };
+  const dt = pD(c.date), dur = Math.max(1, t.dur);
+  const endOf = st => endDate({ sd: fD(st), dur });
+  const f = d => fmtDate(d);
+  switch (c.type) {
+    case 'SNET': if (s < dt) s = dt; break;
+    case 'FNET': if (endOf(s) < dt) s = addWorkDays(nextWork(dt), -(dur - 1)); break;
+    case 'SNLT': if (s > dt) return { s, w: 'Începe după ' + f(dt) + ' (restricție „nu începe după”)' }; break;
+    case 'FNLT': if (endOf(s) > dt) return { s, w: 'Se termină după ' + f(dt) + ' (restricție „nu se termină după”)' }; break;
+    case 'MSO': { const ms = nextWork(dt); if (depStart && depStart > ms) return { s: ms, w: 'Legăturile cer start după ' + f(dt) + ', dar e fixată pe ' + f(dt) }; s = ms; break; }
+    case 'MFO': { const ms = addWorkDays(nextWork(dt), -(dur - 1)); if (depStart && depStart > ms) return { s: ms, w: 'Legăturile cer final după ' + f(dt) + ', dar e fixată pe ' + f(dt) }; s = ms; break; }
+  }
+  return { s, w: null };
 }
 
 // Verifică dacă adăugarea unui link pred → succ ar introduce un ciclu
@@ -223,7 +265,7 @@ function flat() { const roots=T.filter(t=>!t.pid), r=[]; (function w(l){l.forEac
 function wbs() { const m={}; (function w(l,p){l.forEach((t,i)=>{const n=p?p+"."+(i+1):String(i+1); m[t.id]=n; w(kids(t.id),n)})})(T.filter(t=>!t.pid),""); return m; }
 function wbsReverse() { const w=wbs(), r={}; for(const id in w) r[w[id]]=+id; return r; }
 function ps(t) { const s=pD(t.sd), e=endDate(t); return{...t,_s:s,_e:e}; }
-function ab() { if(!T.length) return null; let mn=null, mx=null; T.forEach(t=>{const p=ps(t); if(!mn||p._s<mn)mn=p._s; if(!mx||p._e>mx)mx=p._e}); return{mn,mx}; }
+function ab() { if(!T.length) return null; let mn=null, mx=null; T.forEach(t=>{const p=ps(t); if(!mn||p._s<mn)mn=p._s; if(!mx||p._e>mx)mx=p._e; if(t.deadline){const dl=pD(t.deadline); if(dl>mx)mx=dl;} const bs=(typeof blSpan==="function"&&showBaseline)?blSpan(t):null; if(bs){if(bs.s<mn)mn=bs.s; if(bs.e>mx)mx=bs.e;}}); return{mn,mx}; }
 
 // ============================================================
 // SINCRONIZARE TAB ↔ VARIABILE GLOBALE
@@ -232,14 +274,14 @@ function ab() { if(!T.length) return null; let mn=null, mx=null; T.forEach(t=>{c
 // Salvează datele curente în tab-ul activ
 function syncTabData() {
   const tab = tabs.find(t => t.id === activeTabId);
-  if (tab) { tab.T = JSON.parse(JSON.stringify(T)); tab.nid = nid; tab.cal = JSON.parse(JSON.stringify(CAL)); }
+  if (tab) { tab.T = JSON.parse(JSON.stringify(T)); tab.nid = nid; tab.cal = JSON.parse(JSON.stringify(CAL)); tab.res = JSON.parse(JSON.stringify(RES)); }
 }
 
 // Încarcă datele din tab-ul activ în variabilele globale
 function loadTabData(tabId) {
   const tab = tabs.find(t => t.id === tabId);
   if (!tab) return;
-  setCal(tab.cal);
+  setCal(tab.cal); setRes(tab.res);
   T   = JSON.parse(JSON.stringify(tab.T));
   nid = tab.nid;
   sel = null;
@@ -258,14 +300,15 @@ function loadTabData(tabId) {
 // GESTIONARE TAB-URI
 // ============================================================
 
-function addNewTab(name, data, nidVal, cal) {
+function addNewTab(name, data, nidVal, cal, res) {
   const tabName = name || ("Proiect " + (tabs.length + 1));
   const tab = {
     id:   nextTabId++,
     name: tabName,
     T:    data  || [],
     nid:  nidVal|| 1,
-    cal:  cal || CAL_DEFAULT()
+    cal:  cal || CAL_DEFAULT(),
+    res:  res || { list: [], next: 1, cur: "RON" }
   };
   tabs.push(tab);
   switchTab(tab.id);
@@ -402,7 +445,7 @@ function exportJSON() {
   const tab  = tabs.find(t => t.id === activeTabId);
   const defaultName = tab ? tab.name : 'proiect-gantt';
   showNameModal(defaultName, function(name) {
-    const data = JSON.stringify({ T, nid, cal: CAL, name, exportedAt: new Date().toISOString() }, null, 2);
+    const data = JSON.stringify({ T, nid, cal: CAL, res: RES, name, exportedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -425,7 +468,7 @@ function importJSONasTab() {
         const d = JSON.parse(ev.target.result);
         if (!d.T || !Array.isArray(d.T)) throw new Error('Format invalid');
         const tabName = d.name || file.name.replace('.json','');
-        addNewTab(tabName, d.T, d.nid || (d.T.length ? Math.max(...d.T.map(x=>x.id))+1 : 1), d.cal);
+        addNewTab(tabName, d.T, d.nid || (d.T.length ? Math.max(...d.T.map(x=>x.id))+1 : 1), d.cal, d.res);
         toast('📂 Proiect încărcat în tab nou: ' + tabName);
       } catch(err) { toast('❌ Fișier invalid!'); }
     };
@@ -565,39 +608,79 @@ function handleDrop(dragId, targetId, dropType) {
 
 function loadDemo() {
   pushHistory();
-  const today = fD(new Date());
-  // Demo „Construcție Hală Industrială": capitole, toate cele 4 tipuri de legături (cu lag/lead),
-  // milestone, progres, drum critic cu activități necritice, calendar cu o zi liberă.
-  const F = (id,type,lag) => ({id,type,lag:lag||0});
-  T=[
-    {id:1, nm:"Construcție Hală Industrială", sd:today, dur:1, prog:0, pid:null, deps:[]},
-    {id:2, nm:"1. Pregătire", sd:today, dur:1, prog:0, pid:1, deps:[]},
-    {id:3, nm:"Studii și proiectare", sd:today, dur:8, prog:100, pid:2, deps:[], notes:"Geotehnic, topografic, proiect tehnic."},
-    {id:4, nm:"Autorizație de construire", sd:today, dur:5, prog:100, pid:2, deps:[F(3,'FS',2)]},
-    {id:5, nm:"Mobilizare șantier", sd:today, dur:3, prog:100, pid:2, deps:[F(3,'SS',3)]},
-    {id:6, nm:"2. Fundație și structură", sd:today, dur:1, prog:0, pid:1, deps:[]},
-    {id:7, nm:"Săpătură", sd:today, dur:4, prog:100, pid:6, deps:[F(4,'FS'),F(5,'FS')]},
-    {id:8, nm:"Turnare fundație", sd:today, dur:5, prog:60, pid:6, deps:[F(7,'FS')]},
-    {id:9, nm:"Întărire beton", sd:today, dur:7, prog:0, pid:6, deps:[F(8,'FS')], notes:"Timp tehnologic fix — nu se poate scurta."},
-    {id:10, nm:"Structură metalică", sd:today, dur:10, prog:0, pid:6, deps:[F(9,'FS',-2)]},
-    {id:11, nm:"3. Închideri și instalații", sd:today, dur:1, prog:0, pid:1, deps:[]},
-    {id:12, nm:"Acoperiș", sd:today, dur:6, prog:0, pid:11, deps:[F(10,'FS')]},
-    {id:13, nm:"Pereți exteriori", sd:today, dur:7, prog:0, pid:11, deps:[F(10,'SS',4)]},
-    {id:14, nm:"Instalații electrice", sd:today, dur:8, prog:0, pid:11, deps:[F(13,'SS',2),F(12,'FF',1)]},
-    {id:15, nm:"Instalații HVAC", sd:today, dur:4, prog:0, pid:11, deps:[F(13,'FS')]},
-    {id:16, nm:"4. Finisaje și predare", sd:today, dur:1, prog:0, pid:1, deps:[]},
-    {id:17, nm:"Finisaje interioare", sd:today, dur:6, prog:0, pid:16, deps:[F(14,'FS'),F(15,'FS')]},
-    {id:18, nm:"Amenajare exterior", sd:today, dur:5, prog:0, pid:16, deps:[F(12,'FS')], notes:"Are rezervă mare — nu e pe drumul critic."},
-    {id:19, nm:"Teste și verificări", sd:today, dur:3, prog:0, pid:16, deps:[F(17,'FS')]},
-    {id:20, nm:"Recepție și predare", sd:today, dur:1, prog:0, pid:16, deps:[F(19,'FS'),F(18,'FS')], isMilestone:true}
+  // Demo „Construcție Hală Industrială" — acoperă tot ce poate aplicația:
+  // legături FS/SS/FF/SF cu lag, drum critic, calendar cu zi liberă, restricții, termene limită,
+  // linia de bază cu întârzieri, activități întârziate (față de „Azi"), resurse, costuri și supra-alocări.
+  const start = fD(addWorkDays(new Date(), -16));          // proiectul a început acum ~3 săptămâni
+  const wd = n => fD(addWorkDays(pD(start), n));           // „n zile lucrătoare de la start"
+  const F = (id, type, lag) => ({ id, type, lag: lag || 0 });
+  T = [
+    {id:1,  nm:"Construcție Hală Industrială", sd:start, dur:1, prog:0, pid:null, deps:[]},
+    {id:2,  nm:"1. Pregătire", sd:start, dur:1, prog:0, pid:1, deps:[]},
+    {id:3,  nm:"Studii și proiectare", sd:start, dur:8, prog:100, pid:2, deps:[], notes:"Geotehnic, topografic, proiect tehnic."},
+    {id:4,  nm:"Autorizație de construire", sd:start, dur:5, prog:100, pid:2, deps:[F(3,'FS',2)]},
+    {id:5,  nm:"Mobilizare șantier", sd:start, dur:3, prog:60, pid:2, deps:[F(3,'SS',3)], notes:"Rămasă în urmă: utilajele au ajuns târziu."},
+    {id:6,  nm:"2. Fundație și structură", sd:start, dur:1, prog:0, pid:1, deps:[]},
+    {id:7,  nm:"Săpătură", sd:start, dur:4, prog:40, pid:6, deps:[F(4,'FS'),F(5,'FS')]},
+    {id:8,  nm:"Turnare fundație", sd:start, dur:5, prog:0, pid:6, deps:[F(7,'FS')], notes:"Muncă fixă: dacă adaugi betoniști, durata scade."},
+    {id:9,  nm:"Întărire beton", sd:start, dur:7, prog:0, pid:6, deps:[F(8,'FS')], notes:"Timp tehnologic fix — nu se poate scurta."},
+    {id:10, nm:"Structură metalică", sd:start, dur:10, prog:0, pid:6, deps:[F(9,'FS',-2)]},
+    {id:11, nm:"3. Închideri și instalații", sd:start, dur:1, prog:0, pid:1, deps:[]},
+    {id:12, nm:"Acoperiș", sd:start, dur:6, prog:0, pid:11, deps:[F(10,'FS')]},
+    {id:13, nm:"Pereți exteriori", sd:start, dur:7, prog:0, pid:11, deps:[F(10,'SS',4)]},
+    {id:14, nm:"Instalații electrice", sd:start, dur:8, prog:0, pid:11, deps:[F(13,'SS',2),F(12,'FF',1)]},
+    {id:15, nm:"Instalații HVAC", sd:start, dur:4, prog:0, pid:11, deps:[F(13,'FS')]},
+    {id:16, nm:"4. Finisaje și predare", sd:start, dur:1, prog:0, pid:1, deps:[]},
+    {id:17, nm:"Finisaje interioare", sd:start, dur:6, prog:0, pid:16, deps:[F(14,'FS'),F(15,'FS')]},
+    {id:18, nm:"Amenajare exterior", sd:start, dur:5, prog:0, pid:16, deps:[F(12,'FS')], notes:"Are rezervă mare — nu e pe drumul critic."},
+    {id:19, nm:"Teste și verificări", sd:start, dur:3, prog:0, pid:16, deps:[F(17,'FS')]},
+    {id:20, nm:"Recepție și predare", sd:start, dur:1, prog:0, pid:16, deps:[F(19,'FS'),F(18,'FS')], isMilestone:true}
   ];
-  nid=21; coll.clear(); sel=null;
-  // O zi liberă la ~o săptămână de azi, ca să se vadă calendarul în acțiune
-  setCal({days:[0,1,1,1,1,1,0], hol:[fD(addWorkDays(new Date(), 6))]});
-  showCritical = true; try { localStorage.setItem('ganttCrit','1'); } catch(e) {}
-  const bc = $('btnCrit'); if (bc) bc.classList.add('active');
+  nid = 21; coll.clear(); sel = null;
+  const D = id => T.find(x => x.id === id);
+
+  // Calendar: luni–vineri + o zi liberă
+  setCal({ days: [0,1,1,1,1,1,0], hol: [wd(10)] });
+
+  // Resurse (oameni, utilaje, materiale, cost fix)
+  setRes({ cur: 'RON', next: 8, list: [
+    {id:1, name:"Inginer șef",           type:"work",     rate:150, max:100},
+    {id:2, name:"Echipă betoniști",      type:"work",     rate:60,  max:500},
+    {id:3, name:"Excavator 30 t",        type:"work",     rate:250, max:200},
+    {id:4, name:"Echipă instalatori",    type:"work",     rate:70,  max:200},
+    {id:5, name:"Beton C30/37",          type:"material", rate:450, unit:"m³"},
+    {id:6, name:"Oțel-beton BST500",     type:"material", rate:5,   unit:"kg"},
+    {id:7, name:"Taxă autorizare ISC",   type:"cost",     rate:0}
+  ]});
+  D(3).assign  = [{rid:1, units:100}];
+  D(4).assign  = [{rid:7, units:12000}, {rid:1, units:20}];
+  D(5).assign  = [{rid:3, units:100}];
+  D(7).assign  = [{rid:3, units:200}, {rid:1, units:20}];
+  D(8).assign  = [{rid:2, units:400}, {rid:5, units:350}, {rid:6, units:25000}];
+  D(8).ttype   = 'fw';                                   // muncă fixă
+  D(10).assign = [{rid:2, units:300}];
+  D(12).assign = [{rid:2, units:200}];
+  D(13).assign = [{rid:2, units:300}];                   // se suprapune cu Structura metalică => 600% > 500% (supra-alocare)
+  D(14).assign = [{rid:4, units:150}, {rid:1, units:20}];
+  D(15).assign = [{rid:4, units:100}];                   // 150% + 100% = 250% > 200% (supra-alocare)
+  D(17).assign = [{rid:4, units:100}];
+  D(19).assign = [{rid:1, units:100}];
   _ensureDeps();
-  syncTabData(); renderAll();
+
+  // 1) Planul inițial → linia de bază
+  renderAll();
+  T.forEach(t => { if (!hasK(t.id)) t.bl = { sd: t.sd, dur: t.dur }; });
+  showBaseline = true; try { localStorage.setItem('ganttBase', '1'); } catch (e) {}
+
+  // 2) Ce s-a întâmplat apoi: întârzieri, restricții, termene limită
+  D(7).dur = 6;                                          // Săpătura a durat mai mult decât planul
+  D(5).cons  = { type: 'SNET', date: wd(6) };            // nu începe înainte de data X (se mută mai târziu)
+  D(8).cons  = { type: 'SNLT', date: wd(17) };           // nu începe după X (avertisment: legăturile o împing peste)
+  D(18).cons = { type: 'ALAP' };                         // cât mai târziu posibil (își consumă rezerva)
+  D(10).deadline = wd(36);                               // termen limită depășit (roșu)
+  D(14).deadline = wd(85);                               // termen limită respectat (verde)
+  D(20).deadline = wd(85);
+  syncTabData(); renderAll(); _refreshPlanUI();
 }
 
 function clearAll() {

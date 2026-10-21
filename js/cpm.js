@@ -56,6 +56,35 @@ function computeCPM() {
   cpmInfo.end = fD(leaves.map(endDate).reduce((a, b) => (b > a ? b : a)));
 }
 
+// ALAP: activitățile cu restricția „cât mai târziu" (și legături) își consumă rezerva.
+// _alap = zile lucrătoare cu care e împinsă față de poziția „cât mai devreme". Returnează true dacă s-a schimbat ceva.
+function applyALAP() {
+  let changed = false;
+  T.forEach(t => {
+    if (!t.cons || t.cons.type !== 'ALAP' || !(t.deps && t.deps.length) || hasK(t.id)) return;
+    const c = cpm[t.id]; if (!c) return;
+    const next = Math.max(0, (t._alap || 0) + c.float);
+    if (next !== (t._alap || 0)) { t._alap = next; changed = true; }
+  });
+  return changed;
+}
+
+// Avertismente per activitate: restricție neîndeplinită și/sau termen limită depășit
+let taskWarn = {};
+function computeWarnings() {
+  taskWarn = {};
+  T.forEach(t => {
+    const w = {};
+    if (consWarn[t.id]) w.cons = consWarn[t.id];
+    if (t.deadline) {
+      const end = endDate(t), dl = pD(t.deadline);
+      if (end > dl) { w.late = dD(dl, end); w.lateText = 'Termen limită depășit cu ' + w.late + (w.late === 1 ? ' zi' : ' zile') + ' (' + fmtDate(dl) + ')'; }
+    }
+    if (typeof resWarn !== 'undefined' && resWarn[t.id]) w.res = 'Resursă supraalocată: ' + resWarn[t.id].join(', ');
+    if (w.cons || w.late || w.res) taskWarn[t.id] = w;
+  });
+}
+
 const isCrit = id => showCritical && !!(cpm[id] && cpm[id].crit);
 
 function toggleCritical() {

@@ -214,7 +214,8 @@ const C=[
 ];
 // Coloane EXTRA afișate doar când panel-ul e expanded (clase CSS gestionează vizibilitatea)
 const CX=[
-  {k:"notes", l:"📝",      w:36, cls:"col-notes"},
+  {k:"var",   l:"Δ bază",  w:62, cls:"col-var"},
+  {k:"cost",  l:"Cost",    w:92, cls:"col-cost"},
   {k:"status",l:"Status",  w:80, cls:"col-status"},
   {k:"id",    l:"ID",      w:40, cls:"col-id"}
 ];
@@ -318,7 +319,7 @@ function renderTBody(){
       ? '<span class="folder-ico">'+(isCol?'📁':'📂')+'</span>'
       : '<span class="tdot"></span>';
     h += '<div class="c c-name" style="width:'+C[1].w+'px;min-width:'+C[1].w+'px">'
-       + '<span class="ipad" style="width:'+indent+'px"></span>'+ci+marker
+       + '<span class="ipad" style="width:'+indent+'px"></span>'+ci+marker+(t.notes&&t.notes.trim()?'<span class="note-ico" title="'+esc(t.notes).replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();openTaskInfo('+t.id+')">📝</span>':'')
        + '<input value="'+esc(t.nm)+'"'
        + ' onchange="commitName('+t.id+',this.value)"'
        + ' '+onkeyNm
@@ -368,22 +369,24 @@ function renderTBody(){
 
     // ===== COLOANE EXTRA (vizibile doar când .pane-l.expanded) =====
 
-    // Note
-    const hasNote = !!(t.notes && t.notes.trim());
-    const noteTitle = hasNote ? esc(t.notes).replace(/"/g,'&quot;') : 'Fără notă — click pt Task Info';
-    h += '<div class="c col-notes" style="width:'+CX[0].w+'px;min-width:'+CX[0].w+'px;justify-content:center">'
-       + '<span class="notes-ico '+(hasNote?'has-note':'no-note')+'" title="'+noteTitle+'" '
-       + 'onclick="event.stopPropagation();openTaskInfo('+t.id+')">'+(hasNote?'📝':'○')+'</span>'
-       + '</div>';
+    // Variație față de linia de bază (zile calendaristice)
+    const vd = varDays(t);
+    h += '<div class="c col-var" style="width:'+CX[0].w+'px;min-width:'+CX[0].w+'px;justify-content:center;font-size:11px;font-weight:800;color:'+(vd>0?'#d94040':(vd<0?'#2f9e6a':'var(--muted)'))+'">'
+       + (vd===null?'—':(vd===0?'0':(vd>0?'+':'')+vd)) + '</div>';
+
+    // Cost (din resursele atribuite; la capitole = suma copiilor)
+    const cc = costMap[t.id] || 0;
+    h += '<div class="c col-cost" style="width:'+CX[1].w+'px;min-width:'+CX[1].w+'px;justify-content:flex-end;font-size:11px;font-weight:700;color:'+(cc?'var(--text)':'var(--muted)')+'">'
+       + (cc?fmtMoney(cc):'—') + '</div>';
 
     // Status
     const st = _statusOf(t);
-    h += '<div class="c col-status" style="width:'+CX[1].w+'px;min-width:'+CX[1].w+'px;justify-content:center">'
+    h += '<div class="c col-status" style="width:'+CX[2].w+'px;min-width:'+CX[2].w+'px;justify-content:center">'
        + '<span class="status-badge '+st.k+'">'+st.lbl+'</span>'
        + '</div>';
 
     // ID intern
-    h += '<div class="c col-id" style="width:'+CX[2].w+'px;min-width:'+CX[2].w+'px;justify-content:center;color:var(--muted);font-size:10px;font-weight:700">'
+    h += '<div class="c col-id" style="width:'+CX[3].w+'px;min-width:'+CX[3].w+'px;justify-content:center;color:var(--muted);font-size:10px;font-weight:700">'
        + '#'+t.id
        + '</div>';
 
@@ -524,7 +527,7 @@ function renderGantt(){
         +' oncontextmenu="showCtx(event,'+t.id+')"'
         +' onmouseenter="highlightRow('+t.id+')"'
         +' onmouseleave="clearHighlight()">'
-        +'<div class="gb '+bc+' dp'+dp+ac+(!isSumm&&isCrit(t.id)?' crit':'')+'" data-bid="'+t.id+'" style="'+styleStr+'">'+bi+'</div></div>';
+        +'<div class="gb '+bc+' dp'+dp+ac+(!isSumm&&isCrit(t.id)?' crit':'')+(taskWarn[t.id]?' warn':'')+(isBehind(t)?' late-task':'')+'" data-bid="'+t.id+'" style="'+styleStr+'">'+bi+'</div>'+_blBar(t,cs,dw)+_dlMark(t,cs,dw)+'</div>';
   });
 
   // ===== DEPENDENCY ARROWS (Orthogonal / Manhattan routing) =====
@@ -653,7 +656,10 @@ function updateInfoBar(t){
   const succs=T.filter(x=>(x.deps||[]).some(d=>d.id===t.id)).map(x=>{const d=x.deps.find(d=>d.id===t.id); return `${w[x.id]||"?"} <b>${depLabel(d)}</b>`;}).join(", ")||"—";
   const c=cpm[t.id];
   const slack=c?` · <span style="${c.crit?"color:#d94040;font-weight:800":""}">${c.crit?"CRITIC (0 zile rezervă)":"rezervă "+c.float+" zile"}</span>`:"";
-  el.innerHTML=`<b>${w[t.id]||""} ${esc(t.nm)}</b> · ${t.dur} ${t.dur===1?"zi":"zile"} · ${fmtDate(p._s)} → ${fmtDate(p._e)} · ${t.prog}%${slack} · <span class="gi-lbl">După:</span> ${preds} · <span class="gi-lbl">Urmează:</span> ${succs}`;
+  const consTxt=t.cons&&t.cons.type&&t.cons.type!=="ASAP"?` · <span class="gi-lbl">Restricție:</span> ${CONS_LABELS[t.cons.type]}${t.cons.date?" "+fmtDate(pD(t.cons.date)):""}`:"";
+  const dlTxt=t.deadline?` · <span class="gi-lbl">Termen:</span> ${fmtDate(pD(t.deadline))}`:"";
+  const tw=taskWarn[t.id], warnTxt=tw?` · <span class="gi-warn">⚠ ${[tw.lateText,tw.cons,tw.res].filter(Boolean).join(" · ")}</span>`:"";
+  el.innerHTML=`<b>${w[t.id]||""} ${esc(t.nm)}</b> · ${t.dur} ${t.dur===1?"zi":"zile"} · ${fmtDate(p._s)} → ${fmtDate(p._e)} · ${t.prog}%${slack}${consTxt}${dlTxt}${baselineText(t)}${resText(t)}${warnTxt} · <span class="gi-lbl">După:</span> ${preds} · <span class="gi-lbl">Urmează:</span> ${succs}`;
 }
 
 function attachBars(cs,td,dw){
@@ -774,4 +780,12 @@ function attachBars(cs,td,dw){
       document.addEventListener("mouseup",up);
     });
   });
+}
+
+// Marcaj de termen limită (deadline): dungă verde la finalul zilei-limită; roșie dacă e depășit
+function _dlMark(t, cs, dw){
+  if(!t.deadline) return "";
+  const x=(dD(cs,pD(t.deadline))+1)*dw;
+  const late=taskWarn[t.id]&&taskWarn[t.id].late;
+  return '<div class="dl-mark'+(late?' late':'')+'" style="left:'+x+'px" title="Termen limită: '+fmtDate(pD(t.deadline))+(late?' — depășit cu '+late+(late===1?' zi':' zile'):'')+'"></div>';
 }

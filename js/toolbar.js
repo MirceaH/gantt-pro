@@ -334,6 +334,38 @@ function openTaskInfo(id) {
         Tipuri: FS (implicit) • SS (start-start) • FF (finish-finish) • SF (start-finish). Lag opțional: +2 / -1
       </div>
     </div>
+    <div class="ti-row ti-2col">
+      <div>
+        <label>Restricție</label>
+        <select id="tiCons" ${isSumm ? 'disabled' : ''} onchange="$('tiConsDate').disabled = !CONS_NEEDS_DATE.includes(this.value)" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--grid);font-family:var(--font)">
+          ${Object.keys(CONS_LABELS).map(k => `<option value="${k}" ${((t.cons && t.cons.type) || 'ASAP') === k ? 'selected' : ''}>${CONS_LABELS[k]}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label>Data restricției</label>
+        <input type="date" id="tiConsDate" value="${t.cons && t.cons.date ? t.cons.date : ''}" ${(isSumm || !(t.cons && CONS_NEEDS_DATE.includes(t.cons.type))) ? 'disabled' : ''}>
+      </div>
+    </div>
+    <div class="ti-row">
+      <label>Termen limită (deadline) — nu mută nimic, doar avertizează dacă e depășit</label>
+      <input type="date" id="tiDeadline" value="${t.deadline || ''}">
+    </div>
+    <div class="ti-row ti-res" ${isSumm ? 'style="display:none"' : ''}>
+      <label>Resurse atribuite</label>
+      <div id="tiAssign"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
+        <button type="button" class="modal-btn cancel" style="padding:6px 12px" onclick="tiAddAssign()">＋ Adaugă resursă</button>
+        <button type="button" class="modal-btn cancel" style="padding:6px 12px" onclick="openResources('res')">👥 Gestionează resursele</button>
+        <span id="tiCost" class="ti-cost"></span>
+      </div>
+    </div>
+    <div class="ti-row" ${isSumm ? 'style="display:none"' : ''}>
+      <label>Tip activitate (ce se păstrează când schimbi durata sau resursele)</label>
+      <select id="tiType" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--grid);font-family:var(--font)">
+        ${Object.keys(TASK_TYPES).map(k => `<option value="${k}" ${(t.ttype || 'fu') === k ? 'selected' : ''}>${TASK_TYPES[k]}</option>`).join('')}
+      </select>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px">Durată fixă: la mai multe resurse crește munca. Muncă fixă: la mai multe resurse scade durata. Unități fixe: la altă durată se schimbă munca.</div>
+    </div>
     <div class="ti-row">
       <label>Succesori (info, doar citire)</label>
       <input value="${esc(succsList) || '—'}" disabled>
@@ -347,6 +379,11 @@ function openTaskInfo(id) {
     </div>
   `;
 
+  _tiAssign = JSON.parse(JSON.stringify(t.assign || []));
+  _tiOld = { dur: t.dur, assign: JSON.parse(JSON.stringify(t.assign || [])) };
+  _tiTaskId = id;
+  tiRenderAssign();
+  $('tiDur') && $('tiDur').addEventListener('input', tiRenderCost);
   $('tiTitle').textContent = (w[t.id] || '') + ' · ' + t.nm;
   $('taskInfoModal').classList.add('open');
   $('tiSaveBtn').onclick = () => saveTaskInfo(id);
@@ -376,6 +413,17 @@ function saveTaskInfo(id) {
   if (notes) t.notes = notes;
   else delete t.notes;
 
+  // Restricție + termen limită
+  if (!hasK(t.id)) {
+    const ct = $('tiCons').value, cd = $('tiConsDate').value;
+    const oldType = t.cons && t.cons.type;
+    if (ct === 'ASAP' || (CONS_NEEDS_DATE.includes(ct) && !cd)) delete t.cons;
+    else t.cons = { type: ct, date: CONS_NEEDS_DATE.includes(ct) ? cd : null };
+    if (ct !== 'ALAP' || oldType !== 'ALAP') delete t._alap;
+  }
+  const dlv = $('tiDeadline').value;
+  if (dlv) t.deadline = dlv; else delete t.deadline;
+
   // Deps — folosește parser-ul extins (acceptă WBS[Tip][±lag])
   const depsStr = $('tiDeps').value.trim();
   if (depsStr) {
@@ -390,6 +438,15 @@ function saveTaskInfo(id) {
     t.deps = out;
   } else {
     t.deps = [];
+  }
+
+  // Resurse atribuite + tip activitate
+  if (!hasK(t.id)) {
+    const tt = $('tiType').value;
+    if (tt === 'fu') delete t.ttype; else t.ttype = tt;
+    t.assign = _tiAssign.filter(a => resById(a.rid) && a.units > 0).map(a => ({ rid: a.rid, units: +a.units }));
+    if (!t.assign.length) delete t.assign;
+    applyTaskType(t, _tiOld.dur, _tiOld.assign);
   }
 
   closeTaskInfo();

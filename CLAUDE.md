@@ -92,12 +92,12 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 ## Fazele proiectului (roadmap)
 
 - ✅ **Faza 1** — Dependențe complete (FS/SS/FF/SF + lag + UI polish)
-- ⬜ **Faza 2** — Critical Path (CPM): Forward/Backward pass, Total Float, barele critice roșii
-- ⬜ **Faza 3** — Constraints (ASAP/ALAP/SNET/MSO) + Deadlines
-- ⬜ **Faza 4** — Resource Sheet (Work/Material/Cost) + Task Types + supra-alocare
-- ⬜ **Faza 5** — Buget calcul automat
-- ⬜ **Faza 6** — Baseline + variație planificat vs. realizat
-- ⬜ **Faza 7** — AI Copilot (WBS generator, risk analysis, NL commands)
+- ✅ **Faza 2** — Drum critic (CPM) — `js/cpm.js`
+- ✅ **Faza 3** — Restricții (ASAP/ALAP/SNET/SNLT/FNET/FNLT/MSO/MFO) + termen limită — în `data.js` (`_applyCons`) și `cpm.js`
+- ✅ **Faza 4** — Resurse (muncă/material/cost), tipuri de activități, supra-alocare — `js/resources.js`
+- ✅ **Faza 5** — Buget (cost pe activitate/capitol/proiect) — `js/resources.js`
+- ✅ **Faza 6** — Linia de bază + variație + „Azi" + întârzieri — `js/plan.js`
+- ⬜ **Faza 7** — Asistent AI (generator WBS, analiză riscuri, comenzi în limbaj natural) — necesită API/server
 
 ## Reguli de cod
 
@@ -107,3 +107,14 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 - `pushHistory()` înainte de orice modificare pt. undo
 - `syncTabData()` după modificare ca tab-ul să fie salvat
 - Toast scurt (`toast('...')`) pt. feedback acțiuni
+
+## Module adăugate după Faza 1
+
+- `js/calendar.js` — zile lucrătoare + zile libere per proiect (`CAL`, `addWorkDays`, `endDate`, `workDur`). Durata (`dur`) = zile lucrătoare.
+- `js/cpm.js` — drum critic, rezervă, avertismente (`taskWarn`), ALAP.
+- `js/plan.js` — linia de bază (`t.bl`), variație, activități întârziate.
+- `js/resources.js` — resurse (`RES`), costuri (`costMap`), încărcare (`loadMap`), supra-alocare (`resWarn`), fereastra „Resurse și buget".
+- `js/files.js` — salvare/deschidere de fișiere pe disc (File System Access API), Ctrl+S / Ctrl+O.
+- PWA: `manifest.json`, `sw.js` (la fișiere noi: adaugă-le în `ASSETS` și crește `CACHE`).
+- Stare per proiect (tab): `T`, `CAL`, `RES`. Se salvează în `tabs[]`, în exportul JSON și în fișierul de proiect.
+- Câmpuri noi pe activitate: `cons`, `deadline`, `_alap`, `bl`, `assign[{rid,units}]`, `ttype` ('fd'|'fw').

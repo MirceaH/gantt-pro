@@ -112,6 +112,12 @@
             <button class="rb-btn rb-btn-big" id="btnCrit" onclick="toggleCritical()" title="Evidențiază drumul critic (activități fără rezervă)">
               <span class="rb-ico">🔴</span><span class="rb-lbl">Drum critic</span>
             </button>
+            <button class="rb-btn rb-btn-big" id="btnBase" onclick="toggleBaseline()" title="Arată / ascunde linia de bază (planificat vs. realizat)">
+              <span class="rb-ico">📏</span><span class="rb-lbl">Linia de bază</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="openResources('load')" title="Încărcarea resurselor în timp și supraalocări">
+              <span class="rb-ico">📊</span><span class="rb-lbl">Încărcare</span>
+            </button>
           </div>
           <div class="rb-group-lbl">Analiză</div>
         </div>
@@ -135,6 +141,30 @@
 
       <!-- TAB PROJECT -->
       <div class="rb-content" data-rc="project">
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="openResources('res')" title="Oameni, utilaje, materiale, costuri">
+              <span class="rb-ico">👥</span><span class="rb-lbl">Resurse</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="openResources('budget')" title="Costul proiectului pe capitole și resurse">
+              <span class="rb-ico">💰</span><span class="rb-lbl">Buget</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Resurse</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="saveBaseline()" title="Salvează planul curent ca linie de bază; schimbările următoare se compară cu el">
+              <span class="rb-ico">📌</span><span class="rb-lbl">Salvează baza</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="clearBaseline()" title="Șterge linia de bază">
+              <span class="rb-ico">🗑️</span><span class="rb-lbl">Șterge baza</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Plan</div>
+        </div>
 
         <div class="rb-group">
           <div class="rb-row">
@@ -344,6 +374,18 @@
   </div>
 </div>
 
+<!-- Resurse și buget -->
+<div class="modal-overlay" id="resModal">
+  <div class="modal-box res-box">
+    <div class="ti-header">
+      <span class="ti-title">👥 Resurse și buget</span>
+      <button class="modal-close" onclick="closeResources()">✕</button>
+    </div>
+    <div class="res-tabs" id="resTabs"></div>
+    <div class="res-body" id="resBody"></div>
+  </div>
+</div>
+
 <!-- Calendar proiect -->
 <div class="modal-overlay" id="calModal">
   <div class="modal-box ti-box" style="max-width:440px">
@@ -447,6 +489,8 @@
 <script src="js/data.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/cpm.js"></script>
+<script src="js/plan.js"></script>
+<script src="js/resources.js"></script>
 <script src="js/gantt.js"></script>
 <script src="js/tree.js"></script>
 <script src="js/deps.js"></script>

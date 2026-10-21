@@ -962,7 +962,9 @@ body.dark .splitter-btn{background:#35b8a8}
 /* ========================================================
    COLOANE EXTRA când panel-ul e expanded
    ======================================================== */
-.col-notes,.col-status,.col-id{display:none}
+.col-notes,.col-status,.col-id,.col-var,.col-cost{display:none}
+.pane-l.expanded .col-var{display:flex}
+.pane-l.expanded .col-cost{display:flex}
 .pane-l.expanded .col-notes{display:flex}
 .pane-l.expanded .col-status{display:flex}
 .pane-l.expanded .col-id{display:flex}
@@ -1111,3 +1113,82 @@ textarea.sp-in{resize:vertical;font-family:var(--font);padding:8px 10px;min-heig
 .vtab{padding:4px 12px;font-size:11px}
 /* Ascunde complet butoanele (rămân doar taburile Home / View / Project) */
 body.ribbon-collapsed .ribbon-body{display:none}
+
+/* Faza 3: termen limită (deadline) și avertismente de restricții */
+.g-row .dl-mark{position:absolute;top:2px;bottom:2px;width:0;border-left:2px solid #3fa968;z-index:4;pointer-events:auto;cursor:help}
+.g-row .dl-mark::before{content:'';position:absolute;top:-1px;left:-6px;border:5px solid transparent;border-top:7px solid #3fa968}
+.g-row .dl-mark.late{border-left-color:#e03a3a}
+.g-row .dl-mark.late::before{border-top-color:#e03a3a}
+.gb.warn{outline:2px dashed #e0a030;outline-offset:2px}
+.g-info .gi-warn{color:#c0392b;font-weight:800}
+body.dark .g-info .gi-warn{color:#ff8a80}
+.sp-warn{margin:6px 0;padding:8px 10px;border-radius:8px;background:#fdecea;color:#b3261e;font-size:11.5px;font-weight:700;line-height:1.4}
+body.dark .sp-warn{background:#3a1a22;color:#ff9a9a}
+.g-info{display:block;max-height:72px;overflow-y:auto;padding-top:5px;padding-bottom:5px}
+.t-row .note-ico{flex-shrink:0;margin:0 4px 0 1px;font-size:11px;cursor:pointer;opacity:.8}
+.t-row .note-ico:hover{opacity:1}
+
+/* ===== Plan: linia de bază, „Azi", întârzieri ===== */
+.g-row .bl-bar{position:absolute;top:26px;height:3px;border-radius:2px;background:#8a98ad;opacity:.85;z-index:1;pointer-events:auto}
+.g-row .bl-bar.slip{background:#d94040}
+.g-row .bl-bar.ahead{background:#2f9e6a}
+body.dark .g-row .bl-bar{background:#9fb0cc}
+body.dark .g-row .bl-bar.slip{background:#ff6b6b}
+body.dark .g-row .bl-bar.ahead{background:#5fd29a}
+.g-info .gi-ok{color:#2f9e6a;font-weight:800}
+/* Linia „Azi" */
+.g-grid .vl.today{background:rgba(224,58,58,.7)!important;width:2px!important;z-index:2}
+.hc.dy.today{background:#e03a3a!important;color:#fff!important;font-weight:800;border-radius:4px}
+/* Activitate întârziată: punct roșu în colțul de jos-dreapta al barei */
+.gb.late-task::after{content:'';position:absolute;right:-4px;bottom:-4px;width:9px;height:9px;border-radius:50%;background:#e03a3a;border:2px solid var(--card);z-index:12}
+
+/* Task Info: resurse atribuite */
+.ti-res-row{display:grid;grid-template-columns:1fr 90px 44px 26px;gap:6px;align-items:center;margin-bottom:5px}
+.ti-res-row select,.ti-res-row input{padding:6px 8px;border-radius:8px;border:1px solid var(--grid);font-family:var(--font);font-size:12px;width:100%;box-sizing:border-box}
+.ti-res-unit{font-size:11px;font-weight:800;color:var(--muted)}
+.ti-res-del{border:none;background:transparent;color:var(--red);cursor:pointer;font-size:13px}
+.ti-res-empty{font-size:11.5px;color:var(--muted);padding:4px 0}
+.ti-cost{font-size:12px;color:var(--text2)}
+
+/* Task Info: resurse atribuite */
+.ti-res-row{display:grid;grid-template-columns:1fr 90px 44px 26px;gap:6px;align-items:center;margin-bottom:5px}
+.ti-res-row select,.ti-res-row input{padding:6px 8px;border-radius:8px;border:1px solid var(--grid);font-family:var(--font);font-size:12px;width:100%;box-sizing:border-box}
+.ti-res-unit{font-size:11px;font-weight:800;color:var(--muted)}
+.ti-res-del{border:none;background:transparent;color:var(--red);cursor:pointer;font-size:13px}
+.ti-res-empty{font-size:11.5px;color:var(--muted);padding:4px 0}
+.ti-cost{font-size:12px;color:var(--text2)}
+
+/* Fereastra Resurse și buget */
+.res-box{max-width:880px;width:94%;max-height:88vh;display:flex;flex-direction:column;text-align:left;padding:0}
+.res-tabs{display:flex;gap:4px;padding:8px 14px 0;border-bottom:1px solid var(--grid)}
+.res-tabs button{border:none;background:transparent;padding:8px 16px;font-family:var(--font);font-size:13px;font-weight:800;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
+.res-tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+.res-body{padding:14px 18px 20px;overflow:auto;flex:1}
+.res-top{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;font-weight:700;color:var(--text2)}
+.res-spacer{flex:1}
+.res-top .modal-btn{padding:6px 12px;font-size:12px}
+.res-cur{width:60px;padding:4px 6px;border:1px solid var(--grid);border-radius:6px;font-family:var(--font);font-weight:800}
+.res-table{width:100%;border-collapse:collapse;font-size:12px}
+.res-table th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:4px 6px;border-bottom:1px solid var(--grid)}
+.res-table td{padding:5px 6px;border-bottom:1px solid var(--grid2);vertical-align:middle}
+.res-table input,.res-table select{padding:5px 7px;border:1px solid var(--grid);border-radius:6px;font-family:var(--font);font-size:12px;width:100%;box-sizing:border-box;background:var(--card);color:var(--text)}
+.res-table td input[type=number]{width:80px}
+.res-table small{color:var(--muted);font-weight:700}
+.res-num{text-align:right;font-weight:800;white-space:nowrap}
+.res-na{color:var(--muted)}
+.res-empty{padding:26px;text-align:center;color:var(--muted);font-weight:700;font-size:13px}
+.res-help{margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--accentL);color:var(--text2);font-size:11.5px;line-height:1.5}
+.res-chart{margin-bottom:16px}
+.res-chart-h{display:flex;gap:12px;align-items:baseline;font-size:12px;color:var(--text2);margin-bottom:4px}
+.res-chart-h span{font-size:11px;color:var(--muted);font-weight:700}
+.res-chart-h .res-bad{color:#d94040;font-weight:800}
+.res-chart-h .res-ok{color:#2f9e6a;font-weight:800}
+.res-chart-w{overflow-x:auto;padding-bottom:4px;border-bottom:1px solid var(--grid2)}
+.res-total{font-size:14px;font-weight:700;color:var(--text2);margin-bottom:6px}
+.res-total b{font-size:26px;color:var(--accent);margin-left:8px}
+.res-body h4{margin:16px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--accent)}
+.res-bar{height:8px;border-radius:4px;background:var(--grid)}
+.res-bar i{display:block;height:100%;border-radius:4px;background:var(--accent)}
+.res-bar.alt i{background:var(--blue)}
+.sp-btn{width:100%;margin-top:6px;padding:7px 10px;border:1px solid var(--grid);background:var(--card);color:var(--text2);border-radius:8px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer}
+.sp-btn:hover{background:var(--accentL);border-color:var(--accent);color:var(--accent)}
