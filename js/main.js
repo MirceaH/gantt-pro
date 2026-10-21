@@ -289,6 +289,17 @@ function togglePaneL() {
   if (typeof renderGantt === "function" && isAutoZoom) renderGantt();
 }
 
+// ======== ASCUNDE / ARATĂ BUTOANELE DE SUS ========
+function toggleRibbon(force) {
+  const on = typeof force === "boolean" ? force : !document.body.classList.contains("ribbon-collapsed");
+  document.body.classList.toggle("ribbon-collapsed", on);
+  const b = $("btnRibbonCollapse"); if (b) { b.textContent = on ? "⌄" : "⌃"; b.title = on ? "Arată butoanele" : "Ascunde butoanele"; }
+  try { localStorage.setItem("ganttRibbonCollapsed", on ? "1" : "0"); } catch (e) {}
+  if (isAutoZoom && typeof renderGantt === "function") renderGantt();
+}
+$("ribbonTabs").addEventListener("dblclick", e => { if (e.target.closest(".rb-tab")) toggleRibbon(); });
+try { if (localStorage.getItem("ganttRibbonCollapsed") === "1") toggleRibbon(true); } catch (e) {}
+
 // ======== GANTT PE TOT ECRANUL ========
 function toggleGanttFull() {
   const on = document.body.classList.toggle("gantt-full");
