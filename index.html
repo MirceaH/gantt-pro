@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gantt PRO - Modular</title>
+<meta name="theme-color" content="#2b9e8f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ============================================================
+       RIBBON TOP — Office-style cu 4 tab-uri
+       ============================================================ -->
+  <div class="ribbon">
+    <div class="ribbon-tabs" id="ribbonTabs">
+      <div class="rb-tab active" data-rt="home">Home</div>
+      <div class="rb-tab" data-rt="view">View</div>
+      <div class="rb-tab" data-rt="project">Project</div>
+      <div class="rb-tab" data-rt="format" id="rtFormat" style="display:none">Format</div>
+      <div class="ribbon-spacer"></div>
+      <button class="rb-quick" id="btnDark" onclick="toggleDark()" title="Dark mode">🌙</button>
+    </div>
+
+    <div class="ribbon-body">
+
+      <!-- TAB HOME -->
+      <div class="rb-content active" data-rc="home">
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big primary" onclick="openAddTask(false)">
+              <span class="rb-ico">➕</span><span class="rb-lbl">Activitate</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="openAddTask(true)" title="Punct cheie (durată 0)">
+              <span class="rb-ico">♦</span><span class="rb-lbl">Milestone</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Adaugă</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn" onclick="indentSel()" title="Indent">→</button>
+            <button class="rb-btn" onclick="outdentSel()" title="Outdent">←</button>
+            <button class="rb-btn" onclick="moveSel(-1)" title="Mută sus">↑</button>
+            <button class="rb-btn" onclick="moveSel(1)" title="Mută jos">↓</button>
+            <button class="rb-btn rb-btn-danger" onclick="delSel()" title="Șterge (Del)">✕</button>
+          </div>
+          <div class="rb-group-lbl">Organizare</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn" onclick="cutTask()" title="Tăiat (Ctrl+X)">✂️</button>
+            <button class="rb-btn" onclick="copyTask()" title="Copiat (Ctrl+C)">📋</button>
+            <button class="rb-btn" onclick="pasteTask()" title="Lipit (Ctrl+V)">📎</button>
+          </div>
+          <div class="rb-group-lbl">Clipboard</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn" id="btnUndo" onclick="undo()" title="Anulează (Ctrl+Z)" style="opacity:.4">↩</button>
+            <button class="rb-btn" id="btnRedo" onclick="redo()" title="Refă (Ctrl+Y)" style="opacity:.4">↪</button>
+            <button class="rb-btn" onclick="openFind()" title="Caută (Ctrl+F)">🔍</button>
+            <button class="rb-btn" onclick="gotoSelected()" title="Du-te la selecție">🎯</button>
+          </div>
+          <div class="rb-group-lbl">Editare</div>
+        </div>
+
+        <div class="rb-group rb-group-inputs">
+          <div class="rb-row" style="gap:8px">
+            <button class="rb-btn rb-btn-tall" onclick="loadDemo()" title="Încarcă demo">Demo</button>
+          </div>
+          <div class="rb-group-lbl">Exemplu</div>
+        </div>
+      </div>
+
+      <!-- TAB VIEW -->
+      <div class="rb-content" data-rc="view">
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" id="rbViewGantt" onclick="setViewMode('gantt')">
+              <span class="rb-ico">📊</span><span class="rb-lbl">Gantt</span>
+            </button>
+            <button class="rb-btn rb-btn-big" id="rbViewTree" onclick="setViewMode('tree')">
+              <span class="rb-ico">🌳</span><span class="rb-lbl">Arbore</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Vizualizare</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn" onclick="expandAll()" title="Deschide toate">⊞</button>
+            <button class="rb-btn" onclick="collapseAll()" title="Închide toate">⊟</button>
+            <button class="rb-btn" id="btnSummaryOnly" onclick="toggleSummaryOnly()" title="Doar capitole">🗂️</button>
+          </div>
+          <div class="rb-group-lbl">Schemă</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" id="btnCrit" onclick="toggleCritical()" title="Evidențiază drumul critic (activități fără rezervă)">
+              <span class="rb-ico">🔴</span><span class="rb-lbl">Drum critic</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Analiză</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn" onclick="zoom(-1)" title="Zoom out">−</button>
+            <span class="rb-zoom-lbl" id="zoomLbl" onclick="fitZoom()" title="Click pt Auto-Încadrare">Auto</span>
+            <button class="rb-btn" onclick="zoom(1)" title="Zoom in">+</button>
+          </div>
+          <div class="rb-group-lbl">Zoom</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn" onclick="scrollToToday()" title="Sari la azi">📌</button>
+            <button class="rb-btn" id="btnTogglePaneL" onclick="togglePaneL()" title="Extinde / restrânge panel stânga">⇔</button>          </div>
+          <div class="rb-group-lbl">Aspect</div>
+        </div>
+      </div>
+
+      <!-- TAB PROJECT -->
+      <div class="rb-content" data-rc="project">
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="exportJSON()">
+              <span class="rb-ico">📥</span><span class="rb-lbl">Export JSON</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="importJSONasTab()">
+              <span class="rb-ico">📂</span><span class="rb-lbl">Import JSON</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Fișier</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="exportPNG()">
+              <span class="rb-ico">🖼️</span><span class="rb-lbl">PNG</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="exportPDF()">
+              <span class="rb-ico">📄</span><span class="rb-lbl">PDF</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="exportMSProject()">
+              <span class="rb-ico">📊</span><span class="rb-lbl">MS Project</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Export Vizual</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn" onclick="addNewTab()" title="Tab nou">➕</button>
+            <button class="rb-btn" onclick="renameActiveTab()" title="Redenumește tab-ul activ">✏️</button>
+            <button class="rb-btn" onclick="closeActiveTab()" title="Închide tab-ul activ">✕</button>
+          </div>
+          <div class="rb-group-lbl">Tab-uri</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="openCalendar()" title="Zile lucrătoare și zile libere pentru acest proiect">
+              <span class="rb-ico">📅</span><span class="rb-lbl">Calendar</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Program</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big rb-btn-danger" onclick="clearAll()">
+              <span class="rb-ico">🗑️</span><span class="rb-lbl">Șterge tot</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Resetare</div>
+        </div>
+      </div>
+
+      <!-- TAB FORMAT (apare doar la selecție) -->
+      <div class="rb-content" data-rc="format">
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="if(sel)openTaskInfo(sel);else toast('⚠️ Selectează un task')">
+              <span class="rb-ico">ⓘ</span><span class="rb-lbl">Detalii</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Task Info</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="unlinkSelected()" title="Șterge toate dependențele task-ului">
+              <span class="rb-ico">🔓</span><span class="rb-lbl">Unlink</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Dependențe</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn" onclick="toggleMilestone()" title="Toggle milestone (♦)">♦</button>
+          </div>
+          <div class="rb-group-lbl">Tip</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Find bar -->
+  <div class="find-bar" id="findBar">
+    <span style="font-size:14px">🔍</span>
+    <input type="text" id="findInput" placeholder="Caută activitate..."
+      oninput="doFind()"
+      onkeydown="if(event.key==='Enter'){doFind()} if(event.key==='Escape'){closeFind()}">
+    <button onclick="closeFind()" title="Închide">✕</button>
+  </div>
+
+  <!-- Tab-uri proiecte -->
+  <div class="proj-tabs-bar" id="projTabsBar">
+    <button class="proj-tab-add" onclick="addNewTab()" title="Proiect nou">＋</button>
+  </div>
+
+  <!-- View tabs (compatibil cu codul existent) -->
+  <div class="vtabs" id="vtabs">
+    <div class="vtab active" data-v="gantt">📊 Gantt Chart</div>
+    <div class="vtab" data-v="tree">🌳 Arbore Interactiv</div>
+  </div>
+
+  <div class="split" id="splitView">
+    <div class="pane-l" id="paneL" style="width:540px">
+      <div class="th-row" id="thRow"></div>
+      <div class="t-body" id="tBody"></div>
+    </div>
+    <div class="splitter" id="splitter">
+      <button class="splitter-btn" id="splitterBtn" onclick="togglePaneL();event.stopPropagation()" title="Extinde / restrânge panel-ul de activități">⇔</button>
+    </div>
+    <div class="pane-r" id="paneR">
+      <div class="g-toolbar" style="display:flex;align-items:center">
+        <span style="font-size:10px;color:var(--muted);font-weight:700;margin-left:4px">Trage rândurile pt ierarhie | Trage barele pt date | Dublu-click rând = Detalii</span>
+        <button class="g-fs-btn" onclick="toggleGanttFull()" title="Gantt pe tot ecranul (Esc pentru ieșire)">⛶ Tot ecranul</button>
+      </div>
+      <div class="g-head" id="gHead"></div>
+      <div class="g-body" id="gBody"></div>
+      <div class="g-info" id="gInfo"></div>
+    </div>
+  </div>
+
+  <div class="tree-layout" id="treeLayout">
+    <div class="tree-box" id="treeBox" onmousemove="trackLine(event)"></div>
+    <div class="tree-side-panel" id="sidePanel">
+      <div class="sp-header">✎ Detalii Activitate</div>
+      <div class="sp-body" id="spBody"></div>
+    </div>
+  </div>
+
+  <div class="sbar" id="sbar"></div>
+</div>
+
+<!-- MODALE -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <div class="modal-ico">⚠️</div>
+    <div class="modal-msg" id="confirmMsg">Ești sigur?</div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeConfirm()">Anulează</button>
+      <button class="modal-btn danger" id="confirmBtn">Confirmă</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="nameModal">
+  <div class="modal-box" style="max-width:380px">
+    <div class="modal-ico">📁</div>
+    <div class="modal-msg">Numele proiectului</div>
+    <input class="modal-input" id="nameModalInput" placeholder="Proiect nou" autocomplete="off"
+      onkeydown="if(event.key==='Enter')document.getElementById('nameModalOk').click()">
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeNameModal()">Anulează</button>
+      <button class="modal-btn primary" id="nameModalOk">Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal pentru editarea tipului de dependență (FS/SS/FF/SF + Lag) -->
+<div class="modal-overlay" id="depEditModal">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-ico">🔗</div>
+    <div class="modal-msg">Dependență</div>
+    <div id="depEditTitle" style="font-weight:800;color:var(--accent);margin:4px 0 10px;font-size:14px">—</div>
+
+    <div style="text-align:left;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:4px">Tip legătură</div>
+    <div class="dep-type-row">
+      <button class="dep-type-opt" data-type="FS" title="Finish → Start (implicit)">FS<small>finish → start</small></button>
+      <button class="dep-type-opt" data-type="SS" title="Start → Start">SS<small>start → start</small></button>
+      <button class="dep-type-opt" data-type="FF" title="Finish → Finish">FF<small>finish → finish</small></button>
+      <button class="dep-type-opt" data-type="SF" title="Start → Finish (rar)">SF<small>start → finish</small></button>
+    </div>
+
+    <div style="text-align:left;font-size:11px;color:var(--muted);font-weight:700;margin-top:10px;margin-bottom:4px">
+      Lag / Lead (zile) — pozitiv = așteptare, negativ = devansare
+    </div>
+    <input class="modal-input" id="depEditLag" type="number" step="1" value="0" style="text-align:center">
+
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="modal-btn danger" id="depEditDel">🗑️ Șterge</button>
+      <button class="modal-btn cancel" id="depEditCancel">Anulează</button>
+      <button class="modal-btn primary" id="depEditSave">💾 Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- Calendar proiect -->
+<div class="modal-overlay" id="calModal">
+  <div class="modal-box ti-box" style="max-width:440px">
+    <div class="ti-header">
+      <span class="ti-title">📅 Calendar de lucru</span>
+      <button class="modal-close" onclick="closeCalendar()">✕</button>
+    </div>
+    <div class="ti-body">
+      <div class="ti-row">
+        <label>Zile lucrătoare</label>
+        <div id="calDays" class="cal-days"></div>
+      </div>
+      <div class="ti-row">
+        <label>Zile libere (sărbători, concedii)</label>
+        <div style="display:flex;gap:6px">
+          <input type="date" id="calHolDate" style="flex:1">
+          <button type="button" class="modal-btn primary" style="padding:8px 14px" onclick="addCalHol()">Adaugă</button>
+        </div>
+        <div id="calHolList" class="cal-hols"></div>
+      </div>
+      <div class="ti-info">Durata activităților se numără în zile lucrătoare. Calendarul se salvează separat pentru fiecare proiect (tab).</div>
+    </div>
+    <div class="ti-actions">
+      <button class="modal-btn cancel" onclick="closeCalendar()">Anulează</button>
+      <button class="modal-btn primary" onclick="saveCalendar()">💾 Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dialog adăugare activitate -->
+<div class="modal-overlay" id="addTaskModal">
+  <div class="modal-box ti-box">
+    <div class="ti-header">
+      <span class="ti-title" id="atTitle">Activitate nouă</span>
+      <button class="modal-close" onclick="closeAddTask()">✕</button>
+    </div>
+    <div class="ti-body" id="atBody">
+      <div class="ti-row">
+        <label>Nume</label>
+        <input id="atName" placeholder="Activitate nouă" autocomplete="off">
+      </div>
+      <div class="ti-row ti-2col">
+        <div><label>Data Start</label><input type="date" id="atStart"></div>
+        <div><label>Durată (zile)</label><input type="number" min="1" id="atDur" value="5"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;margin:6px 0">
+        <input type="checkbox" id="atMs" onchange="document.getElementById('atDur').disabled=this.checked"> ♦ Milestone (punct cheie)
+      </label>
+      <button type="button" class="modal-btn cancel" id="atAdvBtn" style="margin:6px 0;width:100%" onclick="toggleAddAdvanced()">⚙ Opțiuni avansate ▾</button>
+      <div id="atAdv" class="at-adv"><div class="at-adv-inner">
+        <div class="ti-row ti-2col">
+          <div><label>Progres (%)</label><input type="number" min="0" max="100" step="5" id="atProg" value="0"></div>
+          <div><label>Face parte din capitolul</label><select id="atParent" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--grid);font-family:var(--font)"></select></div>
+        </div>
+        <div class="ti-row">
+          <label>Predecesori (WBS[Tip][±zile], separat cu ;)</label>
+          <input id="atDeps" placeholder="ex: 1.1; 2.3SS+2" autocomplete="off">
+        </div>
+        <div class="ti-row">
+          <label>Note</label>
+          <textarea id="atNotes" rows="2" placeholder="Note opționale..."></textarea>
+        </div>
+      </div></div>
+    </div>
+    <div class="ti-actions">
+      <button class="modal-btn cancel" onclick="closeAddTask()">Anulează</button>
+      <button class="modal-btn primary" id="atSaveBtn" onclick="saveAddTask()">➕ Adaugă</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="taskInfoModal">
+  <div class="modal-box ti-box">
+    <div class="ti-header">
+      <span class="ti-title" id="tiTitle">Task Info</span>
+      <button class="modal-close" onclick="closeTaskInfo()">✕</button>
+    </div>
+    <div class="ti-body" id="tiBody"></div>
+    <div class="ti-actions">
+      <button class="modal-btn cancel" onclick="closeTaskInfo()">Anulează</button>
+      <button class="modal-btn primary" id="tiSaveBtn">💾 Salvează</button>
+    </div>
+  </div>
+</div>
+
+<div class="fs-bar" id="fsBar">
+  <button onclick="zoom(-1)" title="Zoom out">−</button>
+  <button onclick="fitZoom()" title="Auto-încadrare">Auto</button>
+  <button onclick="zoom(1)" title="Zoom in">+</button>
+  <button onclick="scrollToToday()" title="Sari la azi">📌</button>
+  <button onclick="toggleCritical()" title="Drum critic">🔴</button>
+  <button class="fs-exit" onclick="toggleGanttFull()" title="Ieși (Esc)">✕ Ieși</button>
+</div>
+
+<div id="toast" class="toast"></div>
+<div class="ctx" id="ctx"></div>
+<div class="tip" id="tip"></div>
+
+<script src="js/lib/html2canvas.min.js"></script>
+<script src="js/lib/jspdf.umd.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/cpm.js"></script>
+<script src="js/gantt.js"></script>
+<script src="js/tree.js"></script>
+<script src="js/deps.js"></script>
+<script src="js/toolbar.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
