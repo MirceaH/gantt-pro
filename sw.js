@@ -1,6 +1,6 @@
 // Service worker: aplicația merge și fără internet.
 // Strategie: rețea întâi (ca să vezi mereu versiunea nouă), iar dacă nu există rețea, copia din cache.
-const CACHE = "gantt-pro-v2";
+const CACHE = "gantt-pro-v3";
 const ASSETS = [
   "./", "./index.html", "./manifest.json",
   "./css/style.css", "./css/fonts.css",
@@ -27,7 +27,7 @@ self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
   e.respondWith(
-    fetch(req).then(res => {
+    fetch(req, { cache: "no-cache" }).then(res => {
       const copy = res.clone();
       caches.open(CACHE).then(c => c.put(req, copy));
       return res;
