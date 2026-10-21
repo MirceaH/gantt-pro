@@ -137,6 +137,24 @@
 
         <div class="rb-group">
           <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="fileSave()" title="Salvează în fișier (Ctrl+S)">
+              <span class="rb-ico">💾</span><span class="rb-lbl">Salvează</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="fileSaveAs()" title="Salvează ca… (Ctrl+Shift+S)">
+              <span class="rb-ico">📝</span><span class="rb-lbl">Salvează ca</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="fileOpen()" title="Deschide un proiect din fișier (Ctrl+O)">
+              <span class="rb-ico">📂</span><span class="rb-lbl">Deschide</span>
+            </button>
+            <button class="rb-btn rb-btn-big" id="btnFileAuto" onclick="fileToggleAuto()" title="Salvează automat în fișier la fiecare modificare">
+              <span class="rb-ico">🔁</span><span class="rb-lbl">Auto</span>
+            </button>
+          </div>
+          <div class="rb-group-lbl">Fișier proiect</div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
             <button class="rb-btn rb-btn-big" onclick="exportJSON()">
               <span class="rb-ico">📥</span><span class="rb-lbl">Export JSON</span>
             </button>
@@ -432,6 +450,7 @@
 <script src="js/tree.js"></script>
 <script src="js/deps.js"></script>
 <script src="js/toolbar.js"></script>
+<script src="js/files.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

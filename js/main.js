@@ -163,7 +163,7 @@ function renderStatus(){
   const tab = tabs.find(t=>t.id===activeTabId);
   const tabName = tab ? tab.name : 'Proiect';
   const n=T.length, b=ab(), td=b?dD(b.mn,b.mx)+1:0, av=n?(T.reduce((s,t)=>s+t.dur,0)/n).toFixed(1):0, ap=n?Math.round(T.reduce((s,t)=>s+t.prog,0)/n):0;
-  $("sbar").innerHTML=`<span style="color:#fff">📋 ${tabName} | Noduri: ${n} | Zile: ${td} | Durată Medie: ${av} zile | Progres Mediu: ${ap}%${showCritical&&cpmInfo.end?` | 🔴 Critice: ${cpmInfo.count} | Final proiect: ${fmtDate(pD(cpmInfo.end))}`:''}</span>`;
+  $("sbar").innerHTML=`<span style="color:#fff">📋 ${tabName} | Noduri: ${n} | Zile: ${td} | Durată Medie: ${av} zile | Progres Mediu: ${ap}%${showCritical&&cpmInfo.end?` | 🔴 Critice: ${cpmInfo.count} | Final proiect: ${fmtDate(pD(cpmInfo.end))}`:''}</span>${typeof fileStatusHtml==="function"?fileStatusHtml():""}`;
 }
 
 function renderAll(){
