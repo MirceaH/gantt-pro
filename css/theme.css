@@ -1,0 +1,138 @@
+/* ============================================================
+   TEMĂ — sistem de design „aplicație" (încărcat după style.css)
+   Principii: suprafețe plate, borduri fine, umbre doar pe ferestre/meniuri,
+   un singur accent, același sistem de spații și butoane peste tot.
+   ============================================================ */
+:root{
+  --bg:#f3f4f7; --card:#ffffff; --text:#1c2133; --text2:#4b5368; --muted:#8c94a8;
+  --grid:#e2e5ec; --grid2:#eceef3; --sel:#e6ebff; --sel2:#d5ddff;
+  --accent:#4f6bed; --accentL:#eaeeff; --accent-bar:#4f6bed;
+  --red:#e5484d;
+  --font:'Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Inter',Roboto,'Nunito',sans-serif;
+  --r-sm:6px; --r-md:8px; --r-lg:12px;
+  --shadow-pop:0 8px 28px rgba(16,24,40,.18);
+}
+body.dark{
+  --bg:#101219; --card:#171a24; --text:#e7e9f0; --text2:#aab1c4; --muted:#6d7590;
+  --grid:#272c3a; --grid2:#1f2330; --sel:#242b52; --sel2:#2c3566;
+  --accent:#8095ff; --accentL:#222a4f; --accent-bar:#27327c;
+  --red:#ff6b70;
+}
+@media (prefers-color-scheme: dark){ /* implicit: după sistem (doar dacă nu există alegere manuală) */ }
+
+body{font-size:12.5px;font-feature-settings:"tnum"}
+.app{background:var(--bg)}
+
+/* ---------- Iconițe ---------- */
+.ic{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;vertical-align:middle}
+.ic-s{width:12px;height:12px;opacity:.65}
+
+/* ---------- Bara de sus ---------- */
+.ribbon{background:var(--card);border-bottom:1px solid var(--grid);box-shadow:none}
+body.dark .ribbon{background:var(--card);border-bottom-color:var(--grid)}
+.ribbon-tabs{background:var(--card);height:38px;padding:0 10px;gap:2px;align-items:center;box-shadow:none;border-bottom:1px solid var(--grid)}
+.app-brand{display:flex;align-items:center;gap:8px;margin-right:14px;font-size:13px;font-weight:700;color:var(--text);letter-spacing:.1px;-webkit-app-region:drag}
+.app-brand .ic{width:20px;height:20px;color:var(--accent);stroke:none}
+.rb-tab{padding:5px 12px;margin:0;border-radius:var(--r-sm);color:var(--text2);font-size:12.5px;font-weight:600;box-shadow:none}
+.rb-tab:hover{background:var(--grid2);color:var(--text)}
+.rb-tab.active,body.dark .rb-tab.active{background:var(--accentL);color:var(--accent);font-weight:700;box-shadow:none}
+.rb-quick{width:28px;height:28px;border-radius:var(--r-sm);border:none;background:transparent;color:var(--text2);margin:0;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.rb-quick:hover{background:var(--grid2);color:var(--text)}
+
+.ribbon-body,body.dark .ribbon-body{height:46px;background:var(--card);border-bottom:none}
+.rb-content{padding:5px 8px;align-items:center}
+.rb-group{padding:0 8px;min-height:0;justify-content:center;border-right:1px solid var(--grid)}
+.rb-group-lbl{display:none}
+.rb-row{gap:2px;padding:0;align-items:center}
+
+.rb-btn{height:32px;min-width:32px;padding:0 9px;gap:7px;border-radius:var(--r-sm);border:1px solid transparent;background:transparent;color:var(--text2);font-size:12.5px;font-weight:600;transition:background .12s,color .12s}
+.rb-btn:hover,body.dark .rb-btn:hover{background:var(--grid2);border-color:transparent;color:var(--text)}
+.rb-btn:active{transform:none;background:var(--grid)}
+.rb-btn-big{flex-direction:row;height:32px;padding:0 11px;min-width:0}
+.rb-btn .rb-lbl{font-size:12.5px;font-weight:600;color:inherit;white-space:nowrap}
+.rb-btn.active,body.dark .rb-btn.active{background:var(--accentL)!important;color:var(--accent)!important;border-color:transparent!important;box-shadow:none!important}
+.rb-btn.primary,.rb-btn-big.primary{background:var(--accent);color:#fff;border-color:transparent}
+body.dark .rb-btn.primary,body.dark .rb-btn-big.primary{color:#0f1220}
+.rb-btn.primary:hover,.rb-btn-big.primary:hover{background:var(--accent);filter:brightness(1.1);color:#fff}
+body.dark .rb-btn.primary:hover{color:#0f1220}
+.rb-btn-danger:hover{background:rgba(229,72,77,.12)!important;color:var(--red)!important}
+.rb-seg{background:var(--grid2);padding:2px;border-radius:var(--r-md);gap:0}
+.rb-seg .rb-btn{height:28px;border-radius:var(--r-sm)}
+.rb-seg .rb-btn.active{background:var(--card)!important;color:var(--accent)!important;box-shadow:0 1px 2px rgba(16,24,40,.14)!important}
+.rb-zoom-lbl{min-width:46px;padding:0 6px;border-radius:var(--r-sm);font-size:11.5px;font-weight:700;color:var(--text2);text-align:center;line-height:30px;cursor:pointer}
+.rb-zoom-lbl:hover{background:var(--grid2);color:var(--text)}
+
+/* meniuri derulante */
+.rb-menu{border-radius:var(--r-md);box-shadow:var(--shadow-pop);padding:4px;min-width:230px}
+.rb-menu button{font-size:12.5px;font-weight:600;border-radius:var(--r-sm);padding:6px 10px}
+.rb-menu button:hover{background:var(--accentL);color:var(--accent)}
+body.dark .rb-menu{background:var(--card);border-color:var(--grid)}
+
+/* ---------- Taburi de proiect și de vedere ---------- */
+.proj-tabs-bar{background:var(--bg);border-bottom:1px solid var(--grid);padding:6px 10px 0;gap:2px;min-height:34px}
+.proj-tab{border-radius:var(--r-sm) var(--r-sm) 0 0;color:var(--text2);font-size:12px;font-weight:600;padding:5px 12px}
+.proj-tab:hover{background:var(--grid2);color:var(--text)}
+.proj-tab.active{background:var(--card);border-color:var(--grid);border-bottom-color:var(--card);color:var(--text);margin-bottom:-1px;padding-bottom:6px}
+.proj-tab-add{border-radius:var(--r-sm);width:24px;height:24px}
+.vtabs{background:var(--card);border-bottom:1px solid var(--grid);min-height:32px;padding:0 10px}
+.vtab{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px}
+.vtab .ic{width:15px;height:15px}
+.vtab:hover{color:var(--text)}
+.vtab.active{color:var(--accent);border-bottom-color:var(--accent)}
+body.dark .vtabs{background:var(--card);border-bottom-color:var(--grid)}
+body.dark .vtab{color:var(--muted)}body.dark .vtab.active{color:var(--accent)}
+
+/* ---------- Bara de stare ---------- */
+.sbar{background:var(--accent-bar);padding:4px 14px;font-size:11.5px;color:rgba(255,255,255,.85);font-weight:600;gap:18px;border-top:none}
+
+/* ---------- Suprafețe plate ---------- */
+.split,.pane-l,.pane-r{background:var(--card)}
+.th-row{background:var(--grid2);border-bottom:1px solid var(--grid)}
+.th-row .th{font-size:10.5px;letter-spacing:.6px;border-right:1px solid var(--grid)}
+body.dark .th-row,body.dark .g-toolbar,body.dark .g-head{background:var(--grid2)}
+.g-toolbar{background:var(--card);border-bottom:1px solid var(--grid)}
+.g-info{background:var(--card)}
+.splitter{background:var(--grid)}
+body.dark .splitter{background:var(--grid)}
+body.dark .splitter:hover,.splitter:hover{background:var(--accent)}
+body.dark .splitter::after{background:rgba(255,255,255,.35)}
+
+/* scrollbar discret */
+*{scrollbar-width:thin;scrollbar-color:var(--grid) transparent}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:var(--grid);border-radius:6px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:content-box;border:2px solid transparent}
+*::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- Ferestre (dialoguri) ---------- */
+.modal-box{border-radius:var(--r-lg);box-shadow:var(--shadow-pop);background:var(--card);color:var(--text)}
+body.dark .modal-box{background:var(--card);color:var(--text)}
+.modal-btn{border-radius:var(--r-sm);font-weight:700}
+.modal-btn.primary{background:var(--accent)}
+body.dark .modal-btn.primary{color:#0f1220}
+
+/* ---------- Evidențierea rândurilor: discretă și neutră ---------- */
+.t-row:hover,.t-row.hovered,body.dark .t-row:hover,body.dark .t-row.hovered{background:var(--grid2)}
+.g-row:hover,.g-row.hovered,body.dark .g-row:hover,body.dark .g-row.hovered{background:transparent}
+/* Capitole: fundal neutru, doar textul îngroșat (fără degradeuri pe niveluri) */
+.t-row.summ,.t-row.summ.dp0,.t-row.summ.dp1,.t-row.summ.dp2,.t-row.summ.dp3,
+body.dark .t-row.summ,body.dark .t-row.summ.dp0,body.dark .t-row.summ.dp1,body.dark .t-row.summ.dp2,body.dark .t-row.summ.dp3{
+  background:var(--grid2)!important;border-bottom-color:var(--grid)!important}
+.t-row.summ .c-name input,.t-row.summ.dp0 .c-name input,.t-row.summ.dp1 .c-name input,.t-row.summ.dp2 .c-name input,.t-row.summ.dp3 .c-name input,
+body.dark .t-row.summ .c-name input,body.dark .t-row.summ.dp0 .c-name input,body.dark .t-row.summ.dp1 .c-name input,body.dark .t-row.summ.dp2 .c-name input,body.dark .t-row.summ.dp3 .c-name input{color:var(--text)!important}
+/* Rând selectat: nuanță fină în tabel, aproape deloc pe Gantt */
+.t-row.selected,.t-row.summ.selected,body.dark .t-row.selected,body.dark .t-row.summ.selected{background:var(--sel)!important}
+.g-row.selected,body.dark .g-row.selected{background:rgba(79,107,237,.05)!important}
+body.dark .g-row.selected{background:rgba(128,149,255,.07)!important}
+/* Marcajul colorat din stânga: subțire */
+.t-row::before{width:2px;opacity:.55}
+.t-row.summ::before{width:2px!important}
+
+/* ---------- Linia de bază: discretă ---------- */
+.g-row .bl-bar,body.dark .g-row .bl-bar{height:2px;top:27px;border-radius:1px;background:var(--muted);opacity:.4}
+.g-row .bl-bar.slip,body.dark .g-row .bl-bar.slip{background:var(--red);opacity:.5}
+.g-row .bl-bar.ahead,body.dark .g-row .bl-bar.ahead{background:#2f9e6a;opacity:.5}
+.g-row:hover .bl-bar,.g-row.selected .bl-bar{opacity:1}
+/* La capitole: apare doar când treci cu mouse-ul sau le selectezi */
+.g-row:has(.gb.summ) .bl-bar{display:none}
+.g-row:has(.gb.summ):hover .bl-bar,.g-row.selected:has(.gb.summ) .bl-bar{display:block}

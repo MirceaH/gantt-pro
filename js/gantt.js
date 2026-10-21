@@ -658,7 +658,7 @@ function updateInfoBar(t){
   const slack=c?` · <span style="${c.crit?"color:#d94040;font-weight:800":""}">${c.crit?"CRITIC (0 zile rezervă)":"rezervă "+c.float+" zile"}</span>`:"";
   const consTxt=t.cons&&t.cons.type&&t.cons.type!=="ASAP"?` · <span class="gi-lbl">Restricție:</span> ${CONS_LABELS[t.cons.type]}${t.cons.date?" "+fmtDate(pD(t.cons.date)):""}`:"";
   const dlTxt=t.deadline?` · <span class="gi-lbl">Termen:</span> ${fmtDate(pD(t.deadline))}`:"";
-  const tw=taskWarn[t.id], warnTxt=tw?` · <span class="gi-warn">⚠ ${[tw.lateText,tw.cons,tw.res].filter(Boolean).join(" · ")}</span>`:"";
+  const tw=taskWarn[t.id], warnTxt=tw?` · <span class="gi-warn">⚠ ${[tw.lateText,tw.cons,tw.res].filter(Boolean).map(esc).join(" · ")}</span>`:"";
   el.innerHTML=`<b>${w[t.id]||""} ${esc(t.nm)}</b> · ${t.dur} ${t.dur===1?"zi":"zile"} · ${fmtDate(p._s)} → ${fmtDate(p._e)} · ${t.prog}%${slack}${consTxt}${dlTxt}${baselineText(t)}${resText(t)}${warnTxt} · <span class="gi-lbl">După:</span> ${preds} · <span class="gi-lbl">Urmează:</span> ${succs}`;
 }
 

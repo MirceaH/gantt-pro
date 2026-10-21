@@ -4,28 +4,78 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gantt PRO - Modular</title>
-<meta name="theme-color" content="#2b9e8f">
+<meta name="theme-color" content="#4f6bed">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="css/fonts.css">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/theme.css">
 </head>
 <body>
+<!-- Set de iconițe vectoriale (stil linie, 24x24) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-logo" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="6" fill="currentColor" stroke="none"/><path d="M6.5 8h6M9 12h8M11 16h5.5" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-diamond" viewBox="0 0 24 24"><path d="M12 3l9 9-9 9-9-9z"/></symbol>
+    <symbol id="i-indent" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-outdent" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 012-2h9"/></symbol>
+    <symbol id="i-paste" viewBox="0 0 24 24"><rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9 5V3h6v2"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5z"/></symbol>
+    <symbol id="i-gantt" viewBox="0 0 24 24"><path d="M4 6h8M8 12h11M6 18h7"/></symbol>
+    <symbol id="i-tree" viewBox="0 0 24 24"><rect x="3" y="9" width="5" height="6" rx="1"/><rect x="16" y="4" width="5" height="5" rx="1"/><rect x="16" y="15" width="5" height="5" rx="1"/><path d="M8 12h4V6.5h4M12 12v5.5h4"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></symbol>
+    <symbol id="i-collapse" viewBox="0 0 24 24"><path d="M8 5l4 4 4-4M8 19l4-4 4 4"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+    <symbol id="i-ruler" viewBox="0 0 24 24"><path d="M3 17L17 3l4 4L7 21z"/><path d="M8 12l2 2M11 9l2 2M14 6l2 2"/></symbol>
+    <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 21V10M12 21V4M19 21v-7"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6-5.4-6-10a6 6 0 0112 0c0 4.6-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></symbol>
+    <symbol id="i-columns" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></symbol>
+    <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14a6 6 0 013.5 6"/></symbol>
+    <symbol id="i-coins" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
+    <symbol id="i-unlink" viewBox="0 0 24 24"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/><path d="M3 3l18 18"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/></symbol>
+    <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-chevup" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+    <symbol id="i-chevdown" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  </defs>
+</svg>
 <div class="app">
 
   <!-- ============================================================
-       RIBBON TOP — Office-style cu 4 tab-uri
+       BARA DE SUS — titlu + tab-uri + unelte (iconițe vectoriale)
        ============================================================ -->
   <div class="ribbon">
     <div class="ribbon-tabs" id="ribbonTabs">
+      <div class="app-brand"><svg class="ic"><use href="#i-logo"/></svg><span>Gantt PRO</span></div>
       <div class="rb-tab active" data-rt="home">Home</div>
       <div class="rb-tab" data-rt="view">View</div>
       <div class="rb-tab" data-rt="project">Project</div>
       <div class="rb-tab" data-rt="format" id="rtFormat" style="display:none">Format</div>
       <div class="ribbon-spacer"></div>
-      <button class="rb-quick" id="btnRibbonCollapse" onclick="toggleRibbon()" title="Ascunde / arată butoanele (dublu-click pe un tab)">⌃</button>
-      <button class="rb-quick" id="btnDark" onclick="toggleDark()" title="Dark mode">🌙</button>
+      <button class="rb-quick" id="btnRibbonCollapse" onclick="toggleRibbon()" title="Ascunde / arată butoanele (dublu-click pe un tab)"><svg class="ic"><use href="#i-chevup"/></svg></button>
+      <button class="rb-quick" id="btnDark" onclick="toggleDark()" title="Temă luminoasă / întunecată"><svg class="ic"><use href="#i-moon"/></svg></button>
     </div>
 
     <div class="ribbon-body">
@@ -35,51 +85,48 @@
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn rb-btn-big primary" onclick="openAddTask(false)">
-              <span class="rb-ico">➕</span><span class="rb-lbl">Activitate</span>
+            <button class="rb-btn rb-btn-big primary" onclick="openAddTask(false)" title="Adaugă o activitate (Enter confirmă în dialog)">
+              <svg class="ic"><use href="#i-plus"/></svg><span class="rb-lbl">Activitate</span>
             </button>
             <button class="rb-btn rb-btn-big" onclick="openAddTask(true)" title="Punct cheie (durată 0)">
-              <span class="rb-ico">♦</span><span class="rb-lbl">Milestone</span>
+              <svg class="ic"><use href="#i-diamond"/></svg><span class="rb-lbl">Milestone</span>
             </button>
           </div>
-          <div class="rb-group-lbl">Adaugă</div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn" onclick="indentSel()" title="Indent">→</button>
-            <button class="rb-btn" onclick="outdentSel()" title="Outdent">←</button>
-            <button class="rb-btn" onclick="moveSel(-1)" title="Mută sus">↑</button>
-            <button class="rb-btn" onclick="moveSel(1)" title="Mută jos">↓</button>
-            <button class="rb-btn rb-btn-danger" onclick="delSel()" title="Șterge (Del)">✕</button>
+            <button class="rb-btn" onclick="indentSel()" title="Indent (Tab)"><svg class="ic"><use href="#i-indent"/></svg></button>
+            <button class="rb-btn" onclick="outdentSel()" title="Outdent (Shift+Tab)"><svg class="ic"><use href="#i-outdent"/></svg></button>
+            <button class="rb-btn" onclick="moveSel(-1)" title="Mută sus"><svg class="ic"><use href="#i-up"/></svg></button>
+            <button class="rb-btn" onclick="moveSel(1)" title="Mută jos"><svg class="ic"><use href="#i-down"/></svg></button>
+            <button class="rb-btn rb-btn-danger" onclick="delSel()" title="Șterge (Del)"><svg class="ic"><use href="#i-trash"/></svg></button>
           </div>
-          <div class="rb-group-lbl">Organizare</div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn" onclick="cutTask()" title="Tăiat (Ctrl+X)">✂️</button>
-            <button class="rb-btn" onclick="copyTask()" title="Copiat (Ctrl+C)">📋</button>
-            <button class="rb-btn" onclick="pasteTask()" title="Lipit (Ctrl+V)">📎</button>
+            <button class="rb-btn" onclick="cutTask()" title="Taie (Ctrl+X)"><svg class="ic"><use href="#i-scissors"/></svg></button>
+            <button class="rb-btn" onclick="copyTask()" title="Copiază (Ctrl+C)"><svg class="ic"><use href="#i-copy"/></svg></button>
+            <button class="rb-btn" onclick="pasteTask()" title="Lipește (Ctrl+V)"><svg class="ic"><use href="#i-paste"/></svg></button>
           </div>
-          <div class="rb-group-lbl">Clipboard</div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn" id="btnUndo" onclick="undo()" title="Anulează (Ctrl+Z)" style="opacity:.4">↩</button>
-            <button class="rb-btn" id="btnRedo" onclick="redo()" title="Refă (Ctrl+Y)" style="opacity:.4">↪</button>
-            <button class="rb-btn" onclick="openFind()" title="Caută (Ctrl+F)">🔍</button>
-            <button class="rb-btn" onclick="gotoSelected()" title="Du-te la selecție">🎯</button>
+            <button class="rb-btn" id="btnUndo" onclick="undo()" title="Anulează (Ctrl+Z)" style="opacity:.4"><svg class="ic"><use href="#i-undo"/></svg></button>
+            <button class="rb-btn" id="btnRedo" onclick="redo()" title="Refă (Ctrl+Y)" style="opacity:.4"><svg class="ic"><use href="#i-redo"/></svg></button>
+            <button class="rb-btn" onclick="openFind()" title="Caută (Ctrl+F)"><svg class="ic"><use href="#i-search"/></svg></button>
+            <button class="rb-btn" onclick="gotoSelected()" title="Du-te la selecție"><svg class="ic"><use href="#i-target"/></svg></button>
           </div>
-          <div class="rb-group-lbl">Editare</div>
         </div>
 
-        <div class="rb-group rb-group-inputs">
-          <div class="rb-row" style="gap:8px">
-            <button class="rb-btn rb-btn-tall" onclick="loadDemo()" title="Încarcă demo">Demo</button>
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="loadDemo()" title="Încarcă proiectul demo">
+              <svg class="ic"><use href="#i-sparkle"/></svg><span class="rb-lbl">Demo</span>
+            </button>
           </div>
-          <div class="rb-group-lbl">Exemplu</div>
         </div>
       </div>
 
@@ -87,55 +134,46 @@
       <div class="rb-content" data-rc="view">
 
         <div class="rb-group">
-          <div class="rb-row">
+          <div class="rb-row rb-seg">
             <button class="rb-btn rb-btn-big" id="rbViewGantt" onclick="setViewMode('gantt')">
-              <span class="rb-ico">📊</span><span class="rb-lbl">Gantt</span>
+              <svg class="ic"><use href="#i-gantt"/></svg><span class="rb-lbl">Gantt</span>
             </button>
             <button class="rb-btn rb-btn-big" id="rbViewTree" onclick="setViewMode('tree')">
-              <span class="rb-ico">🌳</span><span class="rb-lbl">Arbore</span>
+              <svg class="ic"><use href="#i-tree"/></svg><span class="rb-lbl">Arbore</span>
             </button>
           </div>
-          <div class="rb-group-lbl">Vizualizare</div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn" onclick="expandAll()" title="Deschide toate">⊞</button>
-            <button class="rb-btn" onclick="collapseAll()" title="Închide toate">⊟</button>
-            <button class="rb-btn" id="btnSummaryOnly" onclick="toggleSummaryOnly()" title="Doar capitole">🗂️</button>
+            <button class="rb-btn" onclick="expandAll()" title="Deschide toate capitolele"><svg class="ic"><use href="#i-expand"/></svg></button>
+            <button class="rb-btn" onclick="collapseAll()" title="Închide toate capitolele"><svg class="ic"><use href="#i-collapse"/></svg></button>
+            <button class="rb-btn" id="btnSummaryOnly" onclick="toggleSummaryOnly()" title="Doar capitole"><svg class="ic"><use href="#i-layers"/></svg></button>
           </div>
-          <div class="rb-group-lbl">Schemă</div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
             <button class="rb-btn rb-btn-big" id="btnCrit" onclick="toggleCritical()" title="Evidențiază drumul critic (activități fără rezervă)">
-              <span class="rb-ico">🔴</span><span class="rb-lbl">Drum critic</span>
+              <svg class="ic"><use href="#i-flag"/></svg><span class="rb-lbl">Drum critic</span>
             </button>
             <button class="rb-btn rb-btn-big" id="btnBase" onclick="toggleBaseline()" title="Arată / ascunde linia de bază (planificat vs. realizat)">
-              <span class="rb-ico">📏</span><span class="rb-lbl">Linia de bază</span>
+              <svg class="ic"><use href="#i-ruler"/></svg><span class="rb-lbl">Linia de bază</span>
             </button>
             <button class="rb-btn rb-btn-big" onclick="openResources('load')" title="Încărcarea resurselor în timp și supraalocări">
-              <span class="rb-ico">📊</span><span class="rb-lbl">Încărcare</span>
+              <svg class="ic"><use href="#i-bars"/></svg><span class="rb-lbl">Încărcare</span>
             </button>
           </div>
-          <div class="rb-group-lbl">Analiză</div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn" onclick="zoom(-1)" title="Zoom out">−</button>
+            <button class="rb-btn" onclick="zoom(-1)" title="Zoom out"><svg class="ic"><use href="#i-minus"/></svg></button>
             <span class="rb-zoom-lbl" id="zoomLbl" onclick="fitZoom()" title="Click pt Auto-Încadrare">Auto</span>
-            <button class="rb-btn" onclick="zoom(1)" title="Zoom in">+</button>
+            <button class="rb-btn" onclick="zoom(1)" title="Zoom in"><svg class="ic"><use href="#i-plus"/></svg></button>
+            <button class="rb-btn" onclick="scrollToToday()" title="Sari la azi"><svg class="ic"><use href="#i-pin"/></svg></button>
+            <button class="rb-btn" id="btnTogglePaneL" onclick="togglePaneL()" title="Extinde / restrânge tabelul din stânga"><svg class="ic"><use href="#i-columns"/></svg></button>
           </div>
-          <div class="rb-group-lbl">Zoom</div>
-        </div>
-
-        <div class="rb-group">
-          <div class="rb-row">
-            <button class="rb-btn" onclick="scrollToToday()" title="Sari la azi">📌</button>
-            <button class="rb-btn" id="btnTogglePaneL" onclick="togglePaneL()" title="Extinde / restrânge panel stânga">⇔</button>          </div>
-          <div class="rb-group-lbl">Aspect</div>
         </div>
       </div>
 
@@ -145,78 +183,74 @@
         <div class="rb-group">
           <div class="rb-row">
             <button class="rb-btn rb-btn-big" onclick="fileSave()" title="Salvează în fișier (Ctrl+S)">
-              <span class="rb-ico">💾</span><span class="rb-lbl">Salvează</span>
+              <svg class="ic"><use href="#i-save"/></svg><span class="rb-lbl">Salvează</span>
             </button>
             <button class="rb-btn rb-btn-big" onclick="fileOpen()" title="Deschide un proiect din fișier (Ctrl+O)">
-              <span class="rb-ico">📂</span><span class="rb-lbl">Deschide</span>
+              <svg class="ic"><use href="#i-folder"/></svg><span class="rb-lbl">Deschide</span>
             </button>
             <div class="rb-dd">
               <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Salvează ca, salvare automată, export/import JSON">
-                <span class="rb-ico">⋯</span><span class="rb-lbl">Mai multe ▾</span>
+                <svg class="ic"><use href="#i-more"/></svg><span class="rb-lbl">Mai multe</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
               </button>
               <div class="rb-menu">
-                <button onclick="closeDD();fileSaveAs()">📝 Salvează ca…  <kbd>Ctrl+Shift+S</kbd></button>
-                <button id="btnFileAuto" onclick="closeDD();fileToggleAuto()">🔁 Salvare automată în fișier</button>
+                <button onclick="closeDD();fileSaveAs()"><span>Salvează ca…</span><kbd>Ctrl+Shift+S</kbd></button>
+                <button id="btnFileAuto" onclick="closeDD();fileToggleAuto()"><span>Salvare automată în fișier</span></button>
                 <hr>
-                <button onclick="closeDD();exportJSON()">📥 Export JSON</button>
-                <button onclick="closeDD();importJSONasTab()">📂 Import JSON</button>
+                <button onclick="closeDD();exportJSON()"><span>Export JSON</span></button>
+                <button onclick="closeDD();importJSONasTab()"><span>Import JSON</span></button>
                 <hr>
-                <button class="danger" onclick="closeDD();clearAll()">🗑️ Șterge tot proiectul curent</button>
+                <button class="danger" onclick="closeDD();clearAll()"><span>Șterge tot proiectul curent</span></button>
               </div>
             </div>
           </div>
-          <div class="rb-group-lbl">Fișier</div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
             <div class="rb-dd">
               <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Exportă ca imagine, PDF sau pentru MS Project">
-                <span class="rb-ico">📤</span><span class="rb-lbl">Export ▾</span>
+                <svg class="ic"><use href="#i-export"/></svg><span class="rb-lbl">Export</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
               </button>
               <div class="rb-menu">
-                <button onclick="closeDD();exportPNG()">🖼️ Imagine (PNG)</button>
-                <button onclick="closeDD();exportPDF()">📄 Document (PDF)</button>
-                <button onclick="closeDD();exportMSProject()">📊 MS Project (XML)</button>
+                <button onclick="closeDD();exportPNG()"><span>Imagine (PNG)</span></button>
+                <button onclick="closeDD();exportPDF()"><span>Document (PDF)</span></button>
+                <button onclick="closeDD();exportMSProject()"><span>MS Project (XML)</span></button>
               </div>
             </div>
           </div>
-          <div class="rb-group-lbl">Export</div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
             <button class="rb-btn rb-btn-big" onclick="openCalendar()" title="Zile lucrătoare și zile libere pentru acest proiect">
-              <span class="rb-ico">📅</span><span class="rb-lbl">Calendar</span>
+              <svg class="ic"><use href="#i-calendar"/></svg><span class="rb-lbl">Calendar</span>
             </button>
             <button class="rb-btn rb-btn-big" onclick="openResources('res')" title="Oameni, utilaje, materiale, costuri">
-              <span class="rb-ico">👥</span><span class="rb-lbl">Resurse</span>
+              <svg class="ic"><use href="#i-users"/></svg><span class="rb-lbl">Resurse</span>
             </button>
             <button class="rb-btn rb-btn-big" onclick="openResources('budget')" title="Costul proiectului pe capitole și resurse">
-              <span class="rb-ico">💰</span><span class="rb-lbl">Buget</span>
+              <svg class="ic"><use href="#i-coins"/></svg><span class="rb-lbl">Buget</span>
             </button>
             <div class="rb-dd">
               <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Planul inițial cu care se compară progresul">
-                <span class="rb-ico">📌</span><span class="rb-lbl">Linia de bază ▾</span>
+                <svg class="ic"><use href="#i-ruler"/></svg><span class="rb-lbl">Linia de bază</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
               </button>
               <div class="rb-menu">
-                <button onclick="closeDD();saveBaseline()">📌 Salvează planul curent ca bază</button>
-                <button onclick="closeDD();toggleBaseline()">📏 Arată / ascunde linia de bază</button>
+                <button onclick="closeDD();saveBaseline()"><span>Salvează planul curent ca bază</span></button>
+                <button onclick="closeDD();toggleBaseline()"><span>Arată / ascunde linia de bază</span></button>
                 <hr>
-                <button class="danger" onclick="closeDD();clearBaseline()">🗑️ Șterge linia de bază</button>
+                <button class="danger" onclick="closeDD();clearBaseline()"><span>Șterge linia de bază</span></button>
               </div>
             </div>
           </div>
-          <div class="rb-group-lbl">Planificare</div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn" onclick="addNewTab()" title="Proiect nou (tab nou)">➕</button>
-            <button class="rb-btn" onclick="renameActiveTab()" title="Redenumește proiectul">✏️</button>
-            <button class="rb-btn" onclick="closeActiveTab()" title="Închide proiectul">✕</button>
+            <button class="rb-btn" onclick="addNewTab()" title="Proiect nou (tab nou)"><svg class="ic"><use href="#i-plus"/></svg></button>
+            <button class="rb-btn" onclick="renameActiveTab()" title="Redenumește proiectul"><svg class="ic"><use href="#i-pencil"/></svg></button>
+            <button class="rb-btn" onclick="closeActiveTab()" title="Închide proiectul"><svg class="ic"><use href="#i-x"/></svg></button>
           </div>
-          <div class="rb-group-lbl">Proiecte</div>
         </div>
       </div>
 
@@ -225,27 +259,16 @@
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn rb-btn-big" onclick="if(sel)openTaskInfo(sel);else toast('⚠️ Selectează un task')">
-              <span class="rb-ico">ⓘ</span><span class="rb-lbl">Detalii</span>
+            <button class="rb-btn rb-btn-big" onclick="if(sel)openTaskInfo(sel);else toast('⚠️ Selectează o activitate')">
+              <svg class="ic"><use href="#i-info"/></svg><span class="rb-lbl">Detalii</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="unlinkSelected()" title="Șterge toate dependențele activității">
+              <svg class="ic"><use href="#i-unlink"/></svg><span class="rb-lbl">Șterge legături</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="toggleMilestone()" title="Transformă în / din milestone">
+              <svg class="ic"><use href="#i-diamond"/></svg><span class="rb-lbl">Milestone</span>
             </button>
           </div>
-          <div class="rb-group-lbl">Task Info</div>
-        </div>
-
-        <div class="rb-group">
-          <div class="rb-row">
-            <button class="rb-btn rb-btn-big" onclick="unlinkSelected()" title="Șterge toate dependențele task-ului">
-              <span class="rb-ico">🔓</span><span class="rb-lbl">Unlink</span>
-            </button>
-          </div>
-          <div class="rb-group-lbl">Dependențe</div>
-        </div>
-
-        <div class="rb-group">
-          <div class="rb-row">
-            <button class="rb-btn" onclick="toggleMilestone()" title="Toggle milestone (♦)">♦</button>
-          </div>
-          <div class="rb-group-lbl">Tip</div>
         </div>
       </div>
 
@@ -268,8 +291,8 @@
 
   <!-- View tabs (compatibil cu codul existent) -->
   <div class="vtabs" id="vtabs">
-    <div class="vtab active" data-v="gantt">📊 Gantt Chart</div>
-    <div class="vtab" data-v="tree">🌳 Arbore Interactiv</div>
+    <div class="vtab active" data-v="gantt"><svg class="ic"><use href="#i-gantt"/></svg>Gantt</div>
+    <div class="vtab" data-v="tree"><svg class="ic"><use href="#i-tree"/></svg>Arbore</div>
   </div>
 
   <div class="split" id="splitView">

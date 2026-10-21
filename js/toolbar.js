@@ -123,11 +123,12 @@ function saveAddTask() {
   });
 
   pushHistory();
-  const task = { id: nid++, nm, sd, dur, prog, pid, deps };
+  const task = { id: nid++, nm, sd, dur, prog, pid, deps: [] };
   if (isMs) task.isMilestone = true;
   const notes = $('atNotes').value.trim();
   if (notes) task.notes = notes;
   T.push(task);
+  _applyDepsSafely(task, deps);
   if (pid) coll.delete(pid);
   sel = task.id;
   closeAddTask();
@@ -435,7 +436,7 @@ function saveTaskInfo(id) {
       if (predId === undefined || predId === id) return;
       out.push({ id: predId, type: p.type, lag: p.lag });
     });
-    t.deps = out;
+    _applyDepsSafely(t, out);
   } else {
     t.deps = [];
   }

@@ -17,7 +17,7 @@ let _history = [], _future = [];
 const MAX_HISTORY = 50;
 
 function pushHistory() {
-  _history.push(JSON.stringify({ T, nid }));
+  _history.push(JSON.stringify({ T, nid, cal: CAL, res: RES }));
   if (_history.length > MAX_HISTORY) _history.shift();
   _future = [];
   updateUndoRedoBtns();
@@ -25,9 +25,9 @@ function pushHistory() {
 
 function undo() {
   if (!_history.length) { toast('⚠️ Nimic de anulat'); return; }
-  _future.push(JSON.stringify({ T, nid }));
+  _future.push(JSON.stringify({ T, nid, cal: CAL, res: RES }));
   const state = JSON.parse(_history.pop());
-  T = state.T; nid = state.nid; sel = null;
+  T = state.T; nid = state.nid; sel = null; if (state.cal) setCal(state.cal); if (state.res) setRes(state.res);
   syncTabData();
   updateUndoRedoBtns();
   renderAll();
@@ -36,9 +36,9 @@ function undo() {
 
 function redo() {
   if (!_future.length) { toast('⚠️ Nimic de refăcut'); return; }
-  _history.push(JSON.stringify({ T, nid }));
+  _history.push(JSON.stringify({ T, nid, cal: CAL, res: RES }));
   const state = JSON.parse(_future.pop());
-  T = state.T; nid = state.nid; sel = null;
+  T = state.T; nid = state.nid; sel = null; if (state.cal) setCal(state.cal); if (state.res) setRes(state.res);
   syncTabData();
   updateUndoRedoBtns();
   renderAll();
@@ -137,6 +137,9 @@ function _topoDepOrder() {
     inDeg.set(t.id, (inDeg.get(t.id) || 0) + 1);
     adj.get(d.id).push(t.id);
   }));
+  T.forEach(t => {            // copil -> capitol: datele capitolului se calculează din copii
+    if (t.pid != null && inDeg.has(t.pid)) { inDeg.set(t.pid, inDeg.get(t.pid) + 1); adj.get(t.id).push(t.pid); }
+  });
   const queue = [], order = [];
   T.forEach(t => { if ((inDeg.get(t.id) || 0) === 0) queue.push(t.id); });
   while (queue.length) {
@@ -148,6 +151,45 @@ function _topoDepOrder() {
     });
   }
   return { order, hasCycle: order.length !== T.length };
+}
+
+// Start și durată ale unui capitol din copiii lui direcți
+function _calcSummaryDates(t) {
+  let minS = null, maxE = null;
+  kids(t.id).forEach(c => { const s = pD(c.sd), e = endDate(c); if (!minS || s < minS) minS = s; if (!maxE || e > maxE) maxE = e; });
+  if (minS && maxE) { t.sd = fD(minS); t.dur = workDur(minS, maxE); }
+}
+
+// Elimină dependențele dintre o activitate și capitolul ei / subactivitățile ei (ca în MS Project).
+// Returnează numărul de legături eliminate.
+function _fixHierarchyDeps() {
+  let removed = 0;
+  T.forEach(t => {
+    if (!t.deps || !t.deps.length) return;
+    const keep = t.deps.filter(d => !(d.id === t.id || isD(d.id, t.id) || isD(t.id, d.id)));
+    removed += t.deps.length - keep.length; t.deps = keep;
+  });
+  return removed;
+}
+
+// Încearcă o schimbare de ierarhie; dacă ar crea o buclă de dependențe, o anulează.
+function _tryHierarchyChange(fn) {
+  const snap = JSON.stringify(T);
+  fn();
+  const removed = _fixHierarchyDeps();
+  if (_topoDepOrder().hasCycle) { T = JSON.parse(snap); toast('🚫 Mutarea ar crea o buclă între dependențe — anulată'); return false; }
+  if (removed) toast('ℹ️ ' + removed + (removed === 1 ? ' legătură' : ' legături') + ' între capitol și activitățile lui ' + (removed === 1 ? 'a fost eliminată' : 'au fost eliminate'));
+  return true;
+}
+
+// Aplică o listă de dependențe unei activități, ignorând cele care ar crea bucle
+function _applyDepsSafely(t, list) {
+  t.deps = []; let bad = 0;
+  list.forEach(d => {
+    if (d.id === t.id || wouldCreateCycle(d.id, t.id)) { bad++; return; }
+    if (!t.deps.some(x => x.id === d.id)) t.deps.push(d);
+  });
+  if (bad) toast('🚫 ' + bad + (bad === 1 ? ' legătură ignorată' : ' legături ignorate') + ' (ar crea o buclă sau ar lega o activitate de capitolul ei)');
 }
 
 let _lastCycleWarnAt = 0;
@@ -165,7 +207,7 @@ function recalcSchedule() {
   }
   for (const tid of order) {
     const t = T.find(x => x.id === tid); if (!t) continue;
-    if (hasK(t.id)) continue; // capitolele se derivă din copii
+    if (hasK(t.id)) { _calcSummaryDates(t); continue; } // capitolele se derivă din copii (deja calculați în ordine)
     const hasDeps = !!(t.deps && t.deps.length);
     const hasCons = !!(t.cons && t.cons.type && t.cons.type !== 'ASAP' && (t.cons.type === 'ALAP' || t.cons.date));
     if (!hasDeps && !hasCons) continue;
@@ -247,6 +289,8 @@ function wouldCreateCycle(predId, succId) {
     T.forEach(t => {
       if ((t.deps || []).some(d => d.id === cur)) stack.push(t.id);
     });
+    const me = T.find(x => x.id === cur);            // capitolul depinde de copiii lui
+    if (me && me.pid != null) stack.push(me.pid);
   }
   return false;
 }
@@ -277,16 +321,54 @@ function syncTabData() {
   if (tab) { tab.T = JSON.parse(JSON.stringify(T)); tab.nid = nid; tab.cal = JSON.parse(JSON.stringify(CAL)); tab.res = JSON.parse(JSON.stringify(RES)); }
 }
 
+// Curăță datele încărcate (fișier importat / localStorage): câmpuri lipsă, date și durate invalide,
+// id-uri duplicate, părinți inexistenți sau în buclă, dependențe spre activități inexistente
+function _sanitizeTasks() {
+  if (!Array.isArray(T)) T = [];
+  T = T.filter(t => t && typeof t === 'object');
+  const seen = new Set();
+  const today = fD(new Date());
+  T.forEach(t => {
+    let id = Number.isInteger(+t.id) && +t.id > 0 ? +t.id : 0;
+    if (!id || seen.has(id)) id = Math.max(0, ...T.map(x => +x.id || 0), ...seen) + 1;
+    t.id = id; seen.add(id);
+    t.nm = typeof t.nm === 'string' ? t.nm : String(t.nm == null ? 'Activitate' : t.nm);
+    const okDate = typeof t.sd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t.sd) && !isNaN(new Date(t.sd + 'T00:00:00'));
+    if (!okDate) t.sd = today;
+    let d = Math.round(+t.dur);
+    if (!isFinite(d) || d < 0) d = 1;
+    if (d === 0 && !t.isMilestone) d = 1;
+    t.dur = d;
+    const p = +t.prog; t.prog = isFinite(p) ? Math.max(0, Math.min(100, p)) : 0;
+    if (!Array.isArray(t.deps)) t.deps = [];
+    if (!Array.isArray(t.assign)) delete t.assign;
+  });
+  const ids = new Set(T.map(t => t.id));
+  T.forEach(t => {
+    if (t.pid != null && (!ids.has(t.pid) || t.pid === t.id)) t.pid = null;
+    if (t.pid === undefined) t.pid = null;
+    t.deps = t.deps.filter(d => ids.has(d && typeof d === 'object' ? d.id : d) && (d && typeof d === 'object' ? d.id : d) !== t.id);
+  });
+  const byId = new Map(T.map(t => [t.id, t]));
+  T.forEach(t => {   // părinți în buclă → ridică la rădăcină
+    let c = t, n = 0;
+    while (c && c.pid != null && n++ < T.length + 1) c = byId.get(c.pid);
+    if (n > T.length) t.pid = null;
+  });
+}
+
 // Încarcă datele din tab-ul activ în variabilele globale
 function loadTabData(tabId) {
   const tab = tabs.find(t => t.id === tabId);
   if (!tab) return;
   setCal(tab.cal); setRes(tab.res);
   T   = JSON.parse(JSON.stringify(tab.T));
-  nid = tab.nid;
+  _sanitizeTasks();
+  nid = Math.max(+tab.nid || 1, ...T.map(t => t.id + 1));
   sel = null;
   coll.clear();
   _ensureDeps();
+  _fixHierarchyDeps();   // curăță legături vechi între un capitol și activitățile lui
   // Reset summary-only state per tab
   if (typeof _summaryOnly !== 'undefined') _summaryOnly = false;
   if (typeof treeFocus !== 'undefined') { treeFocus = null; treeOpen.clear(); }
@@ -560,7 +642,7 @@ function updDeps(id, wbsStr) {
     if (predId === undefined || predId === id) return;
     out.push({ id: predId, type: p.type, lag: p.lag });
   });
-  t.deps = out;
+  _applyDepsSafely(t, out);
   syncTabData(); renderAll();
 }
 
@@ -570,7 +652,9 @@ function indentSel() {
   const sibs=t.pid?kids(t.pid):T.filter(x=>!x.pid);
   const i=sibs.findIndex(s=>s.id===sel); if(i<=0) return;
   pushHistory();
-  t.pid=sibs[i-1].id; coll.delete(t.pid);
+  const newPid=sibs[i-1].id;
+  if(!_tryHierarchyChange(()=>{ const x=T.find(y=>y.id===sel); x.pid=newPid; })){ _history.pop(); updateUndoRedoBtns(); renderAll(); return; }
+  coll.delete(newPid);
   syncTabData(); renderAll(); toast("Subcapitol");
 }
 
@@ -578,7 +662,7 @@ function outdentSel() {
   if(!sel) return;
   const t=T.find(x=>x.id===sel); if(!t||!t.pid) return;
   pushHistory();
-  const par=T.find(x=>x.id===t.pid); t.pid=par?par.pid:null;
+  if(!_tryHierarchyChange(()=>{ const x=T.find(y=>y.id===sel), par=T.find(y=>y.id===x.pid); x.pid=par?par.pid:null; })){ _history.pop(); updateUndoRedoBtns(); renderAll(); return; }
   syncTabData(); renderAll(); toast("Scos un nivel");
 }
 
@@ -599,10 +683,17 @@ function handleDrop(dragId, targetId, dropType) {
   if(!dragId||dragId===targetId||isD(targetId,dragId)) return;
   const src=T.find(x=>x.id===dragId), tgt=T.find(x=>x.id===targetId); if(!src||!tgt) return;
   pushHistory();
-  const si=T.indexOf(src); T.splice(si,1); const ti=T.findIndex(x=>x.id===targetId);
-  if (dropType==="inside") { src.pid=targetId; coll.delete(targetId); T.splice(ti+1,0,src); toast("Subcapitol în: "+tgt.nm); }
-  else if (dropType==="above") { src.pid=tgt.pid; T.splice(ti,0,src); toast("Mutat deasupra"); }
-  else if (dropType==="below") { src.pid=tgt.pid; T.splice(ti+1,0,src); toast("Mutat dedesubt"); }
+  const msg = dropType==="inside" ? "Subcapitol în: "+tgt.nm : (dropType==="above" ? "Mutat deasupra" : "Mutat dedesubt");
+  const ok = _tryHierarchyChange(()=>{
+    const s2=T.find(x=>x.id===dragId), g2=T.find(x=>x.id===targetId);
+    T.splice(T.indexOf(s2),1); const ti=T.findIndex(x=>x.id===targetId);
+    if (dropType==="inside") { s2.pid=targetId; T.splice(ti+1,0,s2); }
+    else if (dropType==="above") { s2.pid=g2.pid; T.splice(ti,0,s2); }
+    else { s2.pid=g2.pid; T.splice(ti+1,0,s2); }
+  });
+  if(!ok){ _history.pop(); updateUndoRedoBtns(); renderAll(); return; }
+  if (dropType==="inside") coll.delete(targetId);
+  toast(msg);
   syncTabData(); renderAll();
 }
 

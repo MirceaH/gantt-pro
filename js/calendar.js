@@ -81,6 +81,7 @@ function closeCalendar() { $('calModal').classList.remove('open'); }
 
 function saveCalendar() {
   if (!_calDraft.days.some(Boolean)) { toast('⚠️ Bifează cel puțin o zi lucrătoare'); return; }
+  pushHistory();
   setCal(_calDraft);
   closeCalendar();
   syncTabData();

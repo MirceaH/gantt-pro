@@ -1,18 +1,25 @@
-// ======== DARK MODE ========
-function toggleDark() {
-  const isDark = document.body.classList.toggle("dark");
+// ======== TEMĂ (luminoasă / întunecată; implicit după sistem) ========
+const _darkMQ = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
+function _applyDark(on) {
+  document.body.classList.toggle("dark", on);
   const btn = $("btnDark");
-  if (btn) { btn.textContent = isDark ? "☀️" : "🌙"; btn.title = isDark ? "Light mode" : "Dark mode"; }
-  localStorage.setItem("ganttDark", isDark ? "1" : "0");
+  if (btn) { btn.innerHTML = '<svg class="ic"><use href="#' + (on ? "i-sun" : "i-moon") + '"/></svg>'; btn.title = on ? "Temă luminoasă" : "Temă întunecată"; }
+}
+function toggleDark() {
+  const on = !document.body.classList.contains("dark");
+  _applyDark(on);
+  try { localStorage.setItem("ganttDark", on ? "1" : "0"); } catch (e) {}
+}
+function initDark() {
+  let saved = null; try { saved = localStorage.getItem("ganttDark"); } catch (e) {}
+  _applyDark(saved === null ? !!(_darkMQ && _darkMQ.matches) : saved === "1");
+  // Dacă utilizatorul nu a ales manual, urmărim schimbările temei din sistem
+  if (_darkMQ && _darkMQ.addEventListener) _darkMQ.addEventListener("change", e => {
+    let s = null; try { s = localStorage.getItem("ganttDark"); } catch (x) {}
+    if (s === null) _applyDark(e.matches);
+  });
 }
 
-function initDark() {
-  if (localStorage.getItem("ganttDark") === "1") {
-    document.body.classList.add("dark");
-    const btn = $("btnDark");
-    if (btn) { btn.textContent = "☀️"; btn.title = "Light mode"; }
-  }
-}
 
 // ======== MENIU PROIECT ========
 // (Vechiul meniu Proiect a fost înlocuit cu ribbon Project tab — păstrăm stub-uri)
@@ -178,7 +185,7 @@ function renderSidePanel() {
       <div class="sp-group"><label class="sp-lbl">Termen limită</label>
         <input type="date" class="sp-in" value="${t.deadline || ""}" onchange="setDeadlineOf(${t.id},this.value)"></div>
     </div>
-    ${taskWarn[t.id] ? `<div class="sp-warn">⚠ ${[taskWarn[t.id].lateText, taskWarn[t.id].cons, taskWarn[t.id].res].filter(Boolean).join("<br>⚠ ")}</div>` : ""}
+    ${taskWarn[t.id] ? `<div class="sp-warn">⚠ ${[taskWarn[t.id].lateText, taskWarn[t.id].cons, taskWarn[t.id].res].filter(Boolean).map(esc).join("<br>⚠ ")}</div>` : ""}
 
     <div class="sp-sec">Resurse și cost</div>
     <div class="sp-info"><span>Cost</span><b>${costMap[t.id] ? fmtMoney(costMap[t.id]) : "—"}</b></div>
@@ -375,7 +382,7 @@ document.addEventListener("click", e => { const p = $("legendPop"); if (p && !p.
 function toggleRibbon(force) {
   const on = typeof force === "boolean" ? force : !document.body.classList.contains("ribbon-collapsed");
   document.body.classList.toggle("ribbon-collapsed", on);
-  const b = $("btnRibbonCollapse"); if (b) { b.textContent = on ? "⌄" : "⌃"; b.title = on ? "Arată butoanele" : "Ascunde butoanele"; }
+  const b = $("btnRibbonCollapse"); if (b) { b.innerHTML = '<svg class="ic"><use href="#' + (on ? "i-chevdown" : "i-chevup") + '"/></svg>'; b.title = on ? "Arată butoanele" : "Ascunde butoanele"; }
   try { localStorage.setItem("ganttRibbonCollapsed", on ? "1" : "0"); } catch (e) {}
   if (isAutoZoom && typeof renderGantt === "function") renderGantt();
 }

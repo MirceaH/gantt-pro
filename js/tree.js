@@ -281,16 +281,21 @@ function renderTree(){
     if (!src || !tgt) return;
     if (src.pid === tgt.id) { toast("ℹ️ Deja e în „" + tgt.nm + "”"); return; }
     pushHistory();
-    // Îl punem ultimul copil al țintei
-    T.splice(T.indexOf(src), 1);
-    const block = [tgt.id, ...allD(tgt.id)];
-    const last = Math.max(...block.map(id => T.findIndex(x => x.id === id)));
-    src.pid = tgt.id;
-    T.splice(last + 1, 0, src);
-    treeOpen.add(tgt.id);
-    sel = src.id;
+    const sName = src.nm, tName = tgt.nm, sId = src.id, tId = tgt.id;
+    // Îl punem ultimul copil al țintei (anulat dacă ar crea o buclă de dependențe)
+    const ok = _tryHierarchyChange(() => {
+      const s2 = T.find(x => x.id === sId), g2 = T.find(x => x.id === tId);
+      T.splice(T.indexOf(s2), 1);
+      const block = [g2.id, ...allD(g2.id)];
+      const last = Math.max(...block.map(id => T.findIndex(x => x.id === id)));
+      s2.pid = g2.id;
+      T.splice(last + 1, 0, s2);
+    });
+    if (!ok) { _history.pop(); updateUndoRedoBtns(); renderAll(); return; }
+    treeOpen.add(tId);
+    sel = sId;
     syncTabData(); renderAll();
-    toast("↳ „" + src.nm + "” mutat în „" + tgt.nm + "”");
+    toast("↳ „" + sName + "” mutat în „" + tName + "”");
   });
 
   // După tragere nu se mai consideră click (altfel se schimbă selecția)
