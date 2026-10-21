@@ -336,6 +336,41 @@ function togglePaneL() {
   if (typeof renderGantt === "function" && isAutoZoom) renderGantt();
 }
 
+// ======== MENIURI DERULANTE DIN RIBBON ========
+function closeDD() { document.querySelectorAll(".rb-menu.open").forEach(m => m.classList.remove("open")); }
+function toggleDD(btn) {
+  const menu = btn.nextElementSibling, wasOpen = menu.classList.contains("open");
+  closeDD();
+  if (wasOpen) return;
+  const r = btn.getBoundingClientRect();
+  menu.classList.add("open");
+  menu.style.left = Math.min(r.left, innerWidth - menu.offsetWidth - 8) + "px";
+  menu.style.top = (r.bottom + 4) + "px";
+}
+document.addEventListener("click", e => { if (!e.target.closest(".rb-dd")) closeDD(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDD(); });
+
+// ======== LEGENDĂ GANTT ========
+function toggleLegend(e) {
+  if (e) e.stopPropagation();
+  let p = $("legendPop");
+  if (p) { p.remove(); return; }
+  p = document.createElement("div");
+  p.id = "legendPop"; p.className = "legend-pop";
+  p.innerHTML = `<div class="lg-title">Legendă Gantt <button onclick="toggleLegend()">✕</button></div>
+    <div class="lg-row"><i class="lg-today"></i><span><b>Linie roșie verticală</b> — ziua de azi.</span></div>
+    <div class="lg-row"><i class="lg-bar crit"></i><span><b>Bară roșie</b> — activitate de pe drumul critic (orice întârziere mută finalul proiectului).</span></div>
+    <div class="lg-row"><i class="lg-bl"></i><span><b>Linie subțire sub bară</b> — planul inițial (linia de bază). <b style="color:#d94040">Roșie</b> = activitatea a întârziat față de plan, <b style="color:#2f9e6a">verde</b> = mai devreme, gri = la termen.</span></div>
+    <div class="lg-row"><i class="lg-late"></i><span><b>Punct roșu pe bară</b> — activitate întârziată: trebuia să fie gata până azi, dar nu e finalizată.</span></div>
+    <div class="lg-row"><i class="lg-warn"></i><span><b>Contur portocaliu întrerupt</b> — avertisment: restricție neîndeplinită, termen depășit sau resursă supraalocată (detalii în bara de jos).</span></div>
+    <div class="lg-row"><i class="lg-dl"></i><span><b>Dungă verde cu triunghi</b> — termen limită (deadline); devine roșie dacă e depășit.</span></div>
+    <div class="lg-row"><i class="lg-arrow"></i><span><b>Săgeți</b> — dependențe: gri = FS, verde = SS, portocaliu = FF, mov = SF. Selectează o activitate ca să le vezi etichetele.</span></div>
+    <div class="lg-row"><i class="lg-we"></i><span><b>Coloane roșiatice</b> — zile nelucrătoare (weekend sau zile libere din calendar).</span></div>`;
+  document.body.appendChild(p);
+  const b = $("btnLegend"); if (b) { const r = b.getBoundingClientRect(); p.style.top = (r.bottom + 6) + "px"; p.style.right = Math.max(8, innerWidth - r.right) + "px"; }
+}
+document.addEventListener("click", e => { const p = $("legendPop"); if (p && !p.contains(e.target) && !e.target.closest("#btnLegend")) p.remove(); });
+
 // ======== ASCUNDE / ARATĂ BUTOANELE DE SUS ========
 function toggleRibbon(force) {
   const on = typeof force === "boolean" ? force : !document.body.classList.contains("ribbon-collapsed");

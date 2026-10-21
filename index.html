@@ -144,80 +144,44 @@
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn rb-btn-big" onclick="openResources('res')" title="Oameni, utilaje, materiale, costuri">
-              <span class="rb-ico">👥</span><span class="rb-lbl">Resurse</span>
-            </button>
-            <button class="rb-btn rb-btn-big" onclick="openResources('budget')" title="Costul proiectului pe capitole și resurse">
-              <span class="rb-ico">💰</span><span class="rb-lbl">Buget</span>
-            </button>
-          </div>
-          <div class="rb-group-lbl">Resurse</div>
-        </div>
-
-        <div class="rb-group">
-          <div class="rb-row">
-            <button class="rb-btn rb-btn-big" onclick="saveBaseline()" title="Salvează planul curent ca linie de bază; schimbările următoare se compară cu el">
-              <span class="rb-ico">📌</span><span class="rb-lbl">Salvează baza</span>
-            </button>
-            <button class="rb-btn rb-btn-big" onclick="clearBaseline()" title="Șterge linia de bază">
-              <span class="rb-ico">🗑️</span><span class="rb-lbl">Șterge baza</span>
-            </button>
-          </div>
-          <div class="rb-group-lbl">Plan</div>
-        </div>
-
-        <div class="rb-group">
-          <div class="rb-row">
             <button class="rb-btn rb-btn-big" onclick="fileSave()" title="Salvează în fișier (Ctrl+S)">
               <span class="rb-ico">💾</span><span class="rb-lbl">Salvează</span>
-            </button>
-            <button class="rb-btn rb-btn-big" onclick="fileSaveAs()" title="Salvează ca… (Ctrl+Shift+S)">
-              <span class="rb-ico">📝</span><span class="rb-lbl">Salvează ca</span>
             </button>
             <button class="rb-btn rb-btn-big" onclick="fileOpen()" title="Deschide un proiect din fișier (Ctrl+O)">
               <span class="rb-ico">📂</span><span class="rb-lbl">Deschide</span>
             </button>
-            <button class="rb-btn rb-btn-big" id="btnFileAuto" onclick="fileToggleAuto()" title="Salvează automat în fișier la fiecare modificare">
-              <span class="rb-ico">🔁</span><span class="rb-lbl">Auto</span>
-            </button>
-          </div>
-          <div class="rb-group-lbl">Fișier proiect</div>
-        </div>
-
-        <div class="rb-group">
-          <div class="rb-row">
-            <button class="rb-btn rb-btn-big" onclick="exportJSON()">
-              <span class="rb-ico">📥</span><span class="rb-lbl">Export JSON</span>
-            </button>
-            <button class="rb-btn rb-btn-big" onclick="importJSONasTab()">
-              <span class="rb-ico">📂</span><span class="rb-lbl">Import JSON</span>
-            </button>
+            <div class="rb-dd">
+              <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Salvează ca, salvare automată, export/import JSON">
+                <span class="rb-ico">⋯</span><span class="rb-lbl">Mai multe ▾</span>
+              </button>
+              <div class="rb-menu">
+                <button onclick="closeDD();fileSaveAs()">📝 Salvează ca…  <kbd>Ctrl+Shift+S</kbd></button>
+                <button id="btnFileAuto" onclick="closeDD();fileToggleAuto()">🔁 Salvare automată în fișier</button>
+                <hr>
+                <button onclick="closeDD();exportJSON()">📥 Export JSON</button>
+                <button onclick="closeDD();importJSONasTab()">📂 Import JSON</button>
+                <hr>
+                <button class="danger" onclick="closeDD();clearAll()">🗑️ Șterge tot proiectul curent</button>
+              </div>
+            </div>
           </div>
           <div class="rb-group-lbl">Fișier</div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn rb-btn-big" onclick="exportPNG()">
-              <span class="rb-ico">🖼️</span><span class="rb-lbl">PNG</span>
-            </button>
-            <button class="rb-btn rb-btn-big" onclick="exportPDF()">
-              <span class="rb-ico">📄</span><span class="rb-lbl">PDF</span>
-            </button>
-            <button class="rb-btn rb-btn-big" onclick="exportMSProject()">
-              <span class="rb-ico">📊</span><span class="rb-lbl">MS Project</span>
-            </button>
+            <div class="rb-dd">
+              <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Exportă ca imagine, PDF sau pentru MS Project">
+                <span class="rb-ico">📤</span><span class="rb-lbl">Export ▾</span>
+              </button>
+              <div class="rb-menu">
+                <button onclick="closeDD();exportPNG()">🖼️ Imagine (PNG)</button>
+                <button onclick="closeDD();exportPDF()">📄 Document (PDF)</button>
+                <button onclick="closeDD();exportMSProject()">📊 MS Project (XML)</button>
+              </div>
+            </div>
           </div>
-          <div class="rb-group-lbl">Export Vizual</div>
-        </div>
-
-        <div class="rb-group">
-          <div class="rb-row">
-            <button class="rb-btn" onclick="addNewTab()" title="Tab nou">➕</button>
-            <button class="rb-btn" onclick="renameActiveTab()" title="Redenumește tab-ul activ">✏️</button>
-            <button class="rb-btn" onclick="closeActiveTab()" title="Închide tab-ul activ">✕</button>
-          </div>
-          <div class="rb-group-lbl">Tab-uri</div>
+          <div class="rb-group-lbl">Export</div>
         </div>
 
         <div class="rb-group">
@@ -225,17 +189,34 @@
             <button class="rb-btn rb-btn-big" onclick="openCalendar()" title="Zile lucrătoare și zile libere pentru acest proiect">
               <span class="rb-ico">📅</span><span class="rb-lbl">Calendar</span>
             </button>
+            <button class="rb-btn rb-btn-big" onclick="openResources('res')" title="Oameni, utilaje, materiale, costuri">
+              <span class="rb-ico">👥</span><span class="rb-lbl">Resurse</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="openResources('budget')" title="Costul proiectului pe capitole și resurse">
+              <span class="rb-ico">💰</span><span class="rb-lbl">Buget</span>
+            </button>
+            <div class="rb-dd">
+              <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Planul inițial cu care se compară progresul">
+                <span class="rb-ico">📌</span><span class="rb-lbl">Linia de bază ▾</span>
+              </button>
+              <div class="rb-menu">
+                <button onclick="closeDD();saveBaseline()">📌 Salvează planul curent ca bază</button>
+                <button onclick="closeDD();toggleBaseline()">📏 Arată / ascunde linia de bază</button>
+                <hr>
+                <button class="danger" onclick="closeDD();clearBaseline()">🗑️ Șterge linia de bază</button>
+              </div>
+            </div>
           </div>
-          <div class="rb-group-lbl">Program</div>
+          <div class="rb-group-lbl">Planificare</div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn rb-btn-big rb-btn-danger" onclick="clearAll()">
-              <span class="rb-ico">🗑️</span><span class="rb-lbl">Șterge tot</span>
-            </button>
+            <button class="rb-btn" onclick="addNewTab()" title="Proiect nou (tab nou)">➕</button>
+            <button class="rb-btn" onclick="renameActiveTab()" title="Redenumește proiectul">✏️</button>
+            <button class="rb-btn" onclick="closeActiveTab()" title="Închide proiectul">✕</button>
           </div>
-          <div class="rb-group-lbl">Resetare</div>
+          <div class="rb-group-lbl">Proiecte</div>
         </div>
       </div>
 
@@ -302,7 +283,8 @@
     <div class="pane-r" id="paneR">
       <div class="g-toolbar" style="display:flex;align-items:center">
         <span style="font-size:10px;color:var(--muted);font-weight:700;margin-left:4px">Trage rândurile pt ierarhie | Trage barele pt date | Dublu-click rând = Detalii</span>
-        <button class="g-fs-btn" onclick="toggleGanttFull()" title="Gantt pe tot ecranul (Esc pentru ieșire)">⛶ Tot ecranul</button>
+        <button class="g-fs-btn" id="btnLegend" onclick="toggleLegend(event)" title="Ce înseamnă liniile, culorile și semnele din Gantt" style="margin-left:auto;margin-right:6px">ⓘ Legendă</button>
+        <button class="g-fs-btn" onclick="toggleGanttFull()" title="Gantt pe tot ecranul (Esc pentru ieșire)" style="margin-left:0">⛶ Tot ecranul</button>
       </div>
       <div class="g-head" id="gHead"></div>
       <div class="g-body" id="gBody"></div>
