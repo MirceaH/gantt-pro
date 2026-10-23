@@ -6,7 +6,7 @@ function _textW(s, font){ _tc.font = font; return _tc.measureText(s).width; }
 const _FILLER_WORDS = new Set(['si','și','de','la','pentru','in','în','cu','a','al','ale','din','pe','sau','un','o','lui']);
 let _barFont = '';
 function barLabel(t, avail) {
-  if (avail < 22) return '';
+  if (avail < 16) return "";
   if (!_barFont) _barFont = '700 12px ' + getComputedStyle(document.body).fontFamily;
   const fits = s => _textW(s, _barFont) <= avail;
   if (fits(t.nm)) return t.nm;
@@ -51,20 +51,15 @@ function _buildOrthoPoints(fromX, fromY, fromDir, toX, toY, toDir, pad, rowH) {
   // Cazuri în funcție de combinația de direcții
   // 1) fromDir=+1, toDir=-1  (FS tipic)
   if (fromDir === +1 && toDir === -1) {
-    // Bare lipite (fără/aproape fără decalaj): ieșim din marginea de jos/sus a predecesorului
-    const gap = toX - fromX;
-    if (gap < pad * 2) {
-      const midY = fromY + (toY > fromY ? 1 : -1) * rowH / 2, inX = Math.min(toX - 20, fromX + 6);
-      return [[fromX,fromY],[fromX+6,fromY],[fromX+6,midY],[inX,midY],[inX,toY],[toX-2,toY]];
+    // Culoar comun chiar înaintea țintei: toate săgețile FS care intră în aceeași bară coboară pe el
+    // (aceeași coordonată x) și se unesc într-o singură săgeată
+    const lane = toX - 7;
+    if (fromX + 3 <= lane) {
+      return [[fromX,fromY],[lane,fromY],[lane,toY],[toX,toY]];
     }
-    if (exitX <= entryX) {
-      // Spațiu suficient — H-V-H cu cotul chiar înaintea țintei: toate săgețile care intră în aceeași
-      // bară coboară pe același culoar și se unesc într-o singură săgeată
-      return [[fromX,fromY],[entryX,fromY],[entryX,toY],[toX,toY]];
-    }
-    // Target în spate — ocolim pe sub rândul mai de jos
-    const detour = Math.max(fromY, toY) + rowH * 0.55;
-    return [[fromX,fromY],[exitX,fromY],[exitX,detour],[entryX,detour],[entryX,toY],[toX,toY]];
+    // Bare lipite sau țintă „în spate": ieșim pe lângă predecesor, prin spațiul dintre rânduri, și intrăm pe același culoar
+    const midY = fromY + (toY > fromY ? 1 : -1) * rowH / 2;
+    return [[fromX,fromY],[fromX+4,fromY],[fromX+4,midY],[lane,midY],[lane,toY],[toX,toY]];
   }
 
   // 2) fromDir=-1, toDir=+1  (SF — rar)
@@ -488,7 +483,7 @@ function renderGantt(){
     });
   });
 
-  const ti=dD(cs,pD(todayStr)), aziFlag=(ti>=0&&ti<td)?`<div class="today-flag-h" style="left:${ti*dw+dw/2}px">Azi</div>`:"";
+  const ti=dD(cs,pD(todayStr)), aziFlag=(ti>=0&&ti<td)?`<div class="today-flag-h" style="left:${Math.max(16,ti*dw+dw/2)}px">Azi</div>`:"";
   $("gHead").innerHTML=`<div style="width:${tw}px;position:relative"><div class="g-head-row">${hm}</div><div class="g-head-row">${hd}</div>${aziFlag}</div>`;
 
   let grid="";
@@ -515,10 +510,10 @@ function renderGantt(){
       // Progres cu text % INTEGRAT la finalul fill-ului (fără pill extern)
       // Textul se ascunde automat dacă bara e prea îngustă (via CSS)
       // Numele se prescurtează automat ca să încapă în bară (niciodată numărul rândului)
-      const showPct = t.prog>0 && w>=110;
-      const lbl = barLabel(t, w - 20 - (showPct?38:0));
+      const showPct = t.prog>0 && w>=110, tight = w<80;
+      const lbl = barLabel(t, w - (tight?10:20) - (showPct?38:0));
       bi+=`<div class="bp" style="width:${t.prog}%"></div>`;
-      if(lbl) bi+=`<div class="bn dp${dp}"${showPct?' style="padding-right:38px"':''}>${esc(lbl)}</div>`;
+      if(lbl) bi+=`<div class="bn dp${dp}${tight?" tight":""}"${showPct?' style="padding-right:38px"':""}>${esc(lbl)}</div>`;
       if(lbl!==t.nm) bi+=`<span class="bn-hov">${esc(t.nm)}</span>`;   // numele complet, la hover / selecție
       if(showPct) bi+=`<span class="bp-pct">${t.prog}%</span>`;
       bi+=`<div class="rs rs-l" data-rl="${t.id}"></div><div class="rs rs-r" data-rr="${t.id}"></div>`;
