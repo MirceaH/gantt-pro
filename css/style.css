@@ -1048,9 +1048,6 @@ body.dark .tree-svg .t-node.crit .nc{stroke:#ff6b6b}
 body.dark .dep-svg .dep-group:not(.dep-crit) .dep-line{stroke-width:1.8}
 body.dark .dep-svg.crit-mode .dep-group:not(.dep-crit) .dep-line{stroke-width:1.4}
 body.dark .dep-group.dep-type-fs{--dep-c:#a9bddb}
-/* Săgeți duplicate (suprapuse): ascunse, dar reapar la selectarea/hover pe activitate */
-.dep-group.dep-dup{display:none}
-.dep-svg.has-focus .dep-group.dep-dup.dep-focused{display:inline}
 
 /* Bara de informații sub Gantt + insigna live la tragere */
 .g-info{flex-shrink:0;min-height:30px;display:flex;align-items:center;padding:4px 12px;font-size:11.5px;font-weight:600;color:var(--text2);background:var(--card);border-top:1px solid var(--grid);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}

@@ -575,7 +575,7 @@ function zoom(dir) {
   if (view === "tree") { setTreeZoom(treeZoom + dir * 0.1); return; }
   isAutoZoom = false;
   $("gBody").classList.add("manual-zoom");
-  zoomLevel = clamp(zoomLevel + dir * 20, 20, 300);
+  zoomLevel = clamp(Math.round(zoomLevel * (dir > 0 ? 1.25 : 0.8)), 4, 300);
   document.documentElement.style.setProperty("--day-w", Math.round(30 * zoomLevel / 100) + "px");
   $("zoomLbl").textContent = zoomLevel + "%";
   if(typeof renderGantt === 'function') renderGantt();

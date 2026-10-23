@@ -327,6 +327,8 @@ function openTaskInfo(id) {
     <div class="ti-row">
       <label>Nume</label>
       <input id="tiName" value="${esc(t.nm)}">
+      <label style="margin-top:8px">Nume scurt <span style="font-weight:500;color:var(--muted)">(opțional — apare în bară când numele complet nu încape)</span></label>
+      <input id="tiShort" value="${esc(t.sn || '')}" placeholder="${esc(_autoShort(t))}" maxlength="24">
     </div>
     <div class="ti-row ti-2col">
       <div>
@@ -361,6 +363,7 @@ function openTaskInfo(id) {
     <div class="ti-row">
       <label>Se face după (WBS[Tip][±zile], separat cu ;)</label>
       <input id="tiDeps" value="${esc(depsList)}" placeholder="ex: 1.1; 2.3FS+2; 3.4SS-1">
+      <div class="dep-hint">Scrie numărul rândului după care se face. <b>1.2</b> = începe după ce se termină 1.2. <b>1.2SS+3</b> = începe la 3 zile după ce începe 1.2. Mai multe: separate cu ;</div>
       <div style="font-size:10px;color:var(--muted);margin-top:3px">
         Tipuri: FS (implicit) • SS (start-start) • FF (finish-finish) • SF (start-finish). Lag opțional: +2 / -1
       </div>
@@ -430,6 +433,7 @@ function saveTaskInfo(id) {
   pushHistory();
 
   t.nm = $('tiName').value.trim() || t.nm;
+  { const sn = $('tiShort').value.trim(); if (sn) t.sn = sn; else delete t.sn; }
   if (!hasK(t.id)) {
     t.sd = $('tiStart').value || t.sd;
     const newDur = parseInt($('tiDur').value, 10);

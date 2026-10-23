@@ -441,6 +441,7 @@
           <input type="date" id="calHolDate" style="flex:1">
           <button type="button" class="modal-btn primary" style="padding:8px 14px" onclick="addCalHol()">Adaugă</button>
         </div>
+        <button type="button" class="modal-btn cancel" style="margin:8px 0 2px;width:100%" onclick="addRoHolidays()" title="Adaugă sărbătorile legale (inclusiv Paștele ortodox) pentru anii proiectului">🇷🇴 Adaugă sărbătorile legale ale României</button>
         <div id="calHolList" class="cal-hols"></div>
       </div>
       <div class="ti-info">Durata activităților se numără în zile lucrătoare. Calendarul se salvează separat pentru fiecare proiect (tab).</div>
@@ -481,6 +482,7 @@
         <div class="ti-row">
           <label>Se face după (WBS[Tip][±zile], separat cu ;)</label>
           <input id="atDeps" placeholder="ex: 1.1; 2.3SS+2" autocomplete="off">
+          <div class="dep-hint">Scrie numărul rândului după care se face. <b>1.2</b> = începe după ce se termină 1.2. <b>1.2SS+3</b> = începe la 3 zile după ce începe 1.2. Mai multe: separate cu ;</div>
         </div>
         <div class="ti-row">
           <label>Note</label>

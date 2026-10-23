@@ -2,6 +2,30 @@ let tipTimer = null;
 const _tc = document.createElement('canvas').getContext('2d');
 function _textW(s, font){ _tc.font = font; return _tc.measureText(s).width; }
 
+// ---- Numele activității în bară: complet dacă încape, altfel nume scurt / prescurtare automată ----
+const _FILLER_WORDS = new Set(['si','și','de','la','pentru','in','în','cu','a','al','ale','din','pe','sau','un','o','lui']);
+let _barFont = '';
+function barLabel(t, avail) {
+  if (avail < 22) return '';
+  if (!_barFont) _barFont = '700 12px ' + getComputedStyle(document.body).fontFamily;
+  const fits = s => _textW(s, _barFont) <= avail;
+  if (fits(t.nm)) return t.nm;
+  const sn = (t.sn || '').trim();
+  if (sn && fits(sn)) return sn;
+  // prescurtare automată: scoatem cuvintele de legătură și păstrăm cât încape din primele cuvinte
+  const keep = t.nm.split(/\s+/).filter((w, i) => w && (i === 0 || !_FILLER_WORDS.has(w.toLowerCase())));
+  let out = '', used = 0;
+  for (const w of keep) {
+    const c = out ? out + ' ' + w : w;
+    if (fits(c + (used + 1 < keep.length ? '…' : ''))) { out = c; used++; } else break;
+  }
+  if (used === keep.length && out) return out;
+  if (used > 0) return out + '…';
+  let s = keep[0] || t.nm;   // nici primul cuvânt nu încape: îl tăiem
+  while (s.length > 2 && !fits(s + '…')) s = s.slice(0, -1);
+  return s.length > 2 ? s + '…' : '';
+}
+
 // ============================================================
 // Rutare ortogonală (Manhattan) pentru săgețile de dependență
 // ============================================================
@@ -88,25 +112,14 @@ function _roundedPolyPath(points, r) {
 // evitând primii/ultimii CORNER_GAP pixeli (acolo sunt colțurile barelor cu dep-dots).
 // Dacă segmentul e prea scurt pentru gap, cade înapoi pe mijlocul geometric.
 function _labelAnchor(points) {
-  const CORNER_GAP = 15;
-  let bestLen = 0, bestSeg = null;
+  // Eticheta stă pe mijlocul celui mai lung segment (vertical sau orizontal), departe de capete
+  let bestLen = 0, best = null;
   for (let i = 1; i < points.length; i++) {
     const [x1,y1] = points[i-1], [x2,y2] = points[i];
-    if (x1 === x2) {
-      const len = Math.abs(y2 - y1);
-      if (len > bestLen) { bestLen = len; bestSeg = { x:x1, y1, y2 }; }
-    }
+    const len = Math.abs(x2 - x1) + Math.abs(y2 - y1), vert = x1 === x2;
+    if (len > bestLen + (vert ? -0.01 : 6)) { bestLen = len; best = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 }; }
   }
-  if (bestSeg) {
-    const yTop = Math.min(bestSeg.y1, bestSeg.y2);
-    const yBot = Math.max(bestSeg.y1, bestSeg.y2);
-    // Dacă segmentul e suficient de lung → poziționăm label-ul într-o zonă "sigură" (fără colțuri)
-    if (bestLen > CORNER_GAP * 2 + 10) {
-      return { x: bestSeg.x, y: (yTop + CORNER_GAP + yBot - CORNER_GAP) / 2 };
-    }
-    return { x: bestSeg.x, y: (yTop + yBot) / 2 };
-  }
-  return { x: (points[0][0] + points[points.length-1][0]) / 2, y: points[0][1] - 6 };
+  return best || { x: (points[0][0] + points[points.length-1][0]) / 2, y: points[0][1] - 6 };
 }
 
 // Pune accent pe toate săgețile care ating un task (celelalte se estompează)
@@ -439,7 +452,7 @@ function renderGantt(){
     const paneL=document.getElementById("paneL");
     const availW=window.innerWidth-(paneL?paneL.offsetWidth:540)-6-17-tailW;
     let best=availW/td;
-    best=Math.max(5,Math.min(best,120));
+    best=Math.max(1.2,Math.min(best,120));
     zoomLevel=Math.round((best/30)*100);
     document.documentElement.style.setProperty("--day-w",best+"px");
     dw=best;
@@ -451,6 +464,7 @@ function renderGantt(){
     const zl=$("zoomLbl"); if(zl) zl.textContent=zoomLevel+"%";
   }
 
+  ["gBody","gHead"].forEach(id=>$(id).classList.toggle("zoom-tiny",dw<7));
   const tw=td*dw;
   let mons=[], cm=null;
   for(let i=0;i<td;i++){
@@ -461,7 +475,8 @@ function renderGantt(){
 
   let hm="", hd="";
   mons.forEach(m=>{
-    hm+='<div class="hc mo" style="width:'+m.ds.length*dw+'px;min-width:'+m.ds.length*dw+'px">'+m.l+'</div>';
+    const mw=m.ds.length*dw, mlab=mw>=64?m.l:(mw>=26?MN(m.ds[0]):'');
+    hm+='<div class="hc mo" style="width:'+mw+'px;min-width:'+mw+'px">'+mlab+'</div>';
     m.ds.forEach(d=>{
       // Ascundem/rariem numerele zilelor la zoom mic
       const showNum  = dw >= 18;
@@ -480,6 +495,7 @@ function renderGantt(){
     const d=aD(cs,i);
     const off=isOff(d);
     grid+='<div class="vl '+(fD(d)===todayStr?"today ":"")+(off?"we":"")+'" style="left:'+i*dw+'px'+(off&&dw>=12?';width:'+dw+'px':'')+'"></div>';
+    if(fD(d)===todayStr) grid+='<div class="today-flag" style="left:'+(i*dw+dw/2)+'px" title="Ziua de azi">Azi</div>';
   }
 
   // Map id → row index pt deps
@@ -498,19 +514,16 @@ function renderGantt(){
     } else if(!isSumm){
       // Progres cu text % INTEGRAT la finalul fill-ului (fără pill extern)
       // Textul se ascunde automat dacă bara e prea îngustă (via CSS)
-      const outside = w < t.nm.length*6.8+26;
-      const showPct = t.prog>0 && w>=90 && !outside;
+      // Numele se prescurtează automat ca să încapă în bară (niciodată numărul rândului)
+      const showPct = t.prog>0 && w>=110;
+      const lbl = barLabel(t, w - 20 - (showPct?38:0));
       bi+=`<div class="bp" style="width:${t.prog}%"></div>`;
-      const codeIn = outside && w>=34;
-      bi+= outside ? (codeIn
-                       ? `<div class="bn-code-in">${wbsMap[t.id]||''}</div>`
-                       : `<span class="bn-out"><b class="bn-code">${wbsMap[t.id]||''}</b></span>`)
-                   : `<div class="bn dp${dp}"${showPct?' style="padding-right:38px"':''}>${esc(t.nm)}</div>`;
+      if(lbl) bi+=`<div class="bn dp${dp}"${showPct?' style="padding-right:38px"':''}>${esc(lbl)}</div>`;
       if(showPct) bi+=`<span class="bp-pct">${t.prog}%</span>`;
       bi+=`<div class="rs rs-l" data-rl="${t.id}"></div><div class="rs rs-r" data-rr="${t.id}"></div>`;
     } else {
       const pctSumm=t.prog>0?`<span class="summ-pct">${t.prog}%</span>`:"";
-      bi+=`<span class="bn-summ dp${dp}" title="${esc(t.nm)}">${esc(t.nm.length>20?t.nm.slice(0,19)+'…':t.nm)}${pctSumm}</span>`;
+      bi+=`<span class="bn-summ dp${dp}">${esc(t.nm)}${pctSumm}</span>`;
     }
     // Pentru milestone: width fix mic, doar diamant + label
     const styleStr = isMs
@@ -532,28 +545,7 @@ function renderGantt(){
   const RH=30, PAD=10, CORNER_R=4;
   let arrowsSvg='';
 
-  // Săgeți suprapuse: dacă mai multe săgeți intră în același succesor în aproape același punct,
-  // se desenează doar cea „dominantă" (predecesorul care se termină cel mai târziu); restul se ascund
-  // (apar din nou când selectezi activitatea).
-  const dupSet=new Set();
-  o.forEach(t=>{
-    const deps=t.deps||[]; if(deps.length<2) return;
-    const sP=ps(t), sL=dD(cs,sP._s)*dw, sR=(dD(cs,sP._s)+calSpan(t))*dw;
-    const groups={};
-    deps.forEach(d=>{
-      const pred=T.find(x=>x.id===d.id); if(!pred||idxMap[d.id]===undefined) return;
-      const type=d.type||'FS', pP=ps(pred);
-      const fx=(type==='SS'||type==='SF')?dD(cs,pP._s)*dw:(dD(cs,pP._s)+calSpan(pred))*dw;
-      const endSide=(type==='FF'||type==='SF')?'R':'L', tx=endSide==='R'?sR:sL;
-      const key=endSide+Math.round(tx/12);
-      (groups[key]=groups[key]||[]).push({id:d.id,fx,crit:isCrit(d.id)});
-    });
-    Object.values(groups).forEach(g=>{
-      if(g.length<2) return;
-      g.sort((a,b)=>(b.crit-a.crit)||(b.fx-a.fx));
-      g.slice(1).forEach(x=>dupSet.add(x.id+'>'+t.id));
-    });
-  });
+  // Săgețile care intră în aceeași bară se desenează toate; ultimele segmente se suprapun și par o singură săgeată cu ramificații.
   o.forEach((t,si)=>{
     const deps=t.deps||[]; if(!deps.length) return;
     const succP=ps(t);
@@ -593,7 +585,7 @@ function renderGantt(){
       const lblX = lblPos.x, lblY = lblPos.y;
       const lblW = lblText.length * 5 + 8;
 
-      const typeCls = ' dep-type-'+type.toLowerCase()+(isCrit(predId)&&isCrit(t.id)?' dep-crit':'')+(dupSet.has(predId+'>'+t.id)?' dep-dup':'');
+      const typeCls = ' dep-type-'+type.toLowerCase()+(isCrit(predId)&&isCrit(t.id)?' dep-crit':'');
 
       arrowsSvg+=`<g class="dep-group${typeCls}" data-dep-from="${predId}" data-dep-to="${t.id}" data-dep-type="${type}">`;
       arrowsSvg+=`<path d="${pathD}" fill="none" stroke="transparent" stroke-width="14" class="dep-hit" data-dep-from="${predId}" data-dep-to="${t.id}"/>`;
@@ -782,4 +774,12 @@ function _dlMark(t, cs, dw){
   const x=(dD(cs,pD(t.deadline))+1)*dw;
   const late=taskWarn[t.id]&&taskWarn[t.id].late;
   return '<div class="dl-mark'+(late?' late':'')+'" style="left:'+x+'px" title="Termen limită: '+fmtDate(pD(t.deadline))+(late?' — depășit cu '+late+(late===1?' zi':' zile'):'')+'"></div>';
+}
+
+// Prescurtarea automată (aceeași regulă ca în bară, pe o lățime medie) — arătată ca exemplu în Detalii
+function _autoShort(t) {
+  const keep = t.nm.split(/\s+/).filter((w, i) => w && (i === 0 || !_FILLER_WORDS.has(w.toLowerCase())));
+  let s = keep.join(' ');
+  if (s.length > 14) s = s.slice(0, 13).trim() + '…';
+  return s;
 }

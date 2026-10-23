@@ -93,3 +93,38 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && $('calModal') && $('calModal').classList.contains('open')) closeCalendar();
   if (e.key === 'Enter' && e.target && e.target.id === 'calHolDate') { e.preventDefault(); addCalHol(); }
 });
+
+// ============================================================
+// SĂRBĂTORI LEGALE — ROMÂNIA
+// ============================================================
+// Paștele ortodox (calendar iulian → +13 zile pentru 1900–2099), algoritmul Meeus
+function _orthodoxEaster(y) {
+  const a = y % 4, b = y % 7, c = y % 19, d = (19 * c + 15) % 30, e = (2 * a + 4 * b - d + 34) % 7;
+  const m = Math.floor((d + e + 114) / 31), day = ((d + e + 114) % 31) + 1;
+  return new Date(y, m - 1, day + 13);
+}
+
+function roHolidays(y) {
+  const E = _orthodoxEaster(y), fx = (m, d) => new Date(y, m - 1, d);
+  return [
+    fx(1, 1), fx(1, 2), fx(1, 6), fx(1, 7), fx(1, 24),
+    aD(E, -2), E, aD(E, 1),                // Vinerea Mare, Paște, Lunea Paștelui
+    fx(5, 1), fx(6, 1),
+    aD(E, 49), aD(E, 50),                  // Rusalii
+    fx(8, 15), fx(11, 30), fx(12, 1), fx(12, 25), fx(12, 26)
+  ].map(fD);
+}
+
+// Adaugă (în fereastra Calendar) sărbătorile din anii proiectului, doar cele care cad în zile lucrătoare
+function addRoHolidays() {
+  let y1 = new Date().getFullYear(), y2 = y1 + 1;
+  const b = T.length ? ab() : null;
+  if (b) { y1 = b.mn.getFullYear(); y2 = b.mx.getFullYear(); }
+  let n = 0;
+  for (let y = y1; y <= y2; y++) roHolidays(y).forEach(h => {
+    if (_calDraft.days[pD(h).getDay()] && !_calDraft.hol.includes(h)) { _calDraft.hol.push(h); n++; }
+  });
+  _calDraft.hol.sort();
+  renderCalHol();
+  toast(n ? '🇷🇴 Adăugate ' + n + ' sărbători legale (' + y1 + (y2 > y1 ? '–' + y2 : '') + ')' : 'ℹ️ Sărbătorile legale pentru acești ani sunt deja adăugate');
+}

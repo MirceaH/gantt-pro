@@ -118,3 +118,15 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 - PWA: `manifest.json`, `sw.js` (la fișiere noi: adaugă-le în `ASSETS` și crește `CACHE`).
 - Stare per proiect (tab): `T`, `CAL`, `RES`. Se salvează în `tabs[]`, în exportul JSON și în fișierul de proiect.
 - Câmpuri noi pe activitate: `cons`, `deadline`, `_alap`, `bl`, `assign[{rid,units}]`, `ttype` ('fd'|'fw').
+
+## Noutăți UX (ramura ux-polish)
+
+- `js/dates.js` — câmp de dată în format românesc zz.ll.aaaa: `dtField(iso,{id,dis,cls,onchange})` generează un câmp text + buton de calendar + un `<input type="date">` ascuns (păstrează valoarea ISO, deci restul codului citește `.value` ca înainte). `dtSet(id,iso)` pentru setare din cod, `dtWrapStatic(id)` pentru inputuri din HTML-ul static. Nu mai folosi `<input type="date">` direct (afișează după limba sistemului).
+- Ecran de bun venit când nu e niciun proiect deschis (`tabs.length===0`, clasa `body.no-project`): Proiect nou / Deschide / Exemplu + proiecte recente (IndexedDB, `files.js`: `recentAdd/renderRecents/openRecent`). Prima rulare NU mai încarcă demo-ul.
+- `_openHandle()` în `files.js`: dacă fișierul e deja deschis într-un tab, te duce la el (fără dublură).
+- Taste în tabel (când nu editezi): ↑/↓ selectează, → indent, ← outdent, Alt+↑/↓ mută, Enter editează, Esc / click pe spațiu gol deselectează, Ctrl+N proiect nou.
+- Numele din bară: `barLabel()` în `gantt.js` (complet → `t.sn` nume scurt → prescurtare automată → gol); niciodată numărul rândului.
+- Capitolele au bară subțire cu capete în jos și titlul deasupra; săgețile nu mai ascund duplicatele; „FS" nu se scrie pe săgeată (doar la hover pe săgeată).
+- Zoom auto minim 1.2 px/zi (proiecte lungi încap în fereastră); clasa `zoom-tiny` ascunde grila pe zile.
+- Calendar: buton „Sărbători legale România" (`roHolidays(an)`, Paște ortodox calculat).
+- Dialogul „Activitate nouă": durata începe goală și e obligatorie; data de start implicită = începutul proiectului (`defaultNewStart()`); „+ Capitol" = `addChapter()`.

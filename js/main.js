@@ -171,7 +171,8 @@ function renderSidePanel() {
 
     <div class="sp-sec">Dependențe</div>
     <div class="sp-group"><label class="sp-lbl">Se face după (WBS[tip][±zile], separat cu ;)</label>
-      <input class="sp-in" value="${esc(depsStr)}" placeholder="ex: 1.1; 2.3SS+2" onchange="updDeps(${t.id},this.value)" ${key}></div>
+      <input class="sp-in" value="${esc(depsStr)}" placeholder="ex: 1.1; 2.3SS+2" onchange="updDeps(${t.id},this.value)" ${key}>
+      <div class="dep-hint">Scrie numărul rândului după care se face. <b>1.2</b> = începe după ce se termină 1.2. <b>1.2SS+3</b> = începe la 3 zile după ce începe 1.2. Mai multe: separate cu ;</div></div>
     <div class="sp-info"><span>Urmează</span><b>${esc(succStr)}</b></div>
 
     <div class="sp-sec">Restricții și termen</div>

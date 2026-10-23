@@ -175,3 +175,36 @@ body.dark .wl-btn.primary,body.dark .wl-btn.primary:hover{color:#0f1220}
 .wl-rec:hover{background:var(--grid2)}
 .wl-rec span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wl-rec small{color:var(--muted);font-weight:600}
+
+.dep-hint{font-size:11px;color:var(--muted);font-weight:600;margin-top:4px;line-height:1.4}
+.dep-hint b{color:var(--text2)}
+
+/* Etichetă „Azi" pe marcajul zilei de azi din Gantt */
+.today-flag{position:absolute;top:0;transform:translateX(-50%);background:#e03a3a;color:#fff;font-size:9.5px;font-weight:800;padding:1px 7px 2px;border-radius:0 0 6px 6px;z-index:30;pointer-events:none;letter-spacing:.3px;line-height:1.2}
+
+/* ---------- Capitole: bară subțire cu capete în jos, titlul deasupra ---------- */
+.gb.summ{height:8px!important;top:11px!important;border-radius:2px!important;box-shadow:none!important}
+.gb.summ.dp0,.gb.summ.dp1,.gb.summ.dp2,.gb.summ.dp3{background:#4a5775!important;box-shadow:none!important}
+body.dark .gb.summ.dp0,body.dark .gb.summ.dp1,body.dark .gb.summ.dp2,body.dark .gb.summ.dp3{background:#8d9ac0!important}
+.gb.summ::before,.gb.summ::after,.gb.summ.dp0::before,.gb.summ.dp0::after,.gb.summ.dp1::before,.gb.summ.dp1::after,
+.gb.summ.dp2::before,.gb.summ.dp2::after,.gb.summ.dp3::before,.gb.summ.dp3::after{
+  width:0!important;height:0!important;transform:none!important;border-radius:0!important;background:none!important;
+  bottom:-6px!important;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #4a5775}
+body.dark .gb.summ::before,body.dark .gb.summ::after{border-top-color:#8d9ac0}
+.gb.summ::before{left:-1px!important}
+.gb.summ::after{right:-1px!important;left:auto!important}
+.gb.summ .bn-summ,.gb.summ.dp0 .bn-summ,.gb.summ.dp1 .bn-summ,.gb.summ.dp2 .bn-summ,.gb.summ.dp3 .bn-summ{
+  left:0!important;top:auto!important;bottom:100%!important;transform:none!important;margin:0 0 1px 0!important;
+  font-size:10.5px;line-height:11px;color:var(--text)!important}
+.gb.summ .bn-summ .summ-pct,.gb.summ.dp0 .bn-summ .summ-pct,.gb.summ.dp1 .bn-summ .summ-pct,.gb.summ.dp2 .bn-summ .summ-pct,.gb.summ.dp3 .bn-summ .summ-pct{
+  padding:0 5px;margin-left:6px;border-radius:6px;background:var(--text2)!important;font-size:9px;line-height:12px;box-shadow:none}
+body.dark .gb.summ .bn-summ .summ-pct{color:#0f1220}
+
+/* ---------- Zoom foarte mic (proiecte lungi): fără linii pe fiecare zi ---------- */
+.g-body.zoom-tiny .vl:not(.today){display:none}
+.g-head.zoom-tiny .hc.dy{border-right:none}
+.g-head.zoom-tiny .hc.dy.we{background:var(--grid2)}
+
+/* Săgeți: „FS" (implicit) nu se scrie niciodată pe săgeată; apare doar când treci cu mouse-ul pe săgeată */
+.dep-svg.has-focus .dep-group.dep-focused .dep-lbl-bg.lbl-plain,.dep-svg.has-focus .dep-group.dep-focused .dep-lbl.lbl-plain{opacity:0}
+.dep-group:hover .dep-lbl-bg.lbl-plain,.dep-group:hover .dep-lbl.lbl-plain{opacity:1!important}
