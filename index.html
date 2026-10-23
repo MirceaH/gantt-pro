@@ -69,6 +69,7 @@
   <div class="ribbon">
     <div class="ribbon-tabs" id="ribbonTabs">
       <div class="app-brand"><svg class="ic"><use href="#i-logo"/></svg><span>Gantt PRO</span></div>
+      <div class="rb-tab" data-rt="file">Fișier</div>
       <div class="rb-tab active" data-rt="home">Acasă</div>
       <div class="rb-tab" data-rt="view">Vizualizare</div>
       <div class="rb-tab" data-rt="project">Proiect</div>
@@ -80,8 +81,8 @@
 
     <div class="ribbon-body">
 
-      <!-- TAB HOME -->
-      <div class="rb-content active" data-rc="home">
+      <!-- TAB FIȘIER -->
+      <div class="rb-content" data-rc="file">
 
         <div class="rb-group">
           <div class="rb-row">
@@ -91,11 +92,63 @@
             <button class="rb-btn rb-btn-big keep" onclick="fileOpen()" title="Deschide un proiect salvat (Ctrl+O)">
               <svg class="ic"><use href="#i-folder"/></svg><span class="rb-lbl">Deschide</span>
             </button>
-            <button class="rb-btn rb-btn-big" onclick="fileSave()" title="Salvează în fișier (Ctrl+S)">
-              <svg class="ic"><use href="#i-save"/></svg><span class="rb-lbl">Salvează</span>
+            <button class="rb-btn rb-btn-big keep" onclick="openExample()" title="Deschide proiectul exemplu într-un tab nou" id="btnExample">
+              <svg class="ic"><use href="#i-sparkle"/></svg><span class="rb-lbl">Exemplu</span>
             </button>
           </div>
         </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="fileSave()" title="Salvează în fișier (Ctrl+S)">
+              <svg class="ic"><use href="#i-save"/></svg><span class="rb-lbl">Salvează</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="fileSaveAs()" title="Salvează într-un fișier nou (Ctrl+Shift+S)">
+              <svg class="ic"><use href="#i-save"/></svg><span class="rb-lbl">Salvează ca…</span>
+            </button>
+            <button class="rb-btn rb-btn-big" id="btnFileAuto" onclick="fileToggleAuto()" title="Salvează singur în fișier la fiecare modificare">
+              <svg class="ic"><use href="#i-target"/></svg><span class="rb-lbl">Salvare automată</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <div class="rb-dd">
+              <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Exportă ca imagine, PDF sau pentru MS Project">
+                <svg class="ic"><use href="#i-export"/></svg><span class="rb-lbl">Export</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
+              </button>
+              <div class="rb-menu">
+                <button onclick="closeDD();exportPNG()"><span>Imagine (PNG)</span></button>
+                <button onclick="closeDD();exportPDF()"><span>Document (PDF)</span></button>
+                <button onclick="closeDD();exportMSProject()"><span>MS Project (XML)</span></button>
+                <hr>
+                <button onclick="closeDD();exportJSON()"><span>Copie de siguranță (JSON)</span></button>
+              </div>
+            </div>
+            <button class="rb-btn rb-btn-big" onclick="importJSONasTab()" title="Importă un fișier JSON într-un tab nou">
+              <svg class="ic"><use href="#i-folder"/></svg><span class="rb-lbl">Import JSON</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="renameActiveTab()" title="Redenumește proiectul">
+              <svg class="ic"><use href="#i-pencil"/></svg><span class="rb-lbl">Redenumește</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="closeActiveTab()" title="Închide proiectul">
+              <svg class="ic"><use href="#i-x"/></svg><span class="rb-lbl">Închide</span>
+            </button>
+            <button class="rb-btn rb-btn-big rb-btn-danger" onclick="clearAll()" title="Șterge toate activitățile din proiectul curent">
+              <svg class="ic"><use href="#i-trash"/></svg><span class="rb-lbl">Golește proiectul</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB HOME -->
+      <div class="rb-content active" data-rc="home">
 
         <div class="rb-group">
           <div class="rb-row">
@@ -138,13 +191,6 @@
           </div>
         </div>
 
-        <div class="rb-group">
-          <div class="rb-row">
-            <button class="rb-btn rb-btn-big keep" onclick="openExample()" title="Deschide proiectul exemplu într-un tab nou" id="btnExample">
-              <svg class="ic"><use href="#i-sparkle"/></svg><span class="rb-lbl">Exemplu</span>
-            </button>
-          </div>
-        </div>
       </div>
 
       <!-- TAB VIEW -->
@@ -199,46 +245,6 @@
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn rb-btn-big" onclick="fileSave()" title="Salvează în fișier (Ctrl+S)">
-              <svg class="ic"><use href="#i-save"/></svg><span class="rb-lbl">Salvează</span>
-            </button>
-            <button class="rb-btn rb-btn-big keep" onclick="fileOpen()" title="Deschide un proiect din fișier (Ctrl+O)">
-              <svg class="ic"><use href="#i-folder"/></svg><span class="rb-lbl">Deschide</span>
-            </button>
-            <div class="rb-dd">
-              <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Salvează ca, salvare automată, export/import JSON">
-                <svg class="ic"><use href="#i-more"/></svg><span class="rb-lbl">Mai multe</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
-              </button>
-              <div class="rb-menu">
-                <button onclick="closeDD();fileSaveAs()"><span>Salvează ca…</span><kbd>Ctrl+Shift+S</kbd></button>
-                <button id="btnFileAuto" onclick="closeDD();fileToggleAuto()"><span>Salvare automată în fișier</span></button>
-                <hr>
-                <button onclick="closeDD();exportJSON()"><span>Export JSON</span></button>
-                <button onclick="closeDD();importJSONasTab()"><span>Import JSON</span></button>
-                <hr>
-                <button class="danger" onclick="closeDD();clearAll()"><span>Șterge tot proiectul curent</span></button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="rb-group">
-          <div class="rb-row">
-            <div class="rb-dd">
-              <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Exportă ca imagine, PDF sau pentru MS Project">
-                <svg class="ic"><use href="#i-export"/></svg><span class="rb-lbl">Export</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
-              </button>
-              <div class="rb-menu">
-                <button onclick="closeDD();exportPNG()"><span>Imagine (PNG)</span></button>
-                <button onclick="closeDD();exportPDF()"><span>Document (PDF)</span></button>
-                <button onclick="closeDD();exportMSProject()"><span>MS Project (XML)</span></button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="rb-group">
-          <div class="rb-row">
             <button class="rb-btn rb-btn-big" onclick="openCalendar()" title="Zile lucrătoare și zile libere pentru acest proiect">
               <svg class="ic"><use href="#i-calendar"/></svg><span class="rb-lbl">Calendar</span>
             </button>
@@ -262,13 +268,6 @@
           </div>
         </div>
 
-        <div class="rb-group">
-          <div class="rb-row">
-            <button class="rb-btn keep" onclick="newProject()" title="Proiect nou (tab nou)"><svg class="ic"><use href="#i-plus"/></svg></button>
-            <button class="rb-btn" onclick="renameActiveTab()" title="Redenumește proiectul"><svg class="ic"><use href="#i-pencil"/></svg></button>
-            <button class="rb-btn" onclick="closeActiveTab()" title="Închide proiectul"><svg class="ic"><use href="#i-x"/></svg></button>
-          </div>
-        </div>
       </div>
 
       <!-- TAB FORMAT (apare doar la selecție) -->

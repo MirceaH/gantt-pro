@@ -58,9 +58,9 @@ function _buildOrthoPoints(fromX, fromY, fromDir, toX, toY, toDir, pad, rowH) {
       return [[fromX,fromY],[fromX+6,fromY],[fromX+6,midY],[inX,midY],[inX,toY],[toX-2,toY]];
     }
     if (exitX <= entryX) {
-      // Spațiu suficient — L în trei segmente (H-V-H) cu cot la mijloc
-      const midX = (exitX + entryX) / 2;
-      return [[fromX,fromY],[midX,fromY],[midX,toY],[toX,toY]];
+      // Spațiu suficient — H-V-H cu cotul chiar înaintea țintei: toate săgețile care intră în aceeași
+      // bară coboară pe același culoar și se unesc într-o singură săgeată
+      return [[fromX,fromY],[entryX,fromY],[entryX,toY],[toX,toY]];
     }
     // Target în spate — ocolim pe sub rândul mai de jos
     const detour = Math.max(fromY, toY) + rowH * 0.55;
@@ -488,14 +488,14 @@ function renderGantt(){
     });
   });
 
-  $("gHead").innerHTML=`<div style="width:${tw}px"><div class="g-head-row">${hm}</div><div class="g-head-row">${hd}</div></div>`;
+  const ti=dD(cs,pD(todayStr)), aziFlag=(ti>=0&&ti<td)?`<div class="today-flag-h" style="left:${ti*dw+dw/2}px">Azi</div>`:"";
+  $("gHead").innerHTML=`<div style="width:${tw}px;position:relative"><div class="g-head-row">${hm}</div><div class="g-head-row">${hd}</div>${aziFlag}</div>`;
 
   let grid="";
   for(let i=0;i<td;i++){
     const d=aD(cs,i);
     const off=isOff(d);
     grid+='<div class="vl '+(fD(d)===todayStr?"today ":"")+(off?"we":"")+'" style="left:'+i*dw+'px'+(off&&dw>=12?';width:'+dw+'px':'')+'"></div>';
-    if(fD(d)===todayStr) grid+='<div class="today-flag" style="left:'+(i*dw+dw/2)+'px" title="Ziua de azi">Azi</div>';
   }
 
   // Map id → row index pt deps
@@ -519,6 +519,7 @@ function renderGantt(){
       const lbl = barLabel(t, w - 20 - (showPct?38:0));
       bi+=`<div class="bp" style="width:${t.prog}%"></div>`;
       if(lbl) bi+=`<div class="bn dp${dp}"${showPct?' style="padding-right:38px"':''}>${esc(lbl)}</div>`;
+      if(lbl!==t.nm) bi+=`<span class="bn-hov">${esc(t.nm)}</span>`;   // numele complet, la hover / selecție
       if(showPct) bi+=`<span class="bp-pct">${t.prog}%</span>`;
       bi+=`<div class="rs rs-l" data-rl="${t.id}"></div><div class="rs rs-r" data-rr="${t.id}"></div>`;
     } else {
