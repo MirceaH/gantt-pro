@@ -208,3 +208,4 @@ body.dark .gb.summ .bn-summ .summ-pct{color:#0f1220}
 /* Săgeți: „FS" (implicit) nu se scrie niciodată pe săgeată; apare doar când treci cu mouse-ul pe săgeată */
 .dep-svg.has-focus .dep-group.dep-focused .dep-lbl-bg.lbl-plain,.dep-svg.has-focus .dep-group.dep-focused .dep-lbl.lbl-plain{opacity:0}
 .dep-group:hover .dep-lbl-bg.lbl-plain,.dep-group:hover .dep-lbl.lbl-plain{opacity:1!important}
+body.no-project .sbar{visibility:hidden}
