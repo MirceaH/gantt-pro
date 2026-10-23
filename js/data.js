@@ -63,7 +63,7 @@ const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>
 const isWE = d => d.getDay()===0 || d.getDay()===6;
 const MN = d => ["Ian","Feb","Mar","Apr","Mai","Iun","Iul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
 const todayStr = fD(new Date());
-const fmtDate = d => `${d.getDate()}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
+const fmtDate = d => `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
 
 function toast(m) { const t=$("toast"); t.textContent=m; t.classList.add("v"); clearTimeout(toast._); toast._=setTimeout(()=>t.classList.remove("v"),2500); }
 function kids(p) { return T.filter(t=>t.pid===p); }
@@ -410,13 +410,20 @@ function switchTab(tabId) {
 
 function closeTab(tabId, e) {
   if (e) e.stopPropagation();
-  if (tabs.length === 1) { toast('⚠️ Nu poți închide singurul tab!'); return; }
-  customConfirm('Închizi acest proiect? Datele nesalvate se pierd.', function() {
+  customConfirm('Închizi acest proiect? Ce nu ai salvat într-un fișier (Ctrl+S) se pierde.', function() {
     const idx = tabs.findIndex(t => t.id === tabId);
+    if (idx < 0) return;
     tabs.splice(idx, 1);
+    delete fileHandles[tabId]; delete fileAuto[tabId]; delete fileNames[tabId]; delete fileSavedAt[tabId];
 
-    // Dacă am închis tab-ul activ, activăm vecinul
-    if (activeTabId === tabId) {
+    if (!tabs.length) {
+      // Niciun proiect deschis: ecranul de bun venit
+      activeTabId = null;
+      T = []; nid = 1; sel = null; coll.clear(); _history = []; _future = [];
+      setCal(null); setRes(null);
+      updateUndoRedoBtns();
+    } else if (activeTabId === tabId) {
+      // Dacă am închis tab-ul activ, activăm vecinul
       const newIdx = Math.min(idx, tabs.length - 1);
       activeTabId = tabs[newIdx].id;
       loadTabData(activeTabId);
@@ -468,7 +475,7 @@ function renderTabsBar() {
           </div>`;
   });
   // Butonul + rămâne la final
-  h += `<button class="proj-tab-add" onclick="addNewTab()" title="Proiect nou">＋</button>`;
+  h += `<button class="proj-tab-add" onclick="newProject()" title="Proiect nou">＋</button>`;
   bar.innerHTML = h;
 }
 
@@ -511,8 +518,10 @@ function loadAllTabs() {
     const savedNextId = localStorage.getItem('ganttPRO_nextId');
     if (savedTabs) {
       tabs        = JSON.parse(savedTabs);
+      if (!Array.isArray(tabs)) tabs = [];
       nextTabId   = savedNextId ? +savedNextId : tabs.length + 1;
-      activeTabId = savedActive ? +savedActive : tabs[0].id;
+      if (!tabs.length) { activeTabId = null; return true; }   // niciun proiect deschis → bun venit
+      activeTabId = savedActive && tabs.some(t => t.id === +savedActive) ? +savedActive : tabs[0].id;
       loadTabData(activeTabId);
       return true;
     }

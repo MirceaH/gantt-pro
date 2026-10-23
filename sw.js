@@ -1,10 +1,10 @@
 // Service worker: aplicația merge și fără internet.
 // Strategie: rețea întâi (ca să vezi mereu versiunea nouă), iar dacă nu există rețea, copia din cache.
-const CACHE = "gantt-pro-v6";
+const CACHE = "gantt-pro-v7";
 const ASSETS = [
   "./", "./index.html", "./manifest.json",
   "./css/style.css", "./css/fonts.css", "./css/theme.css",
-  "./js/data.js", "./js/calendar.js", "./js/cpm.js", "./js/plan.js", "./js/resources.js", "./js/gantt.js", "./js/tree.js",
+  "./js/data.js", "./js/dates.js", "./js/calendar.js", "./js/cpm.js", "./js/plan.js", "./js/resources.js", "./js/gantt.js", "./js/tree.js",
   "./js/deps.js", "./js/toolbar.js", "./js/files.js", "./js/main.js",
   "./js/lib/html2canvas.min.js", "./js/lib/jspdf.umd.min.js",
   "./fonts/nunito-1.woff2", "./fonts/nunito-2.woff2", "./fonts/nunito-3.woff2",

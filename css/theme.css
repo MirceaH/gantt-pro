@@ -136,3 +136,42 @@ body.dark .g-row.selected{background:rgba(128,149,255,.07)!important}
 /* La capitole: apare doar când treci cu mouse-ul sau le selectezi */
 .g-row:has(.gb.summ) .bl-bar{display:none}
 .g-row:has(.gb.summ):hover .bl-bar,.g-row.selected:has(.gb.summ) .bl-bar{display:block}
+
+/* ---------- Câmp de dată zz.ll.aaaa ---------- */
+.dtx{position:relative;display:flex;align-items:center;width:100%;height:100%;min-width:0}
+.dtx-n{position:absolute;left:0;bottom:0;width:100%;height:1px;opacity:0;pointer-events:none;border:0!important;padding:0!important;margin:0}
+.dtx-t{flex:1;min-width:0}
+.dtx-t::placeholder{color:var(--muted);font-weight:500}
+.dtx-b{flex:0 0 auto;width:22px;height:22px;border:none;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;padding:0}
+.dtx-b:hover{background:var(--grid2);color:var(--accent)}
+.dtx-b .ic{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dtx-n:disabled ~ .dtx-b{display:none}
+.dtx-n:disabled ~ .dtx-t{opacity:.65}
+.ti-row .dtx-t,.sp-group .dtx-t{width:100%}
+
+/* ---------- Avertisment la durată lipsă ---------- */
+.at-err{color:#d94040;font-size:12px;font-weight:700;margin:2px 0 6px}
+.ti-row input.err,#atDur.err{border-color:#d94040!important;box-shadow:0 0 0 3px rgba(217,64,64,.15)}
+
+/* ---------- Ecran de bun venit (niciun proiect deschis) ---------- */
+body.no-project .split,body.no-project .tree-layout,body.no-project .vtabs{display:none!important}
+body.no-project .rb-btn:not(.keep),body.no-project .rb-dd{opacity:.35;pointer-events:none}
+body.no-project .rb-btn.keep{opacity:1;pointer-events:auto}
+.welcome{display:none;flex:1;min-height:0;align-items:center;justify-content:center;padding:24px;overflow:auto;background:var(--bg)}
+body.no-project .welcome{display:flex}
+.welcome-box{max-width:520px;width:100%;text-align:center}
+.wl-logo{width:56px;height:56px;color:var(--accent);stroke:none}
+.welcome h1{margin:10px 0 4px;font-size:26px;color:var(--text)}
+.welcome p{margin:0;color:var(--text2);font-size:13.5px}
+.wl-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:24px 0 18px}
+.wl-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:var(--r-md);border:1px solid var(--grid);background:var(--card);color:var(--text);font-weight:700;font-size:13px;font-family:var(--font);cursor:pointer}
+.wl-btn:hover{border-color:var(--accent);color:var(--accent)}
+.wl-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.wl-btn.primary:hover{color:#fff;filter:brightness(1.08)}
+body.dark .wl-btn.primary,body.dark .wl-btn.primary:hover{color:#0f1220}
+.wl-recent{text-align:left;margin-top:6px}
+.wl-rtitle{font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin:0 0 6px 4px}
+.wl-rec{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border:none;background:transparent;border-radius:var(--r-sm);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;text-align:left}
+.wl-rec:hover{background:var(--grid2)}
+.wl-rec span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wl-rec small{color:var(--muted);font-weight:600}

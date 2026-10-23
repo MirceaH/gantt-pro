@@ -75,6 +75,27 @@ function pasteTask() {
 // ============================================================
 // DIALOG ADĂUGARE ACTIVITATE (simplu + opțiuni avansate)
 // ============================================================
+// Data de start propusă pentru o activitate nouă: începutul proiectului (cea mai devreme dată de start)
+function defaultNewStart() {
+  const starts = T.map(t => t.sd).filter(s => /^\d{4}-\d{2}-\d{2}$/.test(s)).sort();
+  return starts.length ? starts[0] : fD(nextWork(new Date()));
+}
+
+// „+ Capitol": adaugă un rând-capitol chiar deasupra rândului selectat (sau la final), gata de redenumit.
+// Activitățile de sub el se mută în capitol cu săgeata → (Tab).
+function addChapter() {
+  pushHistory();
+  const selTask = sel ? T.find(x => x.id === sel) : null;
+  const ch = { id: nid++, nm: 'Capitol nou', sd: defaultNewStart(), dur: 1, prog: 0, pid: selTask ? selTask.pid : null, deps: [] };
+  if (selTask) T.splice(T.indexOf(selTask), 0, ch); else T.push(ch);
+  sel = ch.id;
+  syncTabData();
+  renderAll();
+  const inp = document.querySelector('.t-row[data-tid="' + ch.id + '"] .c-name input');
+  if (inp) { inp.focus(); inp.select(); inp.scrollIntoView({ block: 'nearest' }); }
+  toast('📁 Scrie numele capitolului. Apoi pune activitățile sub el cu → (Tab)');
+}
+
 function openAddTask(asMilestone) {
   const w = wbs();
   const opts = ['<option value="">— fără (nivel principal) —</option>'];
@@ -84,9 +105,10 @@ function openAddTask(asMilestone) {
   $('atParent').value = selTask && selTask.pid ? String(selTask.pid) : '';
 
   $('atName').value = '';
-  $('atName').placeholder = asMilestone ? 'Milestone' : 'Activitate nouă';
-  $('atStart').value = fD(new Date());
-  $('atDur').value = 5;
+  $('atName').placeholder = asMilestone ? 'Reper' : 'Activitate nouă';
+  dtSet('atStart', defaultNewStart());
+  $('atDur').value = '';
+  $('atDur').classList.remove('err'); $('atErr').style.display = 'none';
   $('atMs').checked = !!asMilestone;
   $('atDur').disabled = !!asMilestone;
   $('atProg').value = 0;
@@ -94,7 +116,7 @@ function openAddTask(asMilestone) {
   $('atNotes').value = '';
   $('atAdv').classList.remove('open');
   $('atAdvBtn').textContent = '⚙ Opțiuni avansate ▾';
-  $('atTitle').textContent = asMilestone ? 'Milestone nou' : 'Activitate nouă';
+  $('atTitle').textContent = asMilestone ? 'Reper nou' : 'Activitate nouă';
   $('addTaskModal').classList.add('open');
   setTimeout(() => $('atName').focus(), 50);
 }
@@ -109,9 +131,17 @@ function toggleAddAdvanced() {
 
 function saveAddTask() {
   const isMs = $('atMs').checked;
-  const nm = $('atName').value.trim() || (isMs ? 'Milestone' : 'Activitate nouă');
-  const sd = $('atStart').value || fD(new Date());
-  const dur = isMs ? 1 : Math.max(1, parseInt($('atDur').value, 10) || 5);
+  const nm = $('atName').value.trim() || (isMs ? 'Reper' : 'Activitate nouă');
+  const sd = $('atStart').value || defaultNewStart();
+  const durIn = parseInt($('atDur').value, 10);
+  if (!isMs && !(durIn >= 1)) {   // durata e obligatorie: nu punem o valoare în locul utilizatorului
+    $('atErr').style.display = 'block';
+    $('atDur').classList.add('err');
+    $('atDur').focus();
+    toast('⚠️ Nu ai completat durata activității');
+    return;
+  }
+  const dur = isMs ? 1 : durIn;
   const prog = isMs ? 0 : clamp(parseInt($('atProg').value, 10) || 0, 0, 100);
   const pid = $('atParent').value ? +$('atParent').value : null;
 
@@ -134,7 +164,7 @@ function saveAddTask() {
   closeAddTask();
   syncTabData();
   renderAll();
-  toast(isMs ? '♦ Milestone adăugat' : '➕ Activitate adăugată');
+  toast(isMs ? '♦ Reper adăugat' : '➕ Activitate adăugată');
 }
 
 // Enter în dialog = Adaugă
@@ -311,11 +341,11 @@ function openTaskInfo(id) {
     <div class="ti-row ti-2col">
       <div>
         <label>Data Start</label>
-        <input type="date" id="tiStart" value="${t.sd}" ${isSumm ? 'disabled' : ''}>
+        ${dtField(t.sd, {id:'tiStart', dis:isSumm})}
       </div>
       <div>
         <label>Data Final</label>
-        <input type="date" id="tiEnd" value="${fD(p._e)}" ${isSumm ? 'disabled' : ''}>
+        ${dtField(fD(p._e), {id:'tiEnd', dis:isSumm})}
       </div>
     </div>
     <div class="ti-row ti-2col">
@@ -329,7 +359,7 @@ function openTaskInfo(id) {
       </div>
     </div>
     <div class="ti-row">
-      <label>Predecesori (WBS[Tip][±zile], separat cu ;)</label>
+      <label>Se face după (WBS[Tip][±zile], separat cu ;)</label>
       <input id="tiDeps" value="${esc(depsList)}" placeholder="ex: 1.1; 2.3FS+2; 3.4SS-1">
       <div style="font-size:10px;color:var(--muted);margin-top:3px">
         Tipuri: FS (implicit) • SS (start-start) • FF (finish-finish) • SF (start-finish). Lag opțional: +2 / -1
@@ -344,12 +374,12 @@ function openTaskInfo(id) {
       </div>
       <div>
         <label>Data restricției</label>
-        <input type="date" id="tiConsDate" value="${t.cons && t.cons.date ? t.cons.date : ''}" ${(isSumm || !(t.cons && CONS_NEEDS_DATE.includes(t.cons.type))) ? 'disabled' : ''}>
+        ${dtField(t.cons && t.cons.date ? t.cons.date : '', {id:'tiConsDate', dis:(isSumm || !(t.cons && CONS_NEEDS_DATE.includes(t.cons.type)))})}
       </div>
     </div>
     <div class="ti-row">
       <label>Termen limită (deadline) — nu mută nimic, doar avertizează dacă e depășit</label>
-      <input type="date" id="tiDeadline" value="${t.deadline || ''}">
+      ${dtField(t.deadline || '', {id:'tiDeadline'})}
     </div>
     <div class="ti-row ti-res" ${isSumm ? 'style="display:none"' : ''}>
       <label>Resurse atribuite</label>
@@ -368,7 +398,7 @@ function openTaskInfo(id) {
       <div style="font-size:10px;color:var(--muted);margin-top:3px">Durată fixă: la mai multe resurse crește munca. Muncă fixă: la mai multe resurse scade durata. Unități fixe: la altă durată se schimbă munca.</div>
     </div>
     <div class="ti-row">
-      <label>Succesori (info, doar citire)</label>
+      <label>Urmează după ea (doar informativ)</label>
       <input value="${esc(succsList) || '—'}" disabled>
     </div>
     <div class="ti-row">

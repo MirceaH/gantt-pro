@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gantt PRO - Modular</title>
+<title>Gantt PRO</title>
 <meta name="theme-color" content="#4f6bed">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -69,9 +69,9 @@
   <div class="ribbon">
     <div class="ribbon-tabs" id="ribbonTabs">
       <div class="app-brand"><svg class="ic"><use href="#i-logo"/></svg><span>Gantt PRO</span></div>
-      <div class="rb-tab active" data-rt="home">Home</div>
-      <div class="rb-tab" data-rt="view">View</div>
-      <div class="rb-tab" data-rt="project">Project</div>
+      <div class="rb-tab active" data-rt="home">Acasă</div>
+      <div class="rb-tab" data-rt="view">Vizualizare</div>
+      <div class="rb-tab" data-rt="project">Proiect</div>
       <div class="rb-tab" data-rt="format" id="rtFormat" style="display:none">Format</div>
       <div class="ribbon-spacer"></div>
       <button class="rb-quick" id="btnRibbonCollapse" onclick="toggleRibbon()" title="Ascunde / arată butoanele (dublu-click pe un tab)"><svg class="ic"><use href="#i-chevup"/></svg></button>
@@ -85,11 +85,28 @@
 
         <div class="rb-group">
           <div class="rb-row">
+            <button class="rb-btn rb-btn-big keep" onclick="newProject()" title="Proiect nou (Ctrl+N)">
+              <svg class="ic"><use href="#i-plus"/></svg><span class="rb-lbl">Proiect nou</span>
+            </button>
+            <button class="rb-btn rb-btn-big keep" onclick="fileOpen()" title="Deschide un proiect salvat (Ctrl+O)">
+              <svg class="ic"><use href="#i-folder"/></svg><span class="rb-lbl">Deschide</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="fileSave()" title="Salvează în fișier (Ctrl+S)">
+              <svg class="ic"><use href="#i-save"/></svg><span class="rb-lbl">Salvează</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
             <button class="rb-btn rb-btn-big primary" onclick="openAddTask(false)" title="Adaugă o activitate (Enter confirmă în dialog)">
               <svg class="ic"><use href="#i-plus"/></svg><span class="rb-lbl">Activitate</span>
             </button>
-            <button class="rb-btn rb-btn-big" onclick="openAddTask(true)" title="Punct cheie (durată 0)">
-              <svg class="ic"><use href="#i-diamond"/></svg><span class="rb-lbl">Milestone</span>
+            <button class="rb-btn rb-btn-big" onclick="addChapter()" title="Adaugă un capitol (grup de activități) deasupra rândului selectat">
+              <svg class="ic"><use href="#i-folder"/></svg><span class="rb-lbl">Capitol</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="openAddTask(true)" title="Reper = punct cheie fără durată (ex: recepție, predare)">
+              <svg class="ic"><use href="#i-diamond"/></svg><span class="rb-lbl">Reper</span>
             </button>
           </div>
         </div>
@@ -123,8 +140,8 @@
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn rb-btn-big" onclick="loadDemo()" title="Încarcă proiectul demo">
-              <svg class="ic"><use href="#i-sparkle"/></svg><span class="rb-lbl">Demo</span>
+            <button class="rb-btn rb-btn-big keep" onclick="openExample()" title="Deschide proiectul exemplu într-un tab nou" id="btnExample">
+              <svg class="ic"><use href="#i-sparkle"/></svg><span class="rb-lbl">Exemplu</span>
             </button>
           </div>
         </div>
@@ -185,7 +202,7 @@
             <button class="rb-btn rb-btn-big" onclick="fileSave()" title="Salvează în fișier (Ctrl+S)">
               <svg class="ic"><use href="#i-save"/></svg><span class="rb-lbl">Salvează</span>
             </button>
-            <button class="rb-btn rb-btn-big" onclick="fileOpen()" title="Deschide un proiect din fișier (Ctrl+O)">
+            <button class="rb-btn rb-btn-big keep" onclick="fileOpen()" title="Deschide un proiect din fișier (Ctrl+O)">
               <svg class="ic"><use href="#i-folder"/></svg><span class="rb-lbl">Deschide</span>
             </button>
             <div class="rb-dd">
@@ -247,7 +264,7 @@
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn" onclick="addNewTab()" title="Proiect nou (tab nou)"><svg class="ic"><use href="#i-plus"/></svg></button>
+            <button class="rb-btn keep" onclick="newProject()" title="Proiect nou (tab nou)"><svg class="ic"><use href="#i-plus"/></svg></button>
             <button class="rb-btn" onclick="renameActiveTab()" title="Redenumește proiectul"><svg class="ic"><use href="#i-pencil"/></svg></button>
             <button class="rb-btn" onclick="closeActiveTab()" title="Închide proiectul"><svg class="ic"><use href="#i-x"/></svg></button>
           </div>
@@ -265,8 +282,8 @@
             <button class="rb-btn rb-btn-big" onclick="unlinkSelected()" title="Șterge toate dependențele activității">
               <svg class="ic"><use href="#i-unlink"/></svg><span class="rb-lbl">Șterge legături</span>
             </button>
-            <button class="rb-btn rb-btn-big" onclick="toggleMilestone()" title="Transformă în / din milestone">
-              <svg class="ic"><use href="#i-diamond"/></svg><span class="rb-lbl">Milestone</span>
+            <button class="rb-btn rb-btn-big" onclick="toggleMilestone()" title="Transformă în / din reper">
+              <svg class="ic"><use href="#i-diamond"/></svg><span class="rb-lbl">Reper</span>
             </button>
           </div>
         </div>
@@ -286,7 +303,7 @@
 
   <!-- Tab-uri proiecte -->
   <div class="proj-tabs-bar" id="projTabsBar">
-    <button class="proj-tab-add" onclick="addNewTab()" title="Proiect nou">＋</button>
+    <button class="proj-tab-add" onclick="newProject()" title="Proiect nou">＋</button>
   </div>
 
   <!-- View tabs (compatibil cu codul existent) -->
@@ -323,6 +340,21 @@
     </div>
   </div>
 
+
+  <!-- Ecran de bun venit (când nu e niciun proiect deschis) -->
+  <div class="welcome" id="welcome">
+    <div class="welcome-box">
+      <svg class="ic wl-logo"><use href="#i-logo"/></svg>
+      <h1>Gantt PRO</h1>
+      <p>Planifică lucrările: activități, ordinea lor, drumul critic, resurse și buget.</p>
+      <div class="wl-actions">
+        <button class="wl-btn primary" onclick="newProject()"><svg class="ic"><use href="#i-plus"/></svg>Proiect nou</button>
+        <button class="wl-btn" onclick="fileOpen()"><svg class="ic"><use href="#i-folder"/></svg>Deschide un proiect</button>
+        <button class="wl-btn" onclick="openExample()"><svg class="ic"><use href="#i-sparkle"/></svg>Deschide un exemplu</button>
+      </div>
+      <div class="wl-recent" id="wlRecent"></div>
+    </div>
+  </div>
   <div class="sbar" id="sbar"></div>
 </div>
 
@@ -434,10 +466,11 @@
       </div>
       <div class="ti-row ti-2col">
         <div><label>Data Start</label><input type="date" id="atStart"></div>
-        <div><label>Durată (zile)</label><input type="number" min="1" id="atDur" value="5"></div>
+        <div><label>Durată (zile lucrătoare)</label><input type="number" min="1" id="atDur" placeholder="ex: 10" oninput="document.getElementById('atErr').style.display='none';this.classList.remove('err')"></div>
       </div>
+      <div id="atErr" class="at-err" style="display:none">⚠️ Completează durata (număr de zile lucrătoare), sau bifează „Reper".</div>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;margin:6px 0">
-        <input type="checkbox" id="atMs" onchange="document.getElementById('atDur').disabled=this.checked"> ♦ Milestone (punct cheie)
+        <input type="checkbox" id="atMs" onchange="document.getElementById('atDur').disabled=this.checked"> ♦ Reper (punct cheie, fără durată)
       </label>
       <button type="button" class="modal-btn cancel" id="atAdvBtn" style="margin:6px 0;width:100%" onclick="toggleAddAdvanced()">⚙ Opțiuni avansate ▾</button>
       <div id="atAdv" class="at-adv"><div class="at-adv-inner">
@@ -446,7 +479,7 @@
           <div><label>Face parte din capitolul</label><select id="atParent" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--grid);font-family:var(--font)"></select></div>
         </div>
         <div class="ti-row">
-          <label>Predecesori (WBS[Tip][±zile], separat cu ;)</label>
+          <label>Se face după (WBS[Tip][±zile], separat cu ;)</label>
           <input id="atDeps" placeholder="ex: 1.1; 2.3SS+2" autocomplete="off">
         </div>
         <div class="ti-row">
@@ -492,6 +525,7 @@
 <script src="js/lib/html2canvas.min.js"></script>
 <script src="js/lib/jspdf.umd.min.js"></script>
 <script src="js/data.js"></script>
+<script src="js/dates.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/cpm.js"></script>
 <script src="js/plan.js"></script>

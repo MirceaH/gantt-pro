@@ -187,7 +187,7 @@ function renderTree(){
     const tx = rW-26, pW = Math.max(0, tx*(n.pr/100));
     const critTxt = n.critN>0 ? ` · ${n.critN} critice` : '';
     const sub = n.isCol ? `${n.cnt} ${n.cnt===1?'activitate':'activități'}${critTxt} · ${dateStr}`
-              : (n.ms ? `♦ milestone · ${dateStr}` : `${n.du} ${n.du===1?'zi':'zile'} · ${dateStr}`);
+              : (n.ms ? `♦ reper · ${dateStr}` : `${n.du} ${n.du===1?'zi':'zile'} · ${dateStr}`);
 
     svg+=`<g id="node-${n.id}" class="t-node${isSel}${n.crit?" crit":""}" onclick="selTask(${n.id})" ondblclick="treeDbl(${n.id})" oncontextmenu="showCtx(event,${n.id})" onmouseenter="setHoverTarget(${n.id});treeTip(event,${n.id})" onmouseleave="clearHoverTarget(${n.id});hideTip()">`;
     svg+=`<rect class="nc" x="${n.x}" y="${n.y}" width="${rW}" height="${rH}" rx="10" filter="url(#shadow)"/>`;

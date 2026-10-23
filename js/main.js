@@ -153,9 +153,9 @@ function renderSidePanel() {
     <div class="sp-sec">Planificare</div>
     <div class="sp-2col">
       <div class="sp-group"><label class="sp-lbl">Start</label>
-        <input type="date" class="sp-in" value="${t.sd}" ${dis} onchange="upd(${t.id},'sd',this.value)" ${key}></div>
+        ${dtField(t.sd, {cls:"sp-in", dis:!!dis, onchange:`upd(${t.id},'sd',this.value)`})}</div>
       <div class="sp-group"><label class="sp-lbl">Final</label>
-        <input type="date" class="sp-in" value="${fD(p._e)}" ${dis} onchange="upd(${t.id},'ed',this.value)" ${key}></div>
+        ${dtField(fD(p._e), {cls:"sp-in", dis:!!dis, onchange:`upd(${t.id},'ed',this.value)`})}</div>
     </div>
     <div class="sp-2col">
       <div class="sp-group"><label class="sp-lbl">Durată (zile lucrătoare)</label>
@@ -170,9 +170,9 @@ function renderSidePanel() {
     </div>
 
     <div class="sp-sec">Dependențe</div>
-    <div class="sp-group"><label class="sp-lbl">Predecesori (WBS[tip][±zile], separat cu ;)</label>
+    <div class="sp-group"><label class="sp-lbl">Se face după (WBS[tip][±zile], separat cu ;)</label>
       <input class="sp-in" value="${esc(depsStr)}" placeholder="ex: 1.1; 2.3SS+2" onchange="updDeps(${t.id},this.value)" ${key}></div>
-    <div class="sp-info"><span>Succesori</span><b>${esc(succStr)}</b></div>
+    <div class="sp-info"><span>Urmează</span><b>${esc(succStr)}</b></div>
 
     <div class="sp-sec">Restricții și termen</div>
     <div class="sp-group"><label class="sp-lbl">Restricție</label>
@@ -181,9 +181,9 @@ function renderSidePanel() {
       </select></div>
     <div class="sp-2col">
       <div class="sp-group"><label class="sp-lbl">Data restricției</label>
-        <input type="date" class="sp-in" id="spConsDate" value="${t.cons && t.cons.date ? t.cons.date : ""}" ${(isSumm || !(t.cons && CONS_NEEDS_DATE.includes(t.cons.type))) ? "disabled" : ""} onchange="applyConsFromPanel(${t.id})"></div>
+        ${dtField(t.cons && t.cons.date ? t.cons.date : "", {cls:"sp-in", id:"spConsDate", dis:(isSumm || !(t.cons && CONS_NEEDS_DATE.includes(t.cons.type))), onchange:`applyConsFromPanel(${t.id})`})}</div>
       <div class="sp-group"><label class="sp-lbl">Termen limită</label>
-        <input type="date" class="sp-in" value="${t.deadline || ""}" onchange="setDeadlineOf(${t.id},this.value)"></div>
+        ${dtField(t.deadline || "", {cls:"sp-in", onchange:`setDeadlineOf(${t.id},this.value)`})}</div>
     </div>
     ${taskWarn[t.id] ? `<div class="sp-warn">⚠ ${[taskWarn[t.id].lateText, taskWarn[t.id].cons, taskWarn[t.id].res].filter(Boolean).map(esc).join("<br>⚠ ")}</div>` : ""}
 
@@ -210,6 +210,7 @@ function renderStatus(){
 }
 
 function renderAll(){
+  updateEmptyState();
   // Iterăm schedule + summaries până la stabilizare (dep-urile pe
   // capitole folosesc durata derivată din copii, care se poate schimba).
   for (let i = 0; i < 20; i++) {
@@ -438,13 +439,67 @@ function closeActiveTab() {
   closeTab(activeTabId);
 }
 
+// ======== PROIECT NOU / EXEMPLU / ECRAN DE BUN VENIT ========
+function newProject() {
+  showNameModal("Proiect " + (tabs.length + 1), function(name) {
+    addNewTab(name);
+    toast("📁 Proiect nou. Începe cu + Activitate sau + Capitol");
+  });
+}
+
+function openExample() {
+  addNewTab("Exemplu — Hală industrială");
+  loadDemo();
+}
+
+// Când nu e niciun proiect deschis: ecran de bun venit cu butoane mari și proiecte recente
+function updateEmptyState() {
+  const empty = !tabs.length;
+  document.body.classList.toggle("no-project", empty);
+  if (empty && typeof renderRecents === "function") renderRecents();
+}
+
+// ======== SELECȚIE + TASTE ========
+function setSel(id) { sel = id; renderAll(); }
+function deselectAll() { if (sel === null) return; sel = null; renderAll(); }
+
+// Click pe spațiul gol de sub activități (tabel sau Gantt) = nimic selectat
+document.addEventListener("click", e => {
+  if (e.target.id === "tBody" || e.target.id === "gBody") deselectAll();
+});
+
+function _scrollRowIntoView(id) {
+  const r = document.querySelector('.t-row[data-tid="' + id + '"]');
+  if (r) r.scrollIntoView({ block: "nearest" });
+}
+
 document.addEventListener("keydown",e=>{
+  if(!tabs.length){ if((e.ctrlKey||e.metaKey)&&e.key==="n"){ e.preventDefault(); newProject(); } return; }
   if((e.ctrlKey||e.metaKey)&&e.key==="z"){ e.preventDefault(); undo(); return; }
   if((e.ctrlKey||e.metaKey)&&(e.key==="y"||(e.shiftKey&&e.key==="Z"))){ e.preventDefault(); redo(); return; }
   if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT"||e.target.tagName==="TEXTAREA") return;
-  if(e.key==="Escape") closeProiectMenu();
+  if(document.querySelector(".modal-overlay.open")) return;
+  if((e.ctrlKey||e.metaKey)&&e.key==="n"){ e.preventDefault(); newProject(); return; }
+  if(e.key==="Escape"){ closeProiectMenu(); if(!document.body.classList.contains("gantt-full")) deselectAll(); return; }
   if(e.key==="Delete"&&sel) delSel();
-  if(e.key==="Tab"&&sel){e.preventDefault();if(e.shiftKey)outdentSel();else indentSel()}
+  if(e.key==="Tab"&&sel){e.preventDefault();if(e.shiftKey)outdentSel();else indentSel(); return;}
+  if(view!=="gantt" || e.ctrlKey || e.metaKey || e.target.tagName==="BUTTON") return;
+  // Navigare cu săgeți în tabel (când nu scrii într-o celulă)
+  if(e.key==="ArrowUp"||e.key==="ArrowDown"){
+    e.preventDefault();
+    const dir=e.key==="ArrowUp"?-1:1;
+    if(e.altKey){ if(sel) moveSel(dir); return; }
+    const o=flat(); if(!o.length) return;
+    const i=o.findIndex(t=>t.id===sel);
+    const n=i<0?(dir>0?0:o.length-1):Math.max(0,Math.min(o.length-1,i+dir));
+    setSel(o[n].id); _scrollRowIntoView(o[n].id);
+  } else if(sel && e.key==="ArrowRight"){ e.preventDefault(); indentSel(); _scrollRowIntoView(sel); }
+  else if(sel && e.key==="ArrowLeft"){ e.preventDefault(); outdentSel(); _scrollRowIntoView(sel); }
+  else if(sel && e.key==="Enter"){
+    e.preventDefault();
+    const inp=document.querySelector('.t-row[data-tid="'+sel+'"] .c-name input');
+    if(inp){ inp.focus(); inp.select(); }
+  }
 });
 
 window.addEventListener("resize",()=>{
@@ -459,13 +514,10 @@ $("splitView").style.display = "flex";
 $("treeLayout").style.display = "none";
 view = "gantt";
 
-// Încarcă tab-urile salvate sau creează primul tab implicit
+// Încarcă proiectele salvate; la prima rulare (sau după ce le închizi pe toate) apare ecranul de bun venit
+dtWrapStatic("atStart"); dtWrapStatic("calHolDate");
 const hadData = loadAllTabs();
-if (!hadData) {
-  // Prima rulare — creăm un tab implicit fără a folosi addNewTab (ca să nu triggăm renderAll prea devreme)
-  tabs = [{ id: nextTabId++, name: "Proiectul Meu", T: [], nid: 1 }];
-  activeTabId = tabs[0].id;
-}
+if (!hadData) { tabs = []; activeTabId = null; }
 
 renderTabsBar();
 renderAll();
@@ -473,9 +525,7 @@ renderAll();
 if ($("rbViewGantt")) $("rbViewGantt").classList.add("active");
 if (showCritical && $("btnCrit")) $("btnCrit").classList.add("active");
 if (typeof _refreshPlanUI === "function") _refreshPlanUI();
-if (hadData) toast('📂 Proiecte restaurate!');
-// Prima deschidere: se încarcă demo-ul, ca să se vadă imediat ce poate aplicația
-else { loadDemo(); }
+if (hadData && tabs.length) toast('📂 Proiecte restaurate!');
 
 // PWA: service worker (aplicația merge și offline); doar pe http(s), nu pe file://
 if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {

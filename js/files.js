@@ -27,17 +27,19 @@ async function _writeHandle(handle) {
 const _pickerTypes = [{ description: "Proiect Gantt PRO", accept: { "application/json": [".json"] } }];
 
 async function fileSaveAs() {
+  if (!tabs.length) return;
   if (!fsSupported) { exportJSON(); return; }
   try {
     const tab = _fileTab();
     const handle = await showSaveFilePicker({ suggestedName: ((tab && tab.name) || "proiect").replace(/[\\/:*?"<>|]/g, "-") + ".gantt.json", types: _pickerTypes });
     fileHandles[activeTabId] = handle; fileNames[activeTabId] = handle.name;
-    await _writeHandle(handle);
+    await _writeHandle(handle); recentAdd(handle);
     toast("💾 Salvat în " + handle.name);
   } catch (e) { if (e.name !== "AbortError") toast("❌ Nu s-a putut salva: " + e.message); }
 }
 
 async function fileSave() {
+  if (!tabs.length) return;
   if (!fsSupported) { exportJSON(); return; }
   const handle = fileHandles[activeTabId];
   if (!handle) return fileSaveAs();
@@ -45,17 +47,75 @@ async function fileSave() {
   catch (e) { if (e.name !== "AbortError") toast("❌ Nu s-a putut salva: " + e.message); }
 }
 
+// ---------- Proiecte recente (mânerele fișierelor se păstrează în IndexedDB) ----------
+function _recDB() {
+  return new Promise((res, rej) => {
+    const rq = indexedDB.open("ganttPRO_files", 1);
+    rq.onupgradeneeded = () => rq.result.createObjectStore("recent", { keyPath: "name" });
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+async function recentAdd(handle) {
+  try {
+    const db = await _recDB();
+    db.transaction("recent", "readwrite").objectStore("recent").put({ name: handle.name, handle, at: Date.now() });
+  } catch (e) {}
+}
+async function recentList() {
+  try {
+    const db = await _recDB();
+    return await new Promise(res => {
+      const rq = db.transaction("recent").objectStore("recent").getAll();
+      rq.onsuccess = () => res(rq.result.sort((a, b) => b.at - a.at).slice(0, 8));
+      rq.onerror = () => res([]);
+    });
+  } catch (e) { return []; }
+}
+async function recentRemove(name) {
+  try { const db = await _recDB(); db.transaction("recent", "readwrite").objectStore("recent").delete(name); } catch (e) {}
+}
+let _recents = [];
+async function renderRecents() {
+  const box = $("wlRecent"); if (!box) return;
+  _recents = fsSupported ? await recentList() : [];
+  if (!_recents.length) { box.innerHTML = ""; return; }
+  box.innerHTML = '<div class="wl-rtitle">Proiecte recente</div>' + _recents.map((r, i) =>
+    '<button class="wl-rec" onclick="openRecent(' + i + ')"><svg class="ic"><use href="#i-folder"/></svg><span>' + esc(r.name.replace(/\.gantt\.json$|\.json$/i, "")) +
+    '</span><small>' + fmtDate(new Date(r.at)) + '</small></button>').join("");
+}
+async function openRecent(i) {
+  const r = _recents[i]; if (!r) return;
+  try {
+    if (r.handle.requestPermission && (await r.handle.requestPermission({ mode: "readwrite" })) !== "granted") { toast("⚠️ Fără acces la fișier"); return; }
+    await _openHandle(r.handle);
+  } catch (e) { toast("❌ Fișierul nu mai există sau nu poate fi deschis"); recentRemove(r.name); renderRecents(); }
+}
+
+// Deschide un fișier; dacă e deja deschis într-un tab, doar te duce la acel tab (nu face dublură)
+async function _openHandle(handle) {
+  for (const tid of Object.keys(fileHandles)) {
+    const id = +tid;
+    if (!tabs.some(t => t.id === id)) continue;
+    try {
+      if (await fileHandles[id].isSameEntry(handle)) { switchTab(id); toast("📂 Fișierul era deja deschis — te-am dus la el"); return; }
+    } catch (e) {}
+  }
+  const d = JSON.parse(await (await handle.getFile()).text());
+  if (!d.T || !Array.isArray(d.T)) throw new Error("Format invalid");
+  const name = d.name || handle.name.replace(/\.gantt\.json$|\.json$/i, "");
+  const tab = addNewTab(name, d.T, d.nid || (d.T.length ? Math.max(...d.T.map(x => x.id)) + 1 : 1), d.cal, d.res);
+  fileHandles[tab.id] = handle; fileNames[tab.id] = handle.name; fileSavedAt[tab.id] = new Date();
+  renderStatus();
+  recentAdd(handle);
+  toast("📂 Deschis: " + handle.name);
+}
+
 async function fileOpen() {
   if (!fsSupported) { importJSONasTab(); return; }
   try {
     const [handle] = await showOpenFilePicker({ types: _pickerTypes, multiple: false });
-    const d = JSON.parse(await (await handle.getFile()).text());
-    if (!d.T || !Array.isArray(d.T)) throw new Error("Format invalid");
-    const name = d.name || handle.name.replace(/\.gantt\.json$|\.json$/i, "");
-    const tab = addNewTab(name, d.T, d.nid || (d.T.length ? Math.max(...d.T.map(x => x.id)) + 1 : 1), d.cal, d.res);
-    fileHandles[tab.id] = handle; fileNames[tab.id] = handle.name; fileSavedAt[tab.id] = new Date();
-    renderStatus();
-    toast("📂 Deschis: " + handle.name);
+    await _openHandle(handle);
   } catch (e) { if (e.name !== "AbortError") toast("❌ Fișier invalid sau inaccesibil"); }
 }
 

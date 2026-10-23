@@ -56,7 +56,7 @@ function openCalendar() {
   $('calDays').innerHTML = _DAY_ORDER.map(i =>
     `<label class="cal-day"><input type="checkbox" data-day="${i}" ${_calDraft.days[i] ? 'checked' : ''}><span>${_DAY_NAMES[i]}</span></label>`).join('');
   $('calDays').querySelectorAll('input').forEach(cb => cb.addEventListener('change', () => { _calDraft.days[+cb.dataset.day] = cb.checked ? 1 : 0; }));
-  $('calHolDate').value = '';
+  dtSet('calHolDate', '');
   renderCalHol();
   $('calModal').classList.add('open');
 }
@@ -71,7 +71,7 @@ function addCalHol() {
   const v = $('calHolDate').value;
   if (!v) return;
   if (!_calDraft.hol.includes(v)) { _calDraft.hol.push(v); _calDraft.hol.sort(); }
-  $('calHolDate').value = '';
+  dtSet('calHolDate', '');
   renderCalHol();
 }
 

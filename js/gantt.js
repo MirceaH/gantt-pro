@@ -136,7 +136,7 @@ function showTip(e,t){
     <div class="tip-row"><span class="tip-label">Durată:</span><span class="tip-val">${t.dur} zile</span></div>
     <div class="tip-row"><span class="tip-label">Start:</span><span class="tip-val">${fmtDate(p._s)}</span></div>
     <div class="tip-row"><span class="tip-label">Final:</span><span class="tip-val">${fmtDate(p._e)}</span></div>
-    <div class="tip-row"><span class="tip-label">Predecesori:</span><span class="tip-val">${depList}</span></div>
+    <div class="tip-row"><span class="tip-label">Se face după:</span><span class="tip-val">${depList}</span></div>
     ${cpm[t.id]?`<div class="tip-row"><span class="tip-label">Rezervă:</span><span class="tip-val" style="${cpm[t.id].crit?'color:#d94040;font-weight:800':''}">${cpm[t.id].crit?'0 zile · CRITIC':cpm[t.id].float+' zile'}</span></div>`:''}
     <div class="tip-row">
       <span class="tip-label">Progres:</span>
@@ -210,7 +210,7 @@ const C=[
   {k:"sd",  l:"Start",      w:112},
   {k:"ed",  l:"Final",      w:112},
   {k:"prog",l:"%",          w:38},
-  {k:"deps",l:"Pred.",      w:54}
+  {k:"deps",l:"După",       w:54}
 ];
 // Coloane EXTRA afișate doar când panel-ul e expanded (clase CSS gestionează vizibilitatea)
 const CX=[
@@ -286,7 +286,7 @@ function _statusOf(t){
 function renderTBody(){
   const o=flat(), w=wbs();
   if(!o.length){
-    $("tBody").innerHTML='<div style="padding:20px;color:var(--muted);text-align:center;font-weight:700">Apasă pe butonul Demo de sus!</div>';
+    $("tBody").innerHTML='<div style="padding:20px;color:var(--muted);text-align:center;font-weight:700">Proiect gol — apasă <b>+ Activitate</b> sau <b>+ Capitol</b> ca să începi.</div>';
     return;
   }
   let h="";
@@ -336,18 +336,12 @@ function renderTBody(){
 
     // Start
     h += '<div class="c" style="width:'+C[3].w+'px;min-width:'+C[3].w+'px">'
-       + '<input type="date" value="'+t.sd+'" '+dis
-       + ' onchange="upd('+t.id+',\'sd\',this.value)"'
-       + ' onkeydown="if(event.key===\'Enter\'){this.blur()}"'
-       + ' onclick="event.stopPropagation()" ondblclick="event.stopPropagation()">'
+       + dtField(t.sd, {dis:isSumm, onchange:"upd("+t.id+",'sd',this.value)"})
        + '</div>';
 
     // Final
     h += '<div class="c" style="width:'+C[4].w+'px;min-width:'+C[4].w+'px">'
-       + '<input type="date" value="'+fD(p._e)+'" '+dis
-       + ' onchange="upd('+t.id+',\'ed\',this.value)"'
-       + ' onkeydown="if(event.key===\'Enter\'){this.blur()}"'
-       + ' onclick="event.stopPropagation()" ondblclick="event.stopPropagation()">'
+       + dtField(fD(p._e), {dis:isSumm, onchange:"upd("+t.id+",'ed',this.value)"})
        + '</div>';
 
     // Progres
@@ -358,7 +352,7 @@ function renderTBody(){
        + ' onclick="event.stopPropagation()" ondblclick="event.stopPropagation()">'
        + '</div>';
 
-    // Predecesori — afișează doar numărul (cu tooltip pentru WBS-urile complete)
+    // „Se face după" — afișează doar numărul (cu tooltip pentru WBS-urile complete)
     const depCount = (t.deps || []).length;
     const depsWbs  = (t.deps || []).map(d => (w[d.id] || '?') + (d.type !== 'FS' || d.lag ? depLabel(d) : '')).join('; ');
     const depCountLbl = depCount || '—';
