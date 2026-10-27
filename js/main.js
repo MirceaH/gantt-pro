@@ -240,6 +240,7 @@ function renderAll(){
   saveAllTabs();
   updateUndoRedoBtns();
   if (typeof updateFormatTabVisibility === "function") updateFormatTabVisibility();
+  alignPanes();
 }
 
 // ======== INIT ========

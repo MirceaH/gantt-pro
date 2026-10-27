@@ -130,3 +130,5 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 - Zoom auto minim 1.2 px/zi (proiecte lungi încap în fereastră); clasa `zoom-tiny` ascunde grila pe zile.
 - Calendar: buton „Sărbători legale România" (`roHolidays(an)`, Paște ortodox calculat).
 - Dialogul „Activitate nouă": durata începe goală și e obligatorie; data de start implicită = începutul proiectului (`defaultNewStart()`); „+ Capitol" = `addChapter()`.
+- `alignPanes()` (gantt.js): egalează înălțimea antetului din stânga cu zona de deasupra primului rând din dreapta (bară de unelte + luni + zile) și spațiul de jos, ca rândul din tabel și bara din Gantt să fie MEREU pe aceeași linie orizontală. Se apelează la finalul `renderAll()` și la redimensionare (ResizeObserver). Nu fixa înălțimi de antet în CSS.
+- „Nume lângă bară": `showSideNames` / `toggleSideNames()` (buton în Vizualizare), numele ca element `.bar-side` în rândul Gantt.

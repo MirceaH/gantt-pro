@@ -788,3 +788,25 @@ function _autoShort(t) {
   if (s.length > 14) s = s.slice(0, 13).trim() + '…';
   return s;
 }
+
+// ===== Aliniere stânga/dreapta: rândul din tabel și bara din Gantt stau MEREU pe aceeași linie =====
+// Antetul din stânga (un rând) și cel din dreapta (bara de unelte + luni + zile) au înălțimi diferite,
+// deci egalăm înălțimea antetului din stânga cu zona de deasupra primului rând din dreapta; la fel jos
+// (bara de informații și bara de derulare orizontală din dreapta).
+function alignPanes(){
+  const th=$("thRow"), tb=$("tBody"), gb=$("gBody"), pl=$("paneL"), pr=$("paneR");
+  if(!th||!tb||!gb||!pl||!pr||!pr.offsetParent) return;
+  const r=e=>e.getBoundingClientRect();
+  th.style.boxSizing="border-box";
+  const dTop=r(gb).top-r(tb).top;
+  if(Math.abs(dTop)>0.5) th.style.height=Math.max(24,r(th).height+dTop)+"px";
+  const cur=parseFloat(getComputedStyle(pl).paddingBottom)||0;
+  const extra=(r(pr).bottom-r(gb).bottom)-(r(pl).bottom-r(tb).bottom);
+  if(Math.abs(extra)>0.5) pl.style.paddingBottom=Math.max(0,cur+extra)+"px";
+  // același spațiu de derulare jos (bara de derulare orizontală + marginea de sub ultimul rând din Gantt)
+  const sb=gb.offsetHeight-gb.clientHeight;
+  tb.style.paddingBottom=(sb+RH_BOTTOM)+"px";
+}
+const RH_BOTTOM=60;
+window.addEventListener("resize",()=>alignPanes());
+if(window.ResizeObserver){ const _ro=new ResizeObserver(()=>alignPanes()); const _p=document.getElementById("paneR"); if(_p) _ro.observe(_p); const _h=document.getElementById("gHead"); if(_h) _ro.observe(_h); }
