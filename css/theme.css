@@ -112,8 +112,6 @@ body.dark .modal-box{background:var(--card);color:var(--text)}
 body.dark .modal-btn.primary{color:#0f1220}
 
 /* ---------- Evidențierea rândurilor: discretă și neutră ---------- */
-.t-row:hover,.t-row.hovered,body.dark .t-row:hover,body.dark .t-row.hovered{background:var(--grid2)}
-.g-row:hover,.g-row.hovered,body.dark .g-row:hover,body.dark .g-row.hovered{background:transparent}
 /* Capitole: fundal neutru, doar textul îngroșat (fără degradeuri pe niveluri) */
 .t-row.summ,.t-row.summ.dp0,.t-row.summ.dp1,.t-row.summ.dp2,.t-row.summ.dp3,
 body.dark .t-row.summ,body.dark .t-row.summ.dp0,body.dark .t-row.summ.dp1,body.dark .t-row.summ.dp2,body.dark .t-row.summ.dp3{
@@ -219,3 +217,9 @@ body.no-project .sbar{visibility:hidden}
 
 /* Numele activității lângă bară (opțional): peste săgeți, pe fundal discret ca să se citească */
 .bar-side{position:absolute;top:50%;transform:translateY(-50%);z-index:6;padding:1px 6px;border-radius:4px;font-size:11.5px;font-weight:700;color:var(--text);white-space:nowrap;pointer-events:none;background:color-mix(in srgb,var(--card) 86%,transparent)}
+
+/* Rândul de sub mouse: aceeași dungă discretă în tabel ȘI în Gantt (translucidă, ca grila să se vadă prin ea) */
+.t-row:hover,.t-row.hovered,.g-row:hover,.g-row.hovered{background:rgba(79,107,237,.09)}
+body.dark .t-row:hover,body.dark .t-row.hovered,body.dark .g-row:hover,body.dark .g-row.hovered{background:rgba(128,149,255,.12)}
+.t-row.summ:hover,.t-row.summ.hovered{background:#e1e6fb!important}
+body.dark .t-row.summ:hover,body.dark .t-row.summ.hovered{background:#2a3262!important}
