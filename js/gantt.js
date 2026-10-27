@@ -1,3 +1,12 @@
+// Numele activităților lângă bară (opțional, se păstrează între sesiuni)
+let showSideNames = (function(){ try { return localStorage.getItem("ganttSideNames") === "1"; } catch(e) { return false; } })();
+function _refreshSideNamesUI(){ const b=document.getElementById("btnSideNames"); if(b) b.classList.toggle("active", showSideNames); }
+function toggleSideNames(){
+  showSideNames=!showSideNames;
+  try { localStorage.setItem("ganttSideNames", showSideNames?"1":"0"); } catch(e) {}
+  _refreshSideNamesUI(); renderAll();
+  toast(showSideNames?"🏷️ Numele apar lângă bare":"Numele rămân doar în bare");
+}
 let tipTimer = null;
 const _tc = document.createElement('canvas').getContext('2d');
 function _textW(s, font){ _tc.font = font; return _tc.measureText(s).width; }
@@ -438,10 +447,10 @@ function renderGantt(){
   o.forEach(t=>{
     const endsLate=dD(ps(t)._e,ce)<=lastDays+5; if(!endsLate) return;
     const shown=t.nm.length>20?t.nm.slice(0,19)+'…':t.nm;
-    const lw=hasK(t.id)?_textW(shown,'800 11px Nunito')+(t.prog>0?50:12)+10:(t.isMilestone?_textW(t.nm,'700 11px Nunito')+34:50);
+    const lw=hasK(t.id)?_textW(shown,'800 11px Nunito')+(t.prog>0?50:12)+10:(t.isMilestone?_textW(t.nm,'700 11px Nunito')+34:(showSideNames?_textW(t.nm,'700 11.5px '+getComputedStyle(document.body).fontFamily)+28:50));
     if(lw>tailW) tailW=lw;
   });
-  tailW=Math.min(240,Math.round(tailW));
+  tailW=Math.min(showSideNames?340:240,Math.round(tailW));
   let dw;
   if(isAutoZoom){
     const paneL=document.getElementById("paneL");
@@ -511,10 +520,10 @@ function renderGantt(){
       // Textul se ascunde automat dacă bara e prea îngustă (via CSS)
       // Numele se prescurtează automat ca să încapă în bară (niciodată numărul rândului)
       const showPct = t.prog>0 && w>=110, tight = w<80;
-      const lbl = barLabel(t, w - (tight?10:20) - (showPct?38:0));
+      const lbl = showSideNames ? "" : barLabel(t, w - (tight?10:20) - (showPct?38:0));
       bi+=`<div class="bp" style="width:${t.prog}%"></div>`;
       if(lbl) bi+=`<div class="bn dp${dp}${tight?" tight":""}"${showPct?' style="padding-right:38px"':""}>${esc(lbl)}</div>`;
-      if(lbl!==t.nm) bi+=`<span class="bn-hov">${esc(t.nm)}</span>`;   // numele complet, la hover / selecție
+      if(!showSideNames && lbl!==t.nm) bi+=`<span class="bn-hov">${esc(t.nm)}</span>`;   // numele complet, la hover / selecție
       if(showPct) bi+=`<span class="bp-pct">${t.prog}%</span>`;
       bi+=`<div class="rs rs-l" data-rl="${t.id}"></div><div class="rs rs-r" data-rr="${t.id}"></div>`;
     } else {
@@ -530,7 +539,7 @@ function renderGantt(){
         +' oncontextmenu="showCtx(event,'+t.id+')"'
         +' onmouseenter="highlightRow('+t.id+')"'
         +' onmouseleave="clearHighlight()">'
-        +'<div class="gb '+bc+' dp'+dp+ac+(!isSumm&&isCrit(t.id)?' crit':'')+(taskWarn[t.id]?' warn':'')+(isBehind(t)?' late-task':'')+'" data-bid="'+t.id+'" style="'+styleStr+'">'+bi+'</div>'+_blBar(t,cs,dw)+_dlMark(t,cs,dw)+'</div>';
+        +'<div class="gb '+bc+' dp'+dp+ac+(!isSumm&&isCrit(t.id)?' crit':'')+(taskWarn[t.id]?' warn':'')+(isBehind(t)?' late-task':'')+'" data-bid="'+t.id+'" style="'+styleStr+'">'+bi+'</div>'+_blBar(t,cs,dw)+_dlMark(t,cs,dw)+(showSideNames&&!isSumm&&!isMs?'<span class="bar-side" style="left:'+(l+w+8)+'px">'+esc(t.nm)+'</span>':'')+'</div>';
   });
 
   // ===== DEPENDENCY ARROWS (Orthogonal / Manhattan routing) =====

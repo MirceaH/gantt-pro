@@ -216,3 +216,6 @@ body.no-project .sbar{visibility:hidden}
 .gb.task:hover .bn-hov,.gb.task.active .bn-hov{display:block}
 .gb.task:hover,.gb.task.active{z-index:45}
 .gb.task .bn.tight{padding:0 5px}
+
+/* Numele activității lângă bară (opțional): peste săgeți, pe fundal discret ca să se citească */
+.bar-side{position:absolute;top:50%;transform:translateY(-50%);z-index:6;padding:1px 6px;border-radius:4px;font-size:11.5px;font-weight:700;color:var(--text);white-space:nowrap;pointer-events:none;background:color-mix(in srgb,var(--card) 86%,transparent)}

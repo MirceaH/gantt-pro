@@ -1,6 +1,6 @@
 // Service worker: aplicația merge și fără internet.
 // Strategie: rețea întâi (ca să vezi mereu versiunea nouă), iar dacă nu există rețea, copia din cache.
-const CACHE = "gantt-pro-v9";
+const CACHE = "gantt-pro-v10";
 const ASSETS = [
   "./", "./index.html", "./manifest.json",
   "./css/style.css", "./css/fonts.css", "./css/theme.css",
