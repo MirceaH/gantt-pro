@@ -1,25 +1,37 @@
 # Gantt PRO
 
-Aplicație web de planificare de proiecte, inspirată de MS Project. Rulează direct în browser, fără server și fără instalare, și poate fi instalată ca aplicație (PWA).
+A browser-based project scheduling app inspired by MS Project. It runs entirely in the browser, with no server and no install, and can be installed as an app (PWA).
 
-## Ce poate
+*Versiunea în română este mai jos.*
 
-- **Gantt interactiv:** mutare și redimensionare bare, ierarhie de capitole (WBS), zoom, mod pe tot ecranul.
-- **Dependențe complete:** FS, SS, FF, SF, cu decalaj (lag/lead) și planificare automată.
-- **Drum critic (CPM):** evidențiere pe Gantt și pe arbore, rezervă pentru fiecare activitate.
-- **Calendar de lucru:** zile lucrătoare configurabile și zile libere, per proiect.
-- **Vedere Arbore:** capitole deschise/închise, zoom, focalizare pe un capitol, mutare prin tragere.
-- **Export:** JSON, PNG, PDF și XML pentru MS Project.
-- **Mod întunecat**, mai multe proiecte în tab-uri, undo/redo.
+## Features
 
-## Cum o folosești
+- **Interactive Gantt chart:** drag and resize bars, WBS hierarchy, zoom, full-screen mode.
+- **Full dependency model:** FS, SS, FF and SF links with lag/lead and automatic scheduling.
+- **Critical path (CPM):** critical tasks highlighted on the chart and in the tree, with total float per task.
+- **Work calendars:** configurable working days and holidays, per project.
+- **Tree view:** collapsible WBS, zoom, focus on a branch, drag to reorganize.
+- **Export:** JSON, PNG, PDF and MS Project XML.
+- **Dark mode**, multiple projects in tabs, undo/redo, autosave to the browser.
 
-Deschide `index.html` în Chrome sau Edge. La prima deschidere se încarcă un proiect demo
-(„Construcție Hală Industrială"). Datele se salvează automat în browser.
+## Getting started
 
-Pentru instalare ca aplicație, rulează de pe un server (de exemplu GitHub Pages) și apasă
-„Instalează" în bara de adrese.
+Open `index.html` in Chrome or Edge. A demo project ("Industrial Hall Construction") loads on first launch, and your data is saved automatically in the browser.
 
-## Tehnologii
+To install it as an app, serve it from a web server (for example GitHub Pages) and click "Install" in the address bar.
 
-HTML, CSS și JavaScript simplu, fără framework și fără pas de build.
+## Tech stack
+
+Plain HTML, CSS and JavaScript: no framework and no build step. The code is split into modules by responsibility:
+
+| Module | Responsibility |
+| --- | --- |
+| `gantt.js` | Timeline rendering and bar interaction |
+| `deps.js` | Dependency links and arrows |
+| `cpm.js` | Critical path method and float calculation |
+| `plan.js`, `calendar.js`, `dates.js` | Automatic scheduling and working-day calendars |
+| `tree.js` | WBS tree view |
+| `files.js` | Import and export (JSON, PNG, PDF, MS Project XML) |
+| `toolbar.js`, `main.js` | Ribbon UI and app startup |
+
+---
