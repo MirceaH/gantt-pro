@@ -223,3 +223,16 @@ body.no-project .sbar{visibility:hidden}
 body.dark .t-row:hover,body.dark .t-row.hovered,body.dark .g-row:hover,body.dark .g-row.hovered{background:rgba(128,149,255,.12)}
 .t-row.summ:hover,.t-row.summ.hovered{background:#e1e6fb!important}
 body.dark .t-row.summ:hover,body.dark .t-row.summ.hovered{background:#2a3262!important}
+
+/* ---------- Urmărire progres: început/final real, data de status ---------- */
+.col-as,.col-af{display:none}
+.pane-l.expanded .col-as,.pane-l.expanded .col-af{display:flex}
+.act-bar{position:absolute;top:0;height:3px;border-radius:2px;z-index:3}
+.act-bar.ok{background:#2f9e6a}
+.act-bar.late{background:#e5484d}
+.act-bar.wip{background:#4a8fd4}
+.g-grid .vl.status{background:rgba(139,92,246,.75)!important;width:2px!important;z-index:2}
+.hc.dy.status{box-shadow:inset 0 -2px 0 #8b5cf6}
+.today-flag-h.status{background:#8b5cf6;bottom:auto;top:2px;font-size:9px}
+.ti-mini{font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;border-radius:9px;border:1px solid var(--grid);background:var(--grid2);color:var(--text2);cursor:pointer;font-family:var(--font)}
+.ti-mini:hover{background:var(--accentL);color:var(--accent)}

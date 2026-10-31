@@ -272,6 +272,22 @@
           </div>
         </div>
 
+        <div class="rb-group">
+          <div class="rb-row">
+            <div class="rb-dd">
+              <button class="rb-btn rb-btn-big" id="btnTrack" onclick="toggleDD(this)" title="Progres real: data de status, început / final real, actualizarea planului">
+                <svg class="ic"><use href="#i-flag"/></svg><span class="rb-lbl">Urmărire</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
+              </button>
+              <div class="rb-menu">
+                <button onclick="closeDD();openStatusDate()"><span>Data de status…</span></button>
+                <button onclick="closeDD();applyActuals()"><span>Actualizează planul cu datele reale…</span></button>
+                <hr>
+                <button onclick="closeDD();clearActualPins()"><span>Elimină fixările din datele reale</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- TAB FORMAT (apare doar la selecție) -->
@@ -423,6 +439,30 @@
     </div>
     <div class="res-tabs" id="resTabs"></div>
     <div class="res-body" id="resBody"></div>
+  </div>
+</div>
+
+<!-- Data de status (urmărirea progresului) -->
+<div class="modal-overlay" id="statusModal">
+  <div class="modal-box ti-box" style="max-width:430px">
+    <div class="ti-header">
+      <span class="ti-title">📅 Data de status</span>
+      <button class="modal-close" onclick="closeStatusDate()">✕</button>
+    </div>
+    <div class="ti-body">
+      <div class="ti-row">
+        <label>Data până la care ai pus la zi progresul</label>
+        <input type="date" id="stDate">
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;margin:6px 0">
+        <input type="checkbox" id="stAuto" checked onchange="stToggleAuto()"> Folosește data de azi (se schimbă singură în fiecare zi)
+      </label>
+      <div class="ti-info">Activitățile care ar fi trebuit să fie gata până la data de status și nu sunt finalizate apar ca întârziate. Începutul / finalul real se completează cu această dată când treci progresul.</div>
+    </div>
+    <div class="ti-actions">
+      <button class="modal-btn cancel" onclick="closeStatusDate()">Anulează</button>
+      <button class="modal-btn primary" onclick="saveStatusDate()">💾 Salvează</button>
+    </div>
   </div>
 </div>
 

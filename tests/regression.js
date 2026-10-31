@@ -311,8 +311,118 @@
   });
 
   // ============================================================
-  // C) FUNCȚII NOI (adăugate pe măsură ce sunt implementate)
+  // C) URMĂRIRE PROGRES: data de status, început / final real, actualizarea planului
   // ============================================================
+  const byId = id => T.find(t => t.id === id);
+
+  test('progres real: data de status decide ce e „întârziat" (și ziua finalului nu e încă întârziere)', () => {
+    newTabWith('St', [mk(1, 'A', 3, null, [], '2026-10-26')]); settle();       // se termină joi 2026-10-28
+    META.sdate = '2026-10-28'; ok(!isBehind(byId(1)), 'în ziua finalului nu e întârziată'); ok(_statusOf(byId(1)).k !== 'late', 'insigna nu e „întârziat"');
+    META.sdate = '2026-10-29'; ok(isBehind(byId(1)), 'a doua zi e întârziată'); eq(_statusOf(byId(1)).k, 'late');
+    byId(1).prog = 100; ok(!isBehind(byId(1)), 'finalizată nu e întârziată'); META.sdate = null;
+  });
+
+  test('progres real: la schimbarea progresului se completează / se scot început și final real', () => {
+    newTabWith('Pg', [mk(1, 'A', 5), mk(2, 'B', 5)]);
+    upd(1, 'prog', '40'); eq(byId(1).as, statusDay(), 'început real la >0%'); ok(!byId(1).af);
+    upd(1, 'prog', '100'); eq(byId(1).af, statusDay(), 'final real la 100%');
+    upd(1, 'prog', '50'); ok(!byId(1).af, 'final real scos când scade sub 100%'); ok(byId(1).as, 'începutul rămâne');
+    upd(1, 'prog', '0'); ok(!byId(1).as, 'început real scos la 0%');
+    upd(2, 'prog', '100'); ok(byId(2).as && byId(2).af, 'de la 0 direct la 100%: ambele');
+    ok(byId(2).as <= byId(2).af, 'început ≤ final');
+  });
+
+  test('progres real: capitolele și reperele nu au date reale', () => {
+    newTabWith('Cp', [mk(1, 'Cap', 1), mk(2, 'A', 3, 1), mk(3, 'M', 1, null, [], '2026-10-26', { isMilestone: true })]);
+    markStarted(1); ok(!byId(1).as, 'capitol'); markDone(3); ok(!byId(3).af, 'reper');
+    markStarted(2); ok(byId(2).as, 'activitate'); markDone(2); eq(byId(2).prog, 100); ok(byId(2).af);
+  });
+
+  test('progres real: „Actualizează planul" fixează la datele reale, mută nepornitele, se poate anula', () => {
+    newTabWith('Ap', [mk(1, 'A', 5, null, [], '2026-10-26', { as: '2026-10-28', af: '2026-11-06', prog: 100 }), mk(2, 'B', 3, null, [F(1)]), mk(3, 'C', 2, null, [], '2026-10-27')]);
+    META.sdate = '2026-11-09'; settle(); eq(byId(2).sd, '2026-11-02', 'planul înainte');
+    applyActuals(); confirmYes();
+    eq(byId(1).cons && byId(1).cons.type, 'MSO'); ok(byId(1).cons.ac, 'fixare marcată'); eq(byId(1).sd, '2026-10-28'); eq(byId(1).dur, 8, 'durata reală');
+    eq(byId(2).sd, '2026-11-09', 'urmașul pornește după finalul real'); eq(byId(3).sd, '2026-11-09', 'nepornita mutată după data de status'); eq(byId(3).cons.type, 'SNET');
+    undo(); eq(byId(1).dur, 5, 'anulat: durata'); ok(!byId(1).cons, 'anulat: fără fixare'); eq(byId(2).sd, '2026-11-02'); eq(byId(3).sd, '2026-10-27');
+    redo(); eq(byId(2).sd, '2026-11-09', 'refăcut');
+    clearActualPins(); confirmYes(); ok(!byId(1).cons && !byId(3).cons, 'fixările eliminate'); eq(byId(1).dur, 8, 'durata ajustată rămâne'); eq(byId(3).sd, '2026-11-09', 'fără legături: rămâne unde a fost mutată'); eq(byId(2).sd, '2026-11-09', 'cu legături: urmează finalul lui A');
+    META.sdate = null;
+  });
+
+  test('progres real: activitatea în desfășurare rămasă în urmă își mută finalul (munca rămasă)', () => {
+    newTabWith('Ex', [mk(1, 'X', 10, null, [], '2026-10-26', { as: '2026-10-26', prog: 60 }), mk(2, 'Y', 2, null, [F(1)])]);
+    META.sdate = '2026-11-16'; settle(); eq(fD(endDate(byId(1))), '2026-11-06');
+    applyActuals(); confirmYes();
+    eq(byId(1).dur, 19, 'durata prelungită până la data de status + munca rămasă (4 zile)'); eq(fD(endDate(byId(1))), '2026-11-19'); eq(byId(2).sd, '2026-11-20', 'urmașul pornește după');
+    META.sdate = null;
+  });
+
+  test('progres real: restricția pusă de utilizator nu se atinge', () => {
+    newTabWith('Rs', [mk(1, 'A', 3, null, [], '2026-10-26', { as: '2026-10-27', cons: { type: 'SNET', date: '2026-10-26' } })]);
+    META.sdate = '2026-11-09'; applyActuals(); confirmYes();
+    eq(byId(1).cons.type, 'SNET'); ok(!byId(1).cons.ac, 'restricția rămâne a utilizatorului'); META.sdate = null;
+  });
+
+  test('progres real: bara reală (verde / roșu / albastru) apare în Gantt', () => {
+    newTabWith('Bp', [mk(1, 'A', 3, null, [], '2026-10-26', { as: '2026-10-26', af: '2026-10-28', prog: 100 }), mk(2, 'B', 3, null, [], '2026-10-26', { as: '2026-10-26', af: '2026-10-30', prog: 100 }), mk(3, 'C', 5, null, [], '2026-10-26', { as: '2026-10-26', prog: 40 })]);
+    META.sdate = '2026-11-02'; renderAll();
+    const cls = id => { const r = document.querySelector('.g-row[data-gid="' + id + '"] .act-bar'); return r ? r.className : null; };
+    ok(/ ok/.test(cls(1)), 'la timp → verde: ' + cls(1)); ok(/ late/.test(cls(2)), 'întârziată → roșu: ' + cls(2)); ok(/ wip/.test(cls(3)), 'în desfășurare → albastră: ' + cls(3));
+    META.sdate = null;
+  });
+
+  test('progres real: variația față de bază folosește finalul real', () => {
+    newTabWith('Vb', [mk(1, 'A', 5, null, [], '2026-10-26', { as: '2026-10-26', af: '2026-11-03', prog: 100 })]); settle(); saveBaseline();
+    eq(varDays(byId(1)), dD(endDate({ sd: '2026-10-26', dur: 5 }), pD('2026-11-03')), 'variație = final real − final de bază');
+  });
+
+  test('progres real: data de status și datele reale se salvează / se anulează / se încarcă', () => {
+    newTabWith('Sv', [mk(1, 'A', 5, null, [], '2026-10-26', { as: '2026-10-27' })]); META.sdate = '2026-11-02'; syncTabData();
+    const d = JSON.parse(_projectJSON()); eq(d.meta.sdate, '2026-11-02', 'în fișier'); eq(d.T[0].as, '2026-10-27');
+    addNewTab('Sv2', d.T, d.nid, d.cal, d.res, d.meta); eq(META.sdate, '2026-11-02', 'după încărcare'); eq(byId(1).as, '2026-10-27');
+    pushHistory(); META.sdate = null; undo(); eq(META.sdate, '2026-11-02', 'undo restaurează data de status');
+    switchTab(tabs[tabs.length - 2].id); eq(META.sdate, '2026-11-02', 'data de status aparține proiectului'); META.sdate = null;
+  });
+
+  test('progres real: Task Info completează, validează și salvează datele reale', () => {
+    newTabWith('Ti', [mk(1, 'A', 5)]);
+    openTaskInfo(1); $('tiProg').value = '100'; $('tiSaveBtn').click();
+    ok(byId(1).as && byId(1).af, 'completate la 100%'); const af0 = byId(1).af;
+    openTaskInfo(1); eq(document.querySelector('#tiAf ~ .dtx-t').value, fmtRO(af0), 'se afișează în format românesc');
+    dtSet('tiAs', '2099-01-01'); $('tiSaveBtn').click();
+    ok($('taskInfoModal').classList.contains('open'), 'început după final: fereastra rămâne deschisă'); eq(byId(1).af, af0, 'nimic salvat');
+    dtSet('tiAs', '2026-10-20'); dtSet('tiAf', '2026-10-27'); $('tiSaveBtn').click();
+    eq(byId(1).as, '2026-10-20'); eq(byId(1).af, '2026-10-27'); ok(!$('taskInfoModal').classList.contains('open'));
+    openTaskInfo(1); $('tiProg').value = '60'; $('tiSaveBtn').click(); ok(!byId(1).af, 'progres sub 100% scoate finalul real'); eq(byId(1).prog, 60);
+  });
+
+  test('progres real: fereastra „Data de status" + linia „Status" în Gantt', () => {
+    const t0 = fD(aD(new Date(), -3));
+    newTabWith('Sm', [mk(1, 'A', 20, null, [], t0)]);
+    ok(!document.querySelector('.today-flag-h.status'), 'fără linie Status când e azi');
+    openStatusDate(); ok($('statusModal').classList.contains('open'));
+    $('stAuto').checked = false; stToggleAuto(); dtSet('stDate', fD(aD(new Date(), 5))); saveStatusDate();
+    ok(hasCustomStatus()); ok(document.querySelector('.today-flag-h.status'), 'steag Status'); ok(document.querySelector('.vl.status'), 'linie Status'); ok($('sbar').textContent.includes('Status'), 'în bara de stare');
+    openStatusDate(); $('stAuto').checked = true; stToggleAuto(); saveStatusDate(); ok(!hasCustomStatus(), 'revenire la azi');
+  });
+
+  test('progres real: intervalul graficului include datele reale din afara planului', () => {
+    newTabWith('Ab', [mk(1, 'A', 3, null, [], '2026-11-02', { as: '2026-10-05', prog: 20 })]);
+    ok(ab().mn <= pD('2026-10-05'), 'începutul real e în interval');
+  });
+
+  test('progres real: bara mutată / redimensionată / progresul intră în istoric (Ctrl+Z)', () => {
+    newTabWith('Is', [mk(1, 'A', 5, null, [], '2026-10-26')]); _history = []; _future = [];
+    const bar = document.querySelector('.gb[data-bid="1"]'); const x0 = bar.getBoundingClientRect().left + 10, y0 = bar.getBoundingClientRect().top + 8, dw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--day-w'));
+    const fire = (el, type, x, y) => el.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 }));
+    fire(bar, 'mousedown', x0, y0); fire(document, 'mouseup', x0, y0);     // click simplu, fără mutare
+    eq(_history.length, 0, 'click fără mutare nu umple istoricul');
+    fire(document.querySelector('.gb[data-bid="1"]'), 'mousedown', x0, y0); fire(document, 'mousemove', x0 + dw * 7, y0); fire(document, 'mouseup', x0 + dw * 7, y0);
+    ok(byId(1).sd !== '2026-10-26', 'bara s-a mutat'); eq(_history.length, 1, 'mutarea intră în istoric'); undo(); eq(byId(1).sd, '2026-10-26', 'undo readuce bara');
+  });
+
+  // ---------- extensie pentru funcții viitoare ----------
   const extra = window.__regressionExtra;
   if (typeof extra === 'function') extra({ test, ok, eq, near, skip, wait, F, mk, settle, snap, setProject, confirmYes, key, newTabWith, noTransitions, toasts });
 

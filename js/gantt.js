@@ -175,6 +175,11 @@ function showCtx(e,id){
   sel=id; renderAll(); const t=T.find(x=>x.id===id); if(!t) return;
   const hasPar=!!t.pid; let h="";
   h+='<div class="ctx-item" onclick="openTaskInfo('+id+');closeCtx()">ⓘ Detalii (Task Info)</div>';
+  if(_isLeafTask(t)){
+    h+='<div class="ctx-sep"></div>';
+    h+='<div class="ctx-item" onclick="markStarted('+id+');closeCtx()">▶ A început (la data de status)</div>';
+    h+='<div class="ctx-item" onclick="markDone('+id+');closeCtx()">✓ Finalizat (100%)</div>';
+  }
   h+='<div class="ctx-sep"></div>';
   h+='<div class="ctx-item" onclick="cutTask();closeCtx()">✂️ Tăiat (Ctrl+X)</div>';
   h+='<div class="ctx-item" onclick="copyTask();closeCtx()">📋 Copiat (Ctrl+C)</div>';
@@ -234,6 +239,8 @@ const CX=[
   {k:"var",   l:"Δ bază",  w:62, cls:"col-var"},
   {k:"cost",  l:"Cost",    w:92, cls:"col-cost"},
   {k:"status",l:"Status",  w:80, cls:"col-status"},
+  {k:"as",    l:"Început real", w:104, cls:"col-as"},
+  {k:"af",    l:"Final real",   w:104, cls:"col-af"},
   {k:"id",    l:"ID",      w:40, cls:"col-id"}
 ];
 
@@ -289,9 +296,9 @@ $("thRow").addEventListener("mousedown", e => {
 // Status derivat automat din dată+progres
 function _statusOf(t){
   const isSumm = hasK(t.id);
-  if (t.prog >= 100) return {k:'done', lbl:'✓ Done'};
+  if (t.prog >= 100) return {k:'done', lbl:'✓ Finalizat'};
   if (isSumm) return {k:'wip', lbl:'🗂 Capitol'};
-  const today = new Date();
+  const today = pD(statusDay());     // doar data (fără ora): o activitate care se termină azi NU e încă întârziată
   const start = pD(t.sd);
   const end = endDate(t);
   if (today > end && t.prog < 100) return {k:'late', lbl:'⚠ Întârziat'};
@@ -396,8 +403,15 @@ function renderTBody(){
        + '<span class="status-badge '+st.k+'">'+st.lbl+'</span>'
        + '</div>';
 
+    // Început real / Final real (doar activități; la capitole și repere rămân goale)
+    const realOk = !isSumm && !isMs;
+    h += '<div class="c col-as" style="width:'+CX[3].w+'px;min-width:'+CX[3].w+'px;justify-content:center">'
+       + (realOk ? dtField(t.as||'', {onchange:"updActual("+t.id+",'as',this.value)"}) : '<span style="color:var(--muted)">—</span>') + '</div>';
+    h += '<div class="c col-af" style="width:'+CX[4].w+'px;min-width:'+CX[4].w+'px;justify-content:center">'
+       + (realOk ? dtField(t.af||'', {onchange:"updActual("+t.id+",'af',this.value)"}) : '<span style="color:var(--muted)">—</span>') + '</div>';
+
     // ID intern
-    h += '<div class="c col-id" style="width:'+CX[3].w+'px;min-width:'+CX[3].w+'px;justify-content:center;color:var(--muted);font-size:10px;font-weight:700">'
+    h += '<div class="c col-id" style="width:'+CX[5].w+'px;min-width:'+CX[5].w+'px;justify-content:center;color:var(--muted);font-size:10px;font-weight:700">'
        + '#'+t.id
        + '</div>';
 
@@ -477,6 +491,7 @@ function renderGantt(){
     cm.ds.push(d);
   }
 
+  const stDay = hasCustomStatus() ? META.sdate : null;   // linia „Status" apare doar dacă data de status diferă de azi
   let hm="", hd="";
   mons.forEach(m=>{
     const mw=m.ds.length*dw, mlab=mw>=64?m.l:(mw>=26?MN(m.ds[0]):'');
@@ -487,19 +502,20 @@ function renderGantt(){
       const showFull = dw >= 24;
       const label    = !showNum ? '' : (showFull ? d.getDate() : (d.getDate()%2===0 ? d.getDate() : ''));
       const fs       = Math.max(7, Math.min(10, dw-4));
-      hd+='<div class="hc dy'+(isOff(d)?" we":"")+(fD(d)===todayStr?" today":"")+'"'
+      hd+='<div class="hc dy'+(isOff(d)?" we":"")+(fD(d)===todayStr?" today":"")+(stDay&&fD(d)===stDay?" status":"")+'"'
         + ' style="width:'+dw+'px;min-width:'+dw+'px;font-size:'+fs+'px">'+label+'</div>';
     });
   });
 
   const ti=dD(cs,pD(todayStr)), aziFlag=(ti>=0&&ti<td)?`<div class="today-flag-h" style="left:${Math.max(16,ti*dw+dw/2)}px">Azi</div>`:"";
-  $("gHead").innerHTML=`<div style="width:${tw}px;position:relative"><div class="g-head-row">${hm}</div><div class="g-head-row">${hd}</div>${aziFlag}</div>`;
+  const si=stDay?dD(cs,pD(stDay)):-1, statusFlag=(si>=0&&si<td)?`<div class="today-flag-h status" style="left:${Math.max(24,si*dw+dw/2)}px" title="Data de status: ${fmtDate(pD(stDay))}">Status ${_dm(pD(stDay))}</div>`:"";
+  $("gHead").innerHTML=`<div style="width:${tw}px;position:relative"><div class="g-head-row">${hm}</div><div class="g-head-row">${hd}</div>${aziFlag}${statusFlag}</div>`;
 
   let grid="";
   for(let i=0;i<td;i++){
     const d=aD(cs,i);
     const off=isOff(d);
-    grid+='<div class="vl '+(fD(d)===todayStr?"today ":"")+(off?"we":"")+'" style="left:'+i*dw+'px'+(off&&dw>=12?';width:'+dw+'px':'')+'"></div>';
+    grid+='<div class="vl '+(fD(d)===todayStr?"today ":"")+(stDay&&fD(d)===stDay?"status ":"")+(off?"we":"")+'" style="left:'+i*dw+'px'+(off&&dw>=12?';width:'+dw+'px':'')+'"></div>';
   }
 
   // Map id → row index pt deps
@@ -539,7 +555,7 @@ function renderGantt(){
         +' oncontextmenu="showCtx(event,'+t.id+')"'
         +' onmouseenter="highlightRow('+t.id+')"'
         +' onmouseleave="clearHighlight()">'
-        +'<div class="gb '+bc+' dp'+dp+ac+(!isSumm&&isCrit(t.id)?' crit':'')+(taskWarn[t.id]?' warn':'')+(isBehind(t)?' late-task':'')+'" data-bid="'+t.id+'" style="'+styleStr+'">'+bi+'</div>'+_blBar(t,cs,dw)+_dlMark(t,cs,dw)+(showSideNames&&!isSumm&&!isMs?'<span class="bar-side" style="left:'+(l+w+8)+'px">'+esc(t.nm)+'</span>':'')+'</div>';
+        +'<div class="gb '+bc+' dp'+dp+ac+(!isSumm&&isCrit(t.id)?' crit':'')+(taskWarn[t.id]?' warn':'')+(isBehind(t)?' late-task':'')+'" data-bid="'+t.id+'" style="'+styleStr+'">'+bi+'</div>'+_blBar(t,cs,dw)+_actBar(t,cs,dw)+_dlMark(t,cs,dw)+(showSideNames&&!isSumm&&!isMs?'<span class="bar-side" style="left:'+(l+w+8)+'px">'+esc(t.nm)+'</span>':'')+'</div>';
   });
 
   // ===== DEPENDENCY ARROWS (Orthogonal / Manhattan routing) =====
@@ -650,7 +666,7 @@ function updateInfoBar(t){
   const consTxt=t.cons&&t.cons.type&&t.cons.type!=="ASAP"?` · <span class="gi-lbl">Restricție:</span> ${CONS_LABELS[t.cons.type]}${t.cons.date?" "+fmtDate(pD(t.cons.date)):""}`:"";
   const dlTxt=t.deadline?` · <span class="gi-lbl">Termen:</span> ${fmtDate(pD(t.deadline))}`:"";
   const tw=taskWarn[t.id], warnTxt=tw?` · <span class="gi-warn">⚠ ${[tw.lateText,tw.cons,tw.res].filter(Boolean).map(esc).join(" · ")}</span>`:"";
-  el.innerHTML=`<b>${w[t.id]||""} ${esc(t.nm)}</b> · ${t.dur} ${t.dur===1?"zi":"zile"} · ${fmtDate(p._s)} → ${fmtDate(p._e)} · ${t.prog}%${slack}${consTxt}${dlTxt}${baselineText(t)}${resText(t)}${warnTxt} · <span class="gi-lbl">După:</span> ${preds} · <span class="gi-lbl">Urmează:</span> ${succs}`;
+  el.innerHTML=`<b>${w[t.id]||""} ${esc(t.nm)}</b> · ${t.dur} ${t.dur===1?"zi":"zile"} · ${fmtDate(p._s)} → ${fmtDate(p._e)} · ${t.prog}%${slack}${consTxt}${dlTxt}${baselineText(t)}${actualText(t)}${resText(t)}${warnTxt} · <span class="gi-lbl">După:</span> ${preds} · <span class="gi-lbl">Urmează:</span> ${succs}`;
 }
 
 function attachBars(cs,td,dw){
@@ -679,10 +695,11 @@ function attachBars(cs,td,dw){
         };
         const up=ev=>{
           bar.classList.remove("dragging"); hideLive();
-          t.sd=fD(aD(orig,Math.round((ev.clientX-sx)/dw)));
-          syncTabData(); renderAll();
           document.removeEventListener("mousemove",mv);
           document.removeEventListener("mouseup",up);
+          const ns=fD(aD(orig,Math.round((ev.clientX-sx)/dw)));
+          if(ns!==t.sd){ pushHistory(); t.sd=ns; }     // mutarea unei bare intră în istoric (Ctrl+Z) doar dacă s-a mutat
+          syncTabData(); renderAll();
         };
         document.addEventListener("mousemove",mv);
         document.addEventListener("mouseup",up);
@@ -711,9 +728,14 @@ function attachBars(cs,td,dw){
         if(pctEl) pctEl.textContent = pct + "%";
       };
       const up=()=>{
-        t2.prog=pct; syncTabData(); renderAll();
         document.removeEventListener("mousemove",mv);
         document.removeEventListener("mouseup",up);
+        if(pct!==t2.prog){            // doar dacă s-a schimbat ceva: intră în istoric (Ctrl+Z) și completează datele reale
+          pushHistory();
+          const oldProg=t2.prog; t2.prog=pct;
+          const msg=_syncActuals(t2,oldProg); if(msg) toast('📅 '+msg);
+        }
+        syncTabData(); renderAll();
       };
       document.addEventListener("mousemove",mv);
       document.addEventListener("mouseup",up);
@@ -733,10 +755,11 @@ function attachBars(cs,td,dw){
       };
       const up=ev=>{
         bar.classList.remove("dragging"); hideLive();
-        t2.dur=workDur(pD(t2.sd),aD(origEnd,Math.round((ev.clientX-sx)/dw)));
-        syncTabData(); renderAll();
         document.removeEventListener("mousemove",mv);
         document.removeEventListener("mouseup",up);
+        const nd=workDur(pD(t2.sd),aD(origEnd,Math.round((ev.clientX-sx)/dw)));
+        if(nd!==t2.dur){ pushHistory(); t2.dur=nd; }
+        syncTabData(); renderAll();
       };
       document.addEventListener("mousemove",mv);
       document.addEventListener("mouseup",up);
@@ -760,12 +783,14 @@ function attachBars(cs,td,dw){
       };
       const up=ev=>{
         bar.classList.remove("dragging"); hideLive();
-        const d=Math.round((ev.clientX-sx)/dw);
-        if(d>=od){t2.sd=fD(endD);t2.dur=1}
-        else{const ns=aD(orig,d); t2.sd=fD(ns); t2.dur=workDur(ns,endD)}
-        syncTabData(); renderAll();
         document.removeEventListener("mousemove",mv);
         document.removeEventListener("mouseup",up);
+        const d=Math.round((ev.clientX-sx)/dw);
+        let nsd, ndur;
+        if(d>=od){nsd=fD(endD); ndur=1}
+        else{const ns=aD(orig,d); nsd=fD(ns); ndur=workDur(ns,endD)}
+        if(nsd!==t2.sd||ndur!==t2.dur){ pushHistory(); t2.sd=nsd; t2.dur=ndur; }
+        syncTabData(); renderAll();
       };
       document.addEventListener("mousemove",mv);
       document.addEventListener("mouseup",up);

@@ -10,6 +10,11 @@ let nextTabId = 1;    // contor id-uri tab-uri
 // Datele proiectului curent (sincronizate cu tab-ul activ)
 let T = [], nid = 1, sel = null, coll = new Set(), view = "gantt", zoomLevel = 100, isAutoZoom = true;
 
+// Date la nivel de proiect (se salvează odată cu activitățile): data de status pentru urmărirea progresului.
+// sdate = data de status (aaaa-ll-zz) sau null = „azi".
+let META = { sdate: null };
+function setMeta(m) { META = { sdate: m && /^\d{4}-\d{2}-\d{2}$/.test(m.sdate || "") ? m.sdate : null }; }
+
 // ============================================================
 // UNDO / REDO
 // ============================================================
@@ -17,7 +22,7 @@ let _history = [], _future = [];
 const MAX_HISTORY = 50;
 
 function pushHistory() {
-  _history.push(JSON.stringify({ T, nid, cal: CAL, res: RES }));
+  _history.push(JSON.stringify({ T, nid, cal: CAL, res: RES, meta: META }));
   if (_history.length > MAX_HISTORY) _history.shift();
   _future = [];
   updateUndoRedoBtns();
@@ -25,9 +30,9 @@ function pushHistory() {
 
 function undo() {
   if (!_history.length) { toast('⚠️ Nimic de anulat'); return; }
-  _future.push(JSON.stringify({ T, nid, cal: CAL, res: RES }));
+  _future.push(JSON.stringify({ T, nid, cal: CAL, res: RES, meta: META }));
   const state = JSON.parse(_history.pop());
-  T = state.T; nid = state.nid; sel = null; if (state.cal) setCal(state.cal); if (state.res) setRes(state.res);
+  T = state.T; nid = state.nid; sel = null; if (state.cal) setCal(state.cal); if (state.res) setRes(state.res); setMeta(state.meta);
   syncTabData();
   updateUndoRedoBtns();
   renderAll();
@@ -36,9 +41,9 @@ function undo() {
 
 function redo() {
   if (!_future.length) { toast('⚠️ Nimic de refăcut'); return; }
-  _history.push(JSON.stringify({ T, nid, cal: CAL, res: RES }));
+  _history.push(JSON.stringify({ T, nid, cal: CAL, res: RES, meta: META }));
   const state = JSON.parse(_future.pop());
-  T = state.T; nid = state.nid; sel = null; if (state.cal) setCal(state.cal); if (state.res) setRes(state.res);
+  T = state.T; nid = state.nid; sel = null; if (state.cal) setCal(state.cal); if (state.res) setRes(state.res); setMeta(state.meta);
   syncTabData();
   updateUndoRedoBtns();
   renderAll();
@@ -309,7 +314,7 @@ function flat() { const roots=T.filter(t=>!t.pid), r=[]; (function w(l){l.forEac
 function wbs() { const m={}; (function w(l,p){l.forEach((t,i)=>{const n=p?p+"."+(i+1):String(i+1); m[t.id]=n; w(kids(t.id),n)})})(T.filter(t=>!t.pid),""); return m; }
 function wbsReverse() { const w=wbs(), r={}; for(const id in w) r[w[id]]=+id; return r; }
 function ps(t) { const s=pD(t.sd), e=endDate(t); return{...t,_s:s,_e:e}; }
-function ab() { if(!T.length) return null; let mn=null, mx=null; T.forEach(t=>{const p=ps(t); if(!mn||p._s<mn)mn=p._s; if(!mx||p._e>mx)mx=p._e; if(t.deadline){const dl=pD(t.deadline); if(dl>mx)mx=dl;} const bs=(typeof blSpan==="function"&&showBaseline)?blSpan(t):null; if(bs){if(bs.s<mn)mn=bs.s; if(bs.e>mx)mx=bs.e;}}); return{mn,mx}; }
+function ab() { if(!T.length) return null; let mn=null, mx=null; T.forEach(t=>{const p=ps(t); if(!mn||p._s<mn)mn=p._s; if(!mx||p._e>mx)mx=p._e; if(t.deadline){const dl=pD(t.deadline); if(dl>mx)mx=dl;} const bs=(typeof blSpan==="function"&&showBaseline)?blSpan(t):null; if(bs){if(bs.s<mn)mn=bs.s; if(bs.e>mx)mx=bs.e;} const ac=(typeof actSpan==="function")?actSpan(t):null; if(ac){if(ac.s<mn)mn=ac.s; if(ac.e>mx)mx=ac.e;}}); return{mn,mx}; }
 
 // ============================================================
 // SINCRONIZARE TAB ↔ VARIABILE GLOBALE
@@ -318,7 +323,7 @@ function ab() { if(!T.length) return null; let mn=null, mx=null; T.forEach(t=>{c
 // Salvează datele curente în tab-ul activ
 function syncTabData() {
   const tab = tabs.find(t => t.id === activeTabId);
-  if (tab) { tab.T = JSON.parse(JSON.stringify(T)); tab.nid = nid; tab.cal = JSON.parse(JSON.stringify(CAL)); tab.res = JSON.parse(JSON.stringify(RES)); }
+  if (tab) { tab.T = JSON.parse(JSON.stringify(T)); tab.nid = nid; tab.cal = JSON.parse(JSON.stringify(CAL)); tab.res = JSON.parse(JSON.stringify(RES)); tab.meta = JSON.parse(JSON.stringify(META)); }
 }
 
 // Curăță datele încărcate (fișier importat / localStorage): câmpuri lipsă, date și durate invalide,
@@ -361,7 +366,7 @@ function _sanitizeTasks() {
 function loadTabData(tabId) {
   const tab = tabs.find(t => t.id === tabId);
   if (!tab) return;
-  setCal(tab.cal); setRes(tab.res);
+  setCal(tab.cal); setRes(tab.res); setMeta(tab.meta);
   T   = JSON.parse(JSON.stringify(tab.T));
   _sanitizeTasks();
   nid = Math.max(+tab.nid || 1, ...T.map(t => t.id + 1));
@@ -382,7 +387,7 @@ function loadTabData(tabId) {
 // GESTIONARE TAB-URI
 // ============================================================
 
-function addNewTab(name, data, nidVal, cal, res) {
+function addNewTab(name, data, nidVal, cal, res, meta) {
   const tabName = name || ("Proiect " + (tabs.length + 1));
   const tab = {
     id:   nextTabId++,
@@ -390,7 +395,8 @@ function addNewTab(name, data, nidVal, cal, res) {
     T:    data  || [],
     nid:  nidVal|| 1,
     cal:  cal || CAL_DEFAULT(),
-    res:  res || { list: [], next: 1, cur: "RON" }
+    res:  res || { list: [], next: 1, cur: "RON" },
+    meta: meta || { sdate: null }
   };
   tabs.push(tab);
   switchTab(tab.id);
@@ -420,7 +426,7 @@ function closeTab(tabId, e) {
       // Niciun proiect deschis: ecranul de bun venit
       activeTabId = null;
       T = []; nid = 1; sel = null; coll.clear(); _history = []; _future = [];
-      setCal(null); setRes(null);
+      setCal(null); setRes(null); setMeta(null);
       updateUndoRedoBtns();
     } else if (activeTabId === tabId) {
       // Dacă am închis tab-ul activ, activăm vecinul
@@ -536,7 +542,7 @@ function exportJSON() {
   const tab  = tabs.find(t => t.id === activeTabId);
   const defaultName = tab ? tab.name : 'proiect-gantt';
   showNameModal(defaultName, function(name) {
-    const data = JSON.stringify({ T, nid, cal: CAL, res: RES, name, exportedAt: new Date().toISOString() }, null, 2);
+    const data = JSON.stringify({ T, nid, cal: CAL, res: RES, meta: META, name, exportedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -559,7 +565,7 @@ function importJSONasTab() {
         const d = JSON.parse(ev.target.result);
         if (!d.T || !Array.isArray(d.T)) throw new Error('Format invalid');
         const tabName = d.name || file.name.replace('.json','');
-        addNewTab(tabName, d.T, d.nid || (d.T.length ? Math.max(...d.T.map(x=>x.id))+1 : 1), d.cal, d.res);
+        addNewTab(tabName, d.T, d.nid || (d.T.length ? Math.max(...d.T.map(x=>x.id))+1 : 1), d.cal, d.res, d.meta);
         toast('📂 Proiect încărcat în tab nou: ' + tabName);
       } catch(err) { toast('❌ Fișier invalid!'); }
     };
@@ -624,7 +630,12 @@ function upd(id, f, v) {
     if (v === "" || +v < 1) { toast("⚠️ Durată invalidă!"); return; }
     t.dur = parseInt(v, 10);
   }
-  else if (f === "prog") { if (v === "") return; t.prog = clamp(parseInt(v, 10) || 0, 0, 100); }
+  else if (f === "prog") {
+    if (v === "") return;
+    const oldProg = t.prog;
+    t.prog = clamp(parseInt(v, 10) || 0, 0, 100);
+    const msg = _syncActuals(t, oldProg); if (msg) toast('📅 ' + msg);   // început / final real completate din data de status
+  }
   else if (f === "sd" && v) {
     const oldEnd = endDate(t);
     t.sd = v;
@@ -736,7 +747,7 @@ function loadDemo() {
     {id:19, nm:"Teste și verificări", sd:start, dur:3, prog:0, pid:16, deps:[F(17,'FS')]},
     {id:20, nm:"Recepție și predare", sd:start, dur:1, prog:0, pid:16, deps:[F(19,'FS'),F(18,'FS')], isMilestone:true}
   ];
-  nid = 21; coll.clear(); sel = null;
+  nid = 21; coll.clear(); sel = null; setMeta(null);
   const D = id => T.find(x => x.id === id);
 
   // Calendar: luni–vineri + o zi liberă
@@ -780,6 +791,13 @@ function loadDemo() {
   D(10).deadline = wd(36);                               // termen limită depășit (roșu)
   D(14).deadline = wd(85);                               // termen limită respectat (verde)
   D(20).deadline = wd(85);
+
+  // 3) Progres real: ce s-a întâmplat efectiv (început / final real) — vezi bara subțire de deasupra activităților
+  renderAll();
+  D(3).as = D(3).sd;  D(3).af = fD(addWorkDays(endDate(D(3)), 1));   // a durat o zi mai mult decât planul (bară roșie)
+  D(4).as = D(4).sd;  D(4).af = fD(endDate(D(4)));                   // la timp (bară verde)
+  D(5).as = D(5).sd;                                                 // în desfășurare (bară albastră)
+  D(7).as = D(7).sd;
   syncTabData(); renderAll(); _refreshPlanUI();
 }
 

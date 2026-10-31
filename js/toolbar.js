@@ -360,6 +360,17 @@ function openTaskInfo(id) {
         <input type="number" min="0" max="100" id="tiProg" value="${t.prog}" ${isSumm ? 'disabled' : ''}>
       </div>
     </div>
+    ${(isSumm || t.isMilestone) ? '' : `<div class="ti-row ti-2col">
+      <div>
+        <label>Început real <button type="button" class="ti-mini" onclick="dtSet('tiAs',statusDay())" title="Pune data de status">azi</button></label>
+        ${dtField(t.as || '', {id:'tiAs'})}
+      </div>
+      <div>
+        <label>Final real <button type="button" class="ti-mini" onclick="dtSet('tiAf',statusDay())" title="Pune data de status">azi</button></label>
+        ${dtField(t.af || '', {id:'tiAf'})}
+      </div>
+      <div class="dep-hint" style="grid-column:1/-1">Se completează singure când progresul trece de 0% / ajunge la 100% (cu data de status). Planul se mută după ele doar când apeși „Actualizează planul" (Proiect › Urmărire).</div>
+    </div>`}
     <div class="ti-row">
       <label>Se face după (WBS[Tip][±zile], separat cu ;)</label>
       <input id="tiDeps" value="${esc(depsList)}" placeholder="ex: 1.1; 2.3FS+2; 3.4SS-1">
@@ -430,7 +441,11 @@ function closeTaskInfo() {
 function saveTaskInfo(id) {
   const t = T.find(x => x.id === id);
   if (!t) return;
+  const asEl = $('tiAs'), afEl = $('tiAf');
+  const asV = asEl ? asEl.value : '', afV = afEl ? afEl.value : '';
+  if (asV && afV && afV < asV) { toast('⚠️ Finalul real nu poate fi înaintea începutului real'); return; }
   pushHistory();
+  let actMsg = '';
 
   t.nm = $('tiName').value.trim() || t.nm;
   { const sn = $('tiShort').value.trim(); if (sn) t.sn = sn; else delete t.sn; }
@@ -438,9 +453,16 @@ function saveTaskInfo(id) {
     t.sd = $('tiStart').value || t.sd;
     const newDur = parseInt($('tiDur').value, 10);
     if (newDur >= 1) t.dur = newDur;
+    const oldProg = t.prog;
     t.prog = clamp(parseInt($('tiProg').value, 10) || 0, 0, 100);
     const ed = $('tiEnd').value;
     if (ed) t.dur = workDur(pD(t.sd), pD(ed));
+    if (asEl && afEl) {                       // început / final real: întâi ce ai scris tu, apoi completarea automată
+      const oldAf = t.af;
+      if (asV) t.as = asV; else delete t.as;
+      if (afV) { t.af = afV; if (!t.as) t.as = _minISO(t.sd, afV); if (afV !== oldAf && t.prog < 100) t.prog = 100; } else delete t.af;
+      actMsg = _syncActuals(t, oldProg);
+    }
   }
 
   // Notes
@@ -487,7 +509,7 @@ function saveTaskInfo(id) {
   closeTaskInfo();
   syncTabData();
   renderAll();
-  toast('💾 Salvat');
+  toast('💾 Salvat' + (actMsg ? ' · ' + actMsg : ''));
 }
 
 // ============================================================

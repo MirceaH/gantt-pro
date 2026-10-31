@@ -13,7 +13,7 @@ function _fileTab() { return tabs.find(t => t.id === activeTabId); }
 
 function _projectJSON() {
   const tab = _fileTab();
-  return JSON.stringify({ T, nid, cal: CAL, res: RES, name: tab ? tab.name : "Proiect", exportedAt: new Date().toISOString() }, null, 2);
+  return JSON.stringify({ T, nid, cal: CAL, res: RES, meta: META, name: tab ? tab.name : "Proiect", exportedAt: new Date().toISOString() }, null, 2);
 }
 
 async function _writeHandle(handle) {
@@ -104,7 +104,7 @@ async function _openHandle(handle) {
   const d = JSON.parse(await (await handle.getFile()).text());
   if (!d.T || !Array.isArray(d.T)) throw new Error("Format invalid");
   const name = d.name || handle.name.replace(/\.gantt\.json$|\.json$/i, "");
-  const tab = addNewTab(name, d.T, d.nid || (d.T.length ? Math.max(...d.T.map(x => x.id)) + 1 : 1), d.cal, d.res);
+  const tab = addNewTab(name, d.T, d.nid || (d.T.length ? Math.max(...d.T.map(x => x.id)) + 1 : 1), d.cal, d.res, d.meta);
   fileHandles[tab.id] = handle; fileNames[tab.id] = handle.name; fileSavedAt[tab.id] = new Date();
   renderStatus();
   recentAdd(handle);
