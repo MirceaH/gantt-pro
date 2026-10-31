@@ -21,9 +21,15 @@ function setMeta(m) { META = { sdate: m && /^\d{4}-\d{2}-\d{2}$/.test(m.sdate ||
 let _history = [], _future = [];
 const MAX_HISTORY = 50;
 
+const MAX_HISTORY_CHARS = 30e6;   // plafon de memorie pentru instantaneele de undo (≈ 60 MB de text în JS)
+
 function pushHistory() {
-  _history.push(JSON.stringify({ T, nid, cal: CAL, res: RES, meta: META }));
-  if (_history.length > MAX_HISTORY) _history.shift();
+  const snap = JSON.stringify({ T, nid, cal: CAL, res: RES, meta: META });
+  if (_history[_history.length - 1] !== snap) {                 // același conținut ca ultimul instantaneu → nu-l dublăm
+    _history.push(snap);
+    let size = _history.reduce((s, h) => s + h.length, 0);
+    while (_history.length > 1 && (_history.length > MAX_HISTORY || size > MAX_HISTORY_CHARS)) size -= _history.shift().length;
+  }
   _future = [];
   updateUndoRedoBtns();
 }
@@ -64,14 +70,29 @@ const pD = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m
 const fD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const aD = (d,n) => { const r = new Date(d); r.setDate(r.getDate()+n); return r; };
 const dD = (a,b) => Math.round((b-a)/864e5);
-const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+// Text simplu din date venite din fișiere: fără caractere care ar putea închide un atribut / tag, fără caractere de control, lungime limitată
+const plainText = (s, max) => String(s == null ? "" : s).replace(/[<>"'`&\u0000-\u001f]/g, "").trim().slice(0, max || 60);
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const validISO = s => typeof s === "string" && ISO_DATE.test(s) && !isNaN(new Date(s + "T00:00:00"));
 const isWE = d => d.getDay()===0 || d.getDay()===6;
 const MN = d => ["Ian","Feb","Mar","Apr","Mai","Iun","Iul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
 const todayStr = fD(new Date());
 const fmtDate = d => `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
 
 function toast(m) { const t=$("toast"); t.textContent=m; t.classList.add("v"); clearTimeout(toast._); toast._=setTimeout(()=>t.classList.remove("v"),2500); }
-function kids(p) { return T.filter(t=>t.pid===p); }
+// Index temporar (id → activitate, părinte → copii) folosit doar cât durează recalcularea (vezi recomputeAll):
+// în acest interval structura lui T nu se schimbă, iar căutările devin O(1) în loc de O(n).
+let _ix = null;
+function withIndex(fn) {
+  if (_ix) return fn();
+  const byId = new Map(), kidsOf = new Map();
+  T.forEach(t => { byId.set(t.id, t); if (!kidsOf.has(t.pid)) kidsOf.set(t.pid, []); kidsOf.get(t.pid).push(t); });
+  _ix = { byId, kidsOf };
+  try { return fn(); } finally { _ix = null; }
+}
+const taskById = id => _ix ? _ix.byId.get(id) : T.find(x => x.id === id);
+function kids(p) { return _ix ? (_ix.kidsOf.get(p) || []) : T.filter(t=>t.pid===p); }
 function dep(id) { let d=0, t=T.find(x=>x.id===id); while(t&&t.pid){d++; t=T.find(x=>x.id===t.pid)} return d; }
 function allD(id) { const r=[]; kids(id).forEach(c=>{r.push(c.id); r.push(...allD(c.id))}); return r; }
 function isD(c,a) { let t=T.find(x=>x.id===c); while(t&&t.pid){if(t.pid===a) return true; t=T.find(x=>x.id===t.pid)} return false; }
@@ -197,6 +218,45 @@ function _applyDepsSafely(t, list) {
   if (bad) toast('🚫 ' + bad + (bad === 1 ? ' legătură ignorată' : ' legături ignorate') + ' (ar crea o buclă sau ar lega o activitate de capitolul ei)');
 }
 
+// Startul pe care îl cere legătura `d` activității `t`, cu lag-ul dat (zile lucrătoare, calendarul proiectului); null dacă predecesorul lipsește.
+//   FS: începe în ziua lucrătoare de după finalul predecesorului (+lag)   SS: începe la startul predecesorului (+lag)
+//   FF: se termină la finalul predecesorului (+lag)                       SF: se termină la startul predecesorului (+lag)
+function depStart(t, d, lag) {
+  const pred = taskById(d.id); if (!pred) return null;
+  const sucDur = Math.max(1, t.dur);
+  switch (d.type) {
+    case 'FS': return addWorkDays(endDate(pred), 1 + lag);
+    case 'SS': return addWorkDays(pD(pred.sd), lag);
+    case 'FF': return addWorkDays(addWorkDays(endDate(pred), lag), -(sucDur - 1));
+    case 'SF': return addWorkDays(addWorkDays(pD(pred.sd), lag), -(sucDur - 1));
+    default:   return null;
+  }
+}
+
+// Zile lucrătoare de adăugat lui `a` ca să ajungă la `b` (negativ dacă b < a); a și b sunt zile lucrătoare
+function workDaysBetween(a, b) {
+  let n = 0;
+  if (b >= a) { for (let r = a, g = 0; r < b && g < 36600; g++) { r = aD(r, 1); if (isWork(r)) n++; } return n; }
+  for (let r = a, g = 0; r > b && g < 36600; g++) { r = aD(r, -1); if (isWork(r)) n--; }
+  return n;
+}
+
+// O activitate cu legături a fost mutată cu mouse-ul la t.sd: mutarea se păstrează ca LAG pe legătura care îi dictează startul
+// (altfel programarea automată o readuce imediat la data legăturii). Nu coboară sub lag 0 (nu creează suprapuneri din greșeală).
+// Returnează legătura modificată sau null dacă nu s-a schimbat nimic.
+function lagFromMove(t) {
+  if (!t || !(t.deps && t.deps.length) || hasK(t.id) || t.isMilestone) return null;
+  if (t.cons && t.cons.type && t.cons.type !== 'ASAP') return null;      // restricția dictează startul, nu legătura
+  let drv = null, best = null;
+  t.deps.forEach(d => { const s = depStart(t, d, +d.lag || 0); if (s && (!best || s > best)) { best = s; drv = d; } });
+  if (!drv) return null;
+  const start0 = depStart(t, drv, 0), target = nextWork(pD(t.sd));
+  const lag = Math.max(workDaysBetween(start0, target), Math.min(0, +drv.lag || 0));
+  if (lag === (+drv.lag || 0)) return null;
+  drv.lag = lag;
+  return drv;
+}
+
 let _lastCycleWarnAt = 0;
 function recalcSchedule() {
   _ensureDeps();
@@ -211,31 +271,16 @@ function recalcSchedule() {
     }
   }
   for (const tid of order) {
-    const t = T.find(x => x.id === tid); if (!t) continue;
+    const t = taskById(tid); if (!t) continue;
     if (hasK(t.id)) { _calcSummaryDates(t); continue; } // capitolele se derivă din copii (deja calculați în ordine)
     const hasDeps = !!(t.deps && t.deps.length);
     const hasCons = !!(t.cons && t.cons.type && t.cons.type !== 'ASAP' && (t.cons.type === 'ALAP' || t.cons.date));
     if (!hasDeps && !hasCons) continue;
 
-    const sucDur = Math.max(1, t.dur);
     let bestStart = null;
     for (const d of (t.deps || [])) {
-      const pred = T.find(x => x.id === d.id); if (!pred) continue;
-      const lag = +d.lag || 0;
-      // Totul în ZILE LUCRĂTOARE (calendarul proiectului): lag-ul se numără în zile lucrătoare.
-      //   FS: începe în ziua lucrătoare de după finalul predecesorului (+lag)
-      //   SS: începe la start predecesor (+lag)
-      //   FF: se termină la finalul predecesorului (+lag)
-      //   SF: se termină la startul predecesorului (+lag)
-      let newStart;
-      switch (d.type) {
-        case 'FS': newStart = addWorkDays(endDate(pred), 1 + lag); break;
-        case 'SS': newStart = addWorkDays(pD(pred.sd), lag); break;
-        case 'FF': newStart = addWorkDays(addWorkDays(endDate(pred), lag), -(sucDur - 1)); break;
-        case 'SF': newStart = addWorkDays(addWorkDays(pD(pred.sd), lag), -(sucDur - 1)); break;
-        default:   continue;
-      }
-      if (!bestStart || newStart > bestStart) bestStart = newStart;
+      const newStart = depStart(t, d, +d.lag || 0);
+      if (newStart && (!bestStart || newStart > bestStart)) bestStart = newStart;
     }
     // Constrângeri: pornim de la data dată de legături (sau data curentă, dacă nu are legături)
     let s = bestStart || pD(t.sd);
@@ -300,14 +345,18 @@ function wouldCreateCycle(predId, succId) {
   return false;
 }
 
+// Capitolele: date din copii (_calcSummaryDates) + progres ponderat cu durata copiilor (ca în MS Project),
+// nu media simplă — o activitate de 1 zi nu cântărește cât una de 30.
 function recalcSummaries() {
-  function calc(id) {
-    const ch=kids(id); if(!ch.length) return;
-    ch.forEach(c=>calc(c.id)); let minS=null, maxE=null, tp=0;
-    ch.forEach(c=>{ const s=pD(c.sd), e=endDate(c); if(!minS||s<minS) minS=s; if(!maxE||e>maxE) maxE=e; tp+=c.prog; });
-    const t=T.find(x=>x.id===id); if(t&&minS&&maxE){t.sd=fD(minS); t.dur=workDur(minS,maxE); t.prog=Math.round(tp/ch.length);}
+  function calc(t) {
+    const ch = kids(t.id); if (!ch.length) return;
+    ch.forEach(calc);
+    _calcSummaryDates(t);
+    let w = 0, p = 0;
+    ch.forEach(c => { const d = Math.max(1, c.dur); w += d; p += d * c.prog; });
+    t.prog = Math.round(p / w);
   }
-  T.filter(t=>!t.pid).forEach(r=>calc(r.id));
+  T.filter(t => !t.pid).forEach(calc);
 }
 
 function flat() { const roots=T.filter(t=>!t.pid), r=[]; (function w(l){l.forEach(t=>{r.push(t); if(!coll.has(t.id))w(kids(t.id))})})(roots); return r; }
@@ -347,6 +396,23 @@ function _sanitizeTasks() {
     const p = +t.prog; t.prog = isFinite(p) ? Math.max(0, Math.min(100, p)) : 0;
     if (!Array.isArray(t.deps)) t.deps = [];
     if (!Array.isArray(t.assign)) delete t.assign;
+    else {
+      t.assign = t.assign.filter(a => a && Number.isInteger(+a.rid)).map(a => ({ ...a, rid: +a.rid, units: Number.isFinite(+a.units) ? Math.max(0, +a.units) : 0 }));
+      if (!t.assign.length) delete t.assign;
+    }
+    // câmpuri opționale: valorile necunoscute sau cu dată invalidă se elimină (altfel pot produce date „NaN" în tot planul)
+    if (t.cons != null) {
+      const c = t.cons, type = c && typeof c === 'object' ? c.type : null;
+      if (!type || !CONS_LABELS[type]) delete t.cons;
+      else if (CONS_NEEDS_DATE.includes(type) && !validISO(c.date)) delete t.cons;
+      else { const keep = { type }; if (validISO(c.date)) keep.date = c.date; ['ac', 'lv'].forEach(k => { if (c[k]) keep[k] = true; }); if (validISO(c.o)) keep.o = c.o; t.cons = keep; }
+    }
+    ['deadline', 'as', 'af'].forEach(k => { if (t[k] != null && !validISO(t[k])) delete t[k]; });
+    if (t.bl != null) { if (t.bl && validISO(t.bl.sd) && Number.isFinite(+t.bl.dur) && +t.bl.dur >= 0) t.bl = { sd: t.bl.sd, dur: Math.round(+t.bl.dur) }; else delete t.bl; }
+    if (t.ttype != null && !['fu', 'fd', 'fw'].includes(t.ttype)) delete t.ttype;
+    if (t.sn != null) t.sn = String(t.sn).slice(0, 24);
+    if (t.notes != null) t.notes = String(t.notes);
+    if (t.isMilestone != null) t.isMilestone = !!t.isMilestone;
   });
   const ids = new Set(T.map(t => t.id));
   T.forEach(t => {
@@ -492,32 +558,55 @@ function renderTabsBar() {
 // ============================================================
 let _saveTimer = null;
 
+let _savePending = false, _saveFailed = false;
+
+function _saveIndicator(text, bad) {
+  const sbar = $("sbar"); if (!sbar) return;
+  let ind = sbar.querySelector('.save-indicator');
+  if (!ind) {
+    ind = document.createElement('span');
+    ind.className = 'save-indicator';
+    ind.style.cssText = 'color:rgba(255,255,255,.6);font-size:10px;margin-left:auto';
+    sbar.appendChild(ind);
+  }
+  ind.textContent = text;
+  ind.style.color = bad ? '#ffb4a8' : 'rgba(255,255,255,.6)';
+  ind.style.fontWeight = bad ? '800' : '';
+}
+
+// Scrie acum în localStorage. Returnează true dacă a reușit; la eșec (memorie plină, mod privat) avertizează vizibil, o singură dată.
+function flushSave() {
+  clearTimeout(_saveTimer);
+  if (!_savePending) return true;
+  _savePending = false;
+  try {
+    localStorage.setItem('ganttPRO_tabs',   JSON.stringify(tabs));
+    localStorage.setItem('ganttPRO_active', String(activeTabId));
+    localStorage.setItem('ganttPRO_nextId', String(nextTabId));
+  } catch (e) {
+    _savePending = true;
+    _saveIndicator('⚠ Nu s-a putut salva în browser — salvează proiectul într-un fișier (Ctrl+S)', true);
+    if (!_saveFailed) toast('⚠️ Salvarea automată în browser a eșuat (' + (e && e.name === 'QuotaExceededError' ? 'memorie plină' : 'blocată') + ') — salvează într-un fișier cu Ctrl+S');
+    _saveFailed = true;
+    return false;
+  }
+  _saveFailed = false;
+  try { if (typeof fileAutoWrite === 'function') fileAutoWrite(); } catch (e) {}
+  const now = new Date();
+  _saveIndicator('💾 Salvat automat la ' + [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, "0")).join(':'), false);
+  return true;
+}
+
 function saveAllTabs() {
   syncTabData(); // asigurăm că tab-ul curent e actualizat
+  _savePending = true;
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(() => {
-    try {
-      localStorage.setItem('ganttPRO_tabs',   JSON.stringify(tabs));
-      localStorage.setItem('ganttPRO_active', String(activeTabId));
-      localStorage.setItem('ganttPRO_nextId', String(nextTabId));
-      if (typeof fileAutoWrite === 'function') fileAutoWrite();
-
-      const now = new Date();
-      const timeStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
-      const sbar = $("sbar");
-      if (sbar) {
-        let ind = sbar.querySelector('.save-indicator');
-        if (!ind) {
-          ind = document.createElement('span');
-          ind.className = 'save-indicator';
-          ind.style.cssText = 'color:rgba(255,255,255,.6);font-size:10px;margin-left:auto';
-          sbar.appendChild(ind);
-        }
-        ind.textContent = '💾 Salvat automat la ' + timeStr;
-      }
-    } catch(e) {}
-  }, 800);
+  _saveTimer = setTimeout(flushSave, 800);
 }
+
+// Dacă pagina se ascunde sau se închide în cele 800 ms de așteptare, scriem imediat (altfel ultima modificare se pierde)
+addEventListener('pagehide', () => { if (_savePending) { syncTabData(); flushSave(); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && _savePending) { syncTabData(); flushSave(); } });
 
 function loadAllTabs() {
   try {
@@ -525,8 +614,14 @@ function loadAllTabs() {
     const savedActive = localStorage.getItem('ganttPRO_active');
     const savedNextId = localStorage.getItem('ganttPRO_nextId');
     if (savedTabs) {
-      tabs        = JSON.parse(savedTabs);
+      try { tabs = JSON.parse(savedTabs); }
+      catch (e) {   // date stricate: păstrăm o copie brută ca să nu le suprascriem la următoarea salvare
+        try { localStorage.setItem('ganttPRO_tabs_corrupt', savedTabs); } catch (e2) {}
+        tabs = []; toast('⚠️ Datele salvate în browser erau deteriorate — o copie e păstrată (ganttPRO_tabs_corrupt)');
+      }
       if (!Array.isArray(tabs)) tabs = [];
+      tabs.forEach(tb => { if (tb && typeof tb === 'object') tb.name = String(tb.name == null ? 'Proiect' : tb.name); });
+      tabs = tabs.filter(tb => tb && typeof tb === 'object' && Array.isArray(tb.T));
       nextTabId   = savedNextId ? +savedNextId : tabs.length + 1;
       if (!tabs.length) { activeTabId = null; return true; }   // niciun proiect deschis → bun venit
       activeTabId = savedActive && tabs.some(t => t.id === +savedActive) ? +savedActive : tabs[0].id;

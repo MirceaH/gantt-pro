@@ -10,7 +10,8 @@ let _holSet = new Set();
 
 function setCal(c) {
   const days = c && Array.isArray(c.days) && c.days.length === 7 ? c.days.map(x => x ? 1 : 0) : CAL_DEFAULT().days;
-  CAL = { days: days.some(Boolean) ? days : CAL_DEFAULT().days, hol: c && Array.isArray(c.hol) ? [...c.hol].sort() : [] };
+  const hol = c && Array.isArray(c.hol) ? [...new Set(c.hol.filter(validISO))].sort() : [];   // doar date valide (intră și în atribute HTML)
+  CAL = { days: days.some(Boolean) ? days : CAL_DEFAULT().days, hol };
   _holSet = new Set(CAL.hol);
 }
 

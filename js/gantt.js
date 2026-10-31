@@ -660,16 +660,35 @@ function hideLive(){ const b=document.getElementById("liveBadge"); if(b) b.remov
 function updateInfoBar(t){
   const el=$("gInfo"); if(!el) return;
   if(!t){ el.innerHTML='<span style="color:var(--muted)">Treci cu mouse-ul pe o activitate sau selecteaz-o pentru detalii</span>'; return; }
-  const w=wbs(), p=ps(t);
-  const preds=(t.deps||[]).map(d=>`${w[d.id]||"?"} <b>${depLabel(d)}</b>`).join(", ")||"—";
-  const succs=T.filter(x=>(x.deps||[]).some(d=>d.id===t.id)).map(x=>{const d=x.deps.find(d=>d.id===t.id); return `${w[x.id]||"?"} <b>${depLabel(d)}</b>`;}).join(", ")||"—";
-  const c=cpm[t.id];
-  const slack=c?` · <span style="${c.crit?"color:#d94040;font-weight:800":""}">${c.crit?"CRITIC (0 zile rezervă)":"rezervă "+c.float+" zile"}</span>`:"";
-  const consTxt=t.cons&&t.cons.type&&t.cons.type!=="ASAP"?` · <span class="gi-lbl">Restricție:</span> ${CONS_LABELS[t.cons.type]}${t.cons.date?" "+fmtDate(pD(t.cons.date)):""}`:"";
-  const dlTxt=t.deadline?` · <span class="gi-lbl">Termen:</span> ${fmtDate(pD(t.deadline))}`:"";
-  const tw=taskWarn[t.id], warnTxt=tw?` · <span class="gi-warn">⚠ ${[tw.lateText,tw.cons,tw.res].filter(Boolean).map(esc).join(" · ")}</span>`:"";
-  el.innerHTML=`<b>${w[t.id]||""} ${esc(t.nm)}</b> · ${t.dur} ${t.dur===1?"zi":"zile"} · ${fmtDate(p._s)} → ${fmtDate(p._e)} · ${t.prog}%${slack}${consTxt}${dlTxt}${baselineText(t)}${actualText(t)}${resText(t)}${warnTxt} · <span class="gi-lbl">După:</span> ${preds} · <span class="gi-lbl">Urmează:</span> ${succs}`;
+  const w=wbs(), p=ps(t), c=cpm[t.id], zi=n=>`${n} ${n===1?"zi":"zile"}`;
+  const tile=(lbl,body,cls="")=>`<div class="gi-tile ${cls}"><div class="gi-k">${lbl}</div><div class="gi-v">${body}</div></div>`;
+  const link=(id,d)=>`<span class="gi-link" style="--c:${DEP_COLORS[d.type]||DEP_COLORS.FS}">${w[id]||"?"}<i>${esc(depLabel(d))}</i></span>`;
+  const preds=(t.deps||[]).map(d=>link(d.id,d)).join("");
+  const succs=T.filter(x=>(x.deps||[]).some(d=>d.id===t.id)).map(x=>link(x.id,x.deps.find(d=>d.id===t.id))).join("");
+
+  const tw=taskWarn[t.id];
+  const chips=[c&&c.crit?`<span class="gi-chip bad">CRITIC</span>`:"", ...(tw?[tw.lateText,tw.cons,tw.res].filter(Boolean).map(x=>`<span class="gi-chip warn">⚠ ${esc(x)}</span>`):[])].join("");
+  const head=`<div class="gi-head"><span class="gi-wbs">${w[t.id]||""}</span><span class="gi-name">${esc(t.nm)}</span>${chips}</div>`;
+
+  const tiles=[tile("Perioadă",`<b>${zi(t.dur)}</b><small>${fmtDate(p._s)} → ${fmtDate(p._e)}</small>`),
+    tile("Progres",`<b>${t.prog}%</b><span class="gi-bar"><span style="width:${Math.min(100,t.prog)}%"></span></span>`)];
+  if(c&&!c.crit) tiles.push(tile("Rezervă",`<b>${zi(c.float)}</b>`));
+  const b=blSpan(t);
+  if(b){ const v=varDays(t);
+    tiles.push(tile("Linia de bază",`<small>${fmtDate(b.s)} → ${fmtDate(b.e)}</small>`+(v===0?`<span class="gi-chip ok">la termen</span>`:v>0?`<span class="gi-chip bad">+${zi(v)} întârziere</span>`:`<span class="gi-chip ok">${zi(-v)} mai devreme</span>`))); }
+  const a=actSpan(t);
+  if(a) tiles.push(tile("Real",`<small>${fmtDate(a.s)} → ${a.done?fmtDate(a.e):"<i>în desfășurare</i>"}</small>`));
+  if(t.cons&&t.cons.type&&t.cons.type!=="ASAP") tiles.push(tile("Restricție",`<b>${CONS_LABELS[t.cons.type]}</b>${t.cons.date?`<small>${fmtDate(pD(t.cons.date))}</small>`:""}`));
+  if(t.deadline) tiles.push(tile("Termen limită",`<b>${fmtDate(pD(t.deadline))}</b>`));
+  const as=(t.assign||[]).filter(x=>resById(x.rid)), cost=costMap[t.id]||0;
+  if(cost) tiles.push(tile("Cost",`<b>${fmtMoney(cost)}</b>`));
+  if(as.length) tiles.push(tile("Resurse",as.map(x=>{ const r=resById(x.rid), over=(resWarn[t.id]||[]).some(s=>s.startsWith(r.name+" "));
+    return `<span class="gi-res${over?" over":""}">${esc(r.name)} <i>${r.type==="cost"?fmtMoney(x.units):x.units+(r.type==="work"?"%":" "+esc(r.unit||""))}</i></span>`; }).join("")));
+  if(preds) tiles.push(tile("După",preds,"gi-links"));
+  if(succs) tiles.push(tile("Urmează",succs,"gi-links"));
+  el.innerHTML=head+`<div class="gi-tiles">${tiles.join("")}</div>`;
 }
+const DEP_COLORS={FS:"#8da0b5",SS:"#4ea378",FF:"#e58b35",SF:"#9870c7"};
 
 function attachBars(cs,td,dw){
   document.querySelectorAll(".gb").forEach(bar=>{
@@ -700,7 +719,11 @@ function attachBars(cs,td,dw){
           document.removeEventListener("mousemove",mv);
           document.removeEventListener("mouseup",up);
           const ns=fD(aD(orig,Math.round((ev.clientX-sx)/dw)));
-          if(ns!==t.sd){ pushHistory(); t.sd=ns; }     // mutarea unei bare intră în istoric (Ctrl+Z) doar dacă s-a mutat
+          if(ns!==t.sd){                                // mutarea unei bare intră în istoric (Ctrl+Z) doar dacă s-a mutat
+            pushHistory(); t.sd=ns;
+            const d=lagFromMove(t);                     // task cu legături: mutarea devine lag pe legătura care îl ține pe loc
+            if(d) toast("↔ Legătura cu "+(wbs()[d.id]||"?")+" are acum "+depLabel(d));
+          }
           syncTabData(); renderAll();
         };
         document.addEventListener("mousemove",mv);

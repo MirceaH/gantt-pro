@@ -17,7 +17,12 @@ function computeCPM() {
 
   // Indexăm în ZILE LUCRĂTOARE (calendarul proiectului)
   const base = nextWork(pD(T.map(t => t.sd).sort()[0]));
-  const workIdx = d => { let n = 0; for (let r = base, g = 0; r < d && g < 36600; r = aD(r, 1), g++) if (isWork(r)) n++; return n; };
+  // număr de zile lucrătoare de la `base` până la d (exclusiv) — tabel cumulat calculat o singură dată, nu câte o buclă pe zile pentru fiecare activitate
+  const lastD = leaves.reduce((m, t) => { const d = nextWork(pD(t.sd)); return d > m ? d : m; }, base);
+  const span = Math.min(36600, Math.max(0, dD(base, lastD)));
+  const cum = new Int32Array(span + 1);
+  for (let i = 0, r = base; i < span; i++, r = aD(r, 1)) cum[i + 1] = cum[i] + (isWork(r) ? 1 : 0);
+  const workIdx = d => cum[clamp(dD(base, d), 0, span)];
   const node = {};
   leaves.forEach(t => {
     const es = workIdx(nextWork(pD(t.sd))), d = Math.max(1, t.dur);
@@ -25,9 +30,17 @@ function computeCPM() {
   });
   const projEnd = Math.max(...Object.values(node).map(n => n.ef));
 
+  // Succesorii fiecărei activități. O legătură către un CAPITOL se aplică activităților lui:
+  //   FS / FF (se leagă de FINALUL capitolului) → toate frunzele lui (fiecare trebuie să se termine la timp);
+  //   SS / SF (se leagă de STARTUL capitolului) → frunzele care încep primele (ele dau startul capitolului).
   const succ = {};
+  const addSucc = (pid, t, dp) => (succ[pid] = succ[pid] || []).push({ id: t.id, type: dp.type, lag: +dp.lag || 0 });
   leaves.forEach(t => (t.deps || []).forEach(dp => {
-    if (node[dp.id]) (succ[dp.id] = succ[dp.id] || []).push({ id: t.id, type: dp.type, lag: +dp.lag || 0 });
+    if (node[dp.id]) { addSucc(dp.id, t, dp); return; }
+    if (!hasK(dp.id)) return;
+    const under = allD(dp.id).filter(id => node[id]);
+    if (dp.type === 'SS' || dp.type === 'SF') { const m = Math.min(...under.map(id => node[id].es)); under.filter(id => node[id].es === m).forEach(id => addSucc(id, t, dp)); }
+    else under.forEach(id => addSucc(id, t, dp));
   }));
 
   for (let i = order.length - 1; i >= 0; i--) {

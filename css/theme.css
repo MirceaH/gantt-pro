@@ -345,3 +345,10 @@ body.no-project .timeline-layout{display:none!important}
 .lg-ms{width:9px;height:9px;background:#4f6bed;transform:rotate(45deg)}
 .lg-dl{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:9px solid #3fa968}
 .lg-now{width:2px;height:12px;background:#e03a3a}
+
+/* Separatoare de coloane vizibile în tabelul din stânga (în repaus, nu doar la hover) */
+:root{--col-line:#b4bbcc;--col-line2:#d0d5e1}
+body.dark{--col-line:#4a5270;--col-line2:#343b52}
+.th-row .th{border-right:1px solid var(--col-line)}
+.th-row{border-bottom:2px solid var(--col-line)}
+.t-row .c{border-right:1px solid var(--col-line2)}

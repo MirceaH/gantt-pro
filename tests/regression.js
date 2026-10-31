@@ -882,6 +882,112 @@
     ['Calendar', 'Resurse', 'Buget', 'Urmărire'].forEach(l => ok(lbl('project').includes(l), 'Proiect: lipsește ' + l));
   });
 
+  // ============================================================
+  // H) REVIZUIREA CODULUI: corectitudine, securitate, siguranța datelor, performanță
+  // ============================================================
+  test('drum critic: o legătură către un CAPITOL se aplică activităților lui (FS → toate frunzele)', () => {
+    newTabWith('CpmCap', [mk(1, 'Capitol', 1), mk(2, 'B', 3, 1), mk(3, 'C', 10, 1), mk(4, 'D', 2, null, [F(1)])]); settle();
+    ok(cpm[3].crit, 'C (cea mai lungă din capitol) trebuie să fie critică'); ok(cpm[4].crit, 'D critică');
+    eq(cpm[2].float, 7, 'B are rezervă 10 − 3 = 7 zile');
+  });
+
+  test('drum critic: legătura SS către un capitol ține doar activitățile care încep primele', () => {
+    newTabWith('CpmSS', [mk(1, 'Capitol', 1), mk(2, 'B', 10, 1), mk(3, 'C', 3, 1, [F(2, 'FS')]), mk(4, 'D', 4, null, [F(1, 'SS')])]); settle();
+    ok(cpm[2].crit, 'B pornește capitolul și e pe drumul critic'); eq(cpm[4].float, 9, 'D (4 zile) față de final la ziua 13');
+    ok(cpm[4].float >= 0, 'rezerva nu e negativă');
+  });
+
+  test('capitole: progresul e ponderat cu durata copiilor (nu media simplă)', () => {
+    newTabWith('Prog', [mk(1, 'Cap', 1), mk(2, 'Scurt', 1, 1, [], null, { prog: 100 }), mk(3, 'Lung', 9, 1, [], null, { prog: 0 })]); settle();
+    eq(T.find(t => t.id === 1).prog, 10, '1 zi la 100% din 10 zile = 10%');
+    T.find(t => t.id === 3).prog = 100; settle(); eq(T.find(t => t.id === 1).prog, 100);
+  });
+
+  test('capitole: calculul datelor și progresului merge și pe capitole imbricate', () => {
+    newTabWith('Nest', [mk(1, 'Cap', 1), mk(2, 'Sub', 1, 1), mk(3, 'x', 4, 2, [], null, { prog: 50 }), mk(4, 'y', 4, 2, [], null, { prog: 100 })]); settle();
+    eq(T.find(t => t.id === 2).prog, 75); eq(T.find(t => t.id === 1).prog, 75); ok(T.find(t => t.id === 1).dur >= 4);
+  });
+
+  test('mutare cu mouse: activitatea cu legături își păstrează poziția prin LAG; nu coboară sub lag 0', () => {
+    newTabWith('Lag', [mk(1, 'A', 5), mk(2, 'B', 3, null, [F(1)])]); settle();
+    const b = T.find(t => t.id === 2), a = T.find(t => t.id === 1), s0 = b.sd;
+    b.sd = fD(addWorkDays(pD(s0), 2)); const d = lagFromMove(b); ok(d, 'legătura a fost actualizată'); eq(b.deps[0].lag, 2); settle();
+    eq(b.sd, fD(addWorkDays(pD(s0), 2)), 'bara rămâne unde a fost pusă');
+    b.sd = s0; lagFromMove(b); eq(b.deps[0].lag, 0, 'mutarea înapoi readuce lag-ul la 0'); settle(); eq(b.sd, s0);
+    b.sd = a.sd; eq(lagFromMove(b), null, 'nu se creează suprapunere (lag negativ) din greșeală'); eq(b.deps[0].lag, 0);
+  });
+
+  test('mutare cu mouse: capitolele, reperele și activitățile cu restricție nu primesc lag', () => {
+    newTabWith('Lag2', [mk(1, 'A', 5), mk(2, 'B', 3, null, [F(1)], null, { cons: { type: 'SNET', date: '2026-12-01' } })]); settle();
+    const b = T.find(t => t.id === 2); b.sd = fD(addWorkDays(pD(b.sd), 3)); eq(lagFromMove(b), null); eq(b.deps[0].lag, 0);
+  });
+
+  test('securitate: calendarul respinge zilele libere care nu sunt date (intră în atribute HTML)', () => {
+    setCal({ days: [0, 1, 1, 1, 1, 1, 0], hol: ['2026-01-01', "');alert(1);//", '2026-13-45', '2026-01-01', 5, null] });
+    eq(CAL.hol, ['2026-01-01']); setCal(null);
+  });
+
+  test('securitate: moneda și unitatea din fișier nu pot conține etichete / ghilimele; resursele se normalizează', () => {
+    setRes({ cur: '<img src=x onerror=alert(1)>', next: 'x', list: [
+      { id: 1, name: 'A\u0001<b>', type: 'material', unit: '"><script>', rate: -5 }, { id: 1, name: 'B', type: 'inexistent', rate: 'abc' }, null, 'x'] });
+    ok(!/[<>"']/.test(RES.cur), 'moneda: ' + RES.cur); ok(!/[<>"']/.test(RES.list[0].unit), 'unitatea: ' + RES.list[0].unit);
+    eq(RES.list.length, 2); ok(RES.list[0].id !== RES.list[1].id, 'id-uri unice'); eq(RES.list[0].rate, 0); eq(RES.list[1].type, 'work'); eq(RES.list[1].rate, 0);
+    ok(!/[\u0000-\u001f]/.test(RES.list[0].name)); ok(Number.isInteger(RES.next)); setRes(null);
+    eq(esc("a'b\"c<d>&"), 'a&#39;b&quot;c&lt;d&gt;&amp;', 'esc scapă și apostroful');
+  });
+
+  test('securitate: câmpurile opționale invalide dintr-un fișier sunt curățate (nu apar date „NaN")', () => {
+    setProject([mk(1, 'A', 2, null, [], '2026-10-26', { cons: { type: 'MSO', date: 'zzz' }, deadline: 'bad', as: 5, bl: { sd: 'x', dur: 1 }, ttype: 'hack', assign: [{ rid: 'a' }, { rid: 1, units: 'x' }] }),
+      mk(2, 'B', 2, null, [], '2026-10-26', { cons: { type: 'NOPE', date: '2026-10-26' } }), mk(3, 'C', 2, null, [], '2026-10-26', { cons: { type: 'SNET', date: '2026-11-02', ac: 1 }, bl: { sd: '2026-10-26', dur: 2.4 } })]);
+    _sanitizeTasks(); const [a, b, c] = T;
+    ok(!a.cons && !a.deadline && a.as === undefined && !a.bl && !a.ttype, 'câmpuri invalide eliminate'); eq(a.assign, [{ rid: 1, units: 0 }]);
+    ok(!b.cons, 'tip de restricție necunoscut'); eq(c.cons, { type: 'SNET', date: '2026-11-02', ac: true }); eq(c.bl, { sd: '2026-10-26', dur: 2 });
+    settle(); T.forEach(t => ok(/^\d{4}-\d{2}-\d{2}$/.test(t.sd), 'dată validă: ' + t.sd));
+  });
+
+  test('siguranța datelor: la ascunderea / închiderea paginii, modificarea se scrie imediat în browser', () => {
+    const tab = tabs.find(t => t.id === activeTabId); tab.name = 'Zed-' + Date.now(); saveAllTabs();
+    window.dispatchEvent(new Event('pagehide'));
+    ok(localStorage.getItem('ganttPRO_tabs').includes(tab.name), 'salvarea nu a așteptat cele 800 ms');
+  });
+
+  test('siguranța datelor: dacă browserul refuză salvarea (memorie plină), utilizatorul e avertizat și modificarea nu se pierde din coadă', () => {
+    const orig = Storage.prototype.setItem; let failing = true;
+    Storage.prototype.setItem = function (k, v) { if (failing && k === 'ganttPRO_tabs') { const e = new Error('full'); e.name = 'QuotaExceededError'; throw e; } return orig.call(this, k, v); };
+    try {
+      saveAllTabs(); eq(flushSave(), false); ok(document.querySelector('.save-indicator').textContent.includes('⚠'), 'avertisment vizibil în bara de stare');
+      failing = false; eq(flushSave(), true, 'după ce browserul acceptă, salvarea se reia'); ok(!document.querySelector('.save-indicator').textContent.includes('⚠'));
+    } finally { Storage.prototype.setItem = orig; }
+  });
+
+  test('undo: instantaneele identice nu se dublează; limita de istoric se respectă', () => {
+    newTabWith('Hist', [mk(1, 'A', 2)]); const n = _history.length; pushHistory(); pushHistory(); pushHistory(); eq(_history.length, n + 1, 'trei apeluri fără modificări = un singur instantaneu');
+    for (let i = 0; i < 60; i++) { T[0].dur = 2 + i; pushHistory(); } ok(_history.length <= MAX_HISTORY, 'limită ' + _history.length);
+  });
+
+  test('performanță: 1500 de activități se recalculează rapid, iar indexul temporar se închide', () => {
+    const tasks = [], N = 1500; for (let c = 0; c < 30; c++) { tasks.push(mk(1 + c * 51, 'Cap' + c, 1)); for (let i = 1; i <= 50; i++) { const id = 1 + c * 51 + i; tasks.push(mk(id, 'T' + id, 1 + (id % 5), 1 + c * 51, i > 1 ? [F(id - 1)] : [])); } }
+    newTabWith('Perf', tasks); const t0 = performance.now(); settle(); const ms = performance.now() - t0;
+    ok(ms < 6000, 'recalcularea a durat ' + Math.round(ms) + ' ms'); eq(_ix, null, 'indexul temporar a fost eliminat'); ok(T.length >= N);
+    const last = T.find(t => t.id === 51); ok(cpm[last.id], 'CPM calculat pe proiectul mare');
+  });
+
+  test('performanță: rezultatul recalculării cu index e identic cu cel fără index', () => {
+    const tasks = [mk(1, 'Cap', 1), mk(2, 'A', 4, 1), mk(3, 'B', 3, 1, [F(2, 'SS', 1)]), mk(4, 'C', 2, null, [F(1)]), mk(5, 'D', 6, null, [F(3, 'FF', 2)])];
+    newTabWith('Idx', tasks); settle(); const a = JSON.stringify([T, cpm]);
+    const saved = JSON.parse(JSON.stringify(tasks)); T = saved; _ensureDeps(); _ix = null; for (let i = 0; i < 3; i++) { recalcSchedule(); recalcSummaries(); } computeCPM();
+    eq(JSON.stringify([T, cpm]), a, 'index vs fără index');
+  });
+
+  test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {
+    document.querySelectorAll('.modal-overlay').forEach(ov => { const b = ov.firstElementChild; ok(b && b.getAttribute('role') && b.getAttribute('aria-modal') === 'true', 'fără rol: #' + ov.id); });
+    eq($('confirmModal').firstElementChild.getAttribute('role'), 'alertdialog');
+    addNewTab('A11y'); const btn = document.querySelector('.rb-tab'); btn.focus(); openCalendar(); await wait(80);
+    ok($('calModal').contains(document.activeElement), 'focus în fereastra Calendar'); closeCalendar(); await wait(80);
+    eq(document.activeElement, btn, 'focusul revine la elementul de dinainte');
+    document.querySelectorAll('.modal-close').forEach(b => ok(b.getAttribute('aria-label'), 'buton de închidere fără etichetă'));
+  });
+
   // ---------- extensie pentru funcții viitoare ----------
   const extra = window.__regressionExtra;
   if (typeof extra === 'function') extra({ test, ok, eq, near, skip, wait, F, mk, settle, snap, setProject, confirmYes, key, newTabWith, noTransitions, toasts });

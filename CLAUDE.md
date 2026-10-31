@@ -146,3 +146,14 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 - **Resurse (resources.js):** tab „Utilizare" (ore pe perioade), nivelare = planificare în serie (`_levelRun`): ordine după rezerva minimă, fiecare activitate pe prima fereastră liberă; restricțiile create au `cons.lv = true` și `cons.o` (data inițială) → `clearLeveling`.
 - **Cronologie (timeline.js):** vedere `view === 'timeline'`; ignoră filtrele; click pe bară → Gantt.
 - Restricții create de aplicație (`cons.ac`, `cons.lv`) se pot recunoaște și elimina fără să se atingă cele puse de utilizator.
+
+## Revizuirea codului (corectitudine, securitate, date)
+
+- **Rulare teste fără consolă:** `tests/runner.html` (încarcă aplicația într-un iframe și rulează `regression.js`). Headless: `msedge --headless=new --window-size=1360,800 --virtual-time-budget=240000 --dump-dom http://localhost:8000/tests/runner.html` → citește `#out`. Serverul trebuie pornit din folderul `gantt-pro`.
+- **Date din fișiere = nesigure:** `_sanitizeTasks` (activități), `setCal` (zile libere doar ISO valide), `setRes` (tipuri, numere, texte curate) normalizează la încărcare. `plainText(s,max)` scoate `<>"'&\`` din moneda / unitatea resurselor; `validISO(s)` verifică date. `esc()` scapă și apostroful. Orice câmp nou din fișier: validează-l în sanitizare și `esc()` la afișare.
+- **Salvare în browser:** `saveAllTabs()` programează, `flushSave()` scrie (se apelează și la `pagehide` / `visibilitychange`). Dacă `localStorage` refuză, bara de stare și un toast avertizează; datele stricate se păstrează în `ganttPRO_tabs_corrupt`.
+- **Index de căutare:** `recomputeAll()` rulează sub `withIndex()`; în acest interval `kids()` / `taskById()` sunt O(1). Nu schimba structura lui `T` (adăugare / ștergere / `pid`) în interiorul recalculării. `computeCPM` folosește un tabel cumulat de zile lucrătoare.
+- **CPM și capitole:** o legătură către un capitol se aplică frunzelor lui (FS/FF: toate; SS/SF: cele care încep primele). Progresul capitolului e ponderat cu durata copiilor.
+- **Mutare bară cu legături:** `lagFromMove(t)` transformă mutarea într-un lag pe legătura dominantă (minim 0, nu creează suprapuneri din greșeală); `depStart(t,d,lag)` e formula comună de programare.
+- **Undo:** instantaneele identice nu se dublează; plafon `MAX_HISTORY` și `MAX_HISTORY_CHARS`.
+- **Accesibilitate:** `initA11y()` (main.js) pune `role="dialog"`, mută focusul la deschiderea ferestrelor și îl readuce la închidere.

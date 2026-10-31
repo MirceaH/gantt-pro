@@ -9,12 +9,24 @@
 // t.ttype  = 'fd' (durată fixă) | 'fw' (muncă fixă) | lipsă = unități fixe (implicit)
 let RES = { list: [], next: 1, cur: 'RON' };
 
-function setRes(r) {
-  const list = r && Array.isArray(r.list) ? r.list.map(x => ({ ...x })) : [];
-  RES = { list, next: Math.max((r && r.next) || 1, ...list.map(x => x.id + 1), 1), cur: (r && r.cur) || 'RON' };
-}
-
 const RES_TYPES = { work: 'Muncă', material: 'Material', cost: 'Cost fix' };
+
+// Resursele vin din fișiere / localStorage: le normalizăm (tipuri, numere, texte curate) ca date străine să nu strice interfața.
+function setRes(r) {
+  const seen = new Set(), list = [];
+  (r && Array.isArray(r.list) ? r.list : []).forEach(x => {
+    if (!x || typeof x !== 'object') return;
+    let id = Number.isInteger(+x.id) && +x.id > 0 ? +x.id : 0;
+    if (!id || seen.has(id)) id = Math.max(0, ...seen, ...list.map(y => y.id)) + 1;
+    seen.add(id);
+    const type = RES_TYPES[x.type] ? x.type : 'work';
+    const n = { ...x, id, type, name: String(x.name == null ? '' : x.name).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 80) || 'Resursă', rate: Math.max(0, +x.rate || 0) };
+    if (type === 'work') n.max = Math.max(0, +x.max || 100); else n.max = null;
+    if (x.unit != null) n.unit = plainText(x.unit, 12);
+    list.push(n);
+  });
+  RES = { list, next: Math.max((r && +r.next) || 1, ...list.map(x => x.id + 1), 1), cur: plainText(r && r.cur, 8) || 'RON' };
+}
 const TASK_TYPES = { fu: 'Unități fixe (implicit)', fd: 'Durată fixă', fw: 'Muncă fixă' };
 const resById = id => RES.list.find(r => r.id === id);
 
@@ -87,7 +99,7 @@ function resText(t) {
   const a = (t.assign || []).filter(x => resById(x.rid));
   const c = costMap[t.id] || 0;
   if (!a.length && !c) return '';
-  const names = a.map(x => { const r = resById(x.rid); return `${esc(r.name)} <b>${r.type === 'cost' ? fmtMoney(x.units) : x.units + (r.type === 'work' ? '%' : ' ' + (r.unit || ''))}</b>`; }).join(', ');
+  const names = a.map(x => { const r = resById(x.rid); return `${esc(r.name)} <b>${r.type === 'cost' ? fmtMoney(x.units) : x.units + (r.type === 'work' ? '%' : ' ' + esc(r.unit || ''))}</b>`; }).join(', ');
   return ` · <span class="gi-lbl">Cost:</span> <b>${fmtMoney(c)}</b>${names ? ' · <span class="gi-lbl">Resurse:</span> ' + names : ''}`;
 }
 
@@ -175,7 +187,7 @@ function resEdit(id, field, val) {
   const r = resById(id); if (!r) return;
   if (field === 'rate' || field === 'max') r[field] = Math.max(0, +val || 0);
   else if (field === 'type') { r.type = val; r.max = val === 'work' ? (r.max || 100) : null; }
-  else r[field] = String(val).trim() || r[field];
+  else r[field] = (field === 'unit' ? plainText(val, 12) : String(val).trim()) || r[field];
   _resCommit();
 }
 function resDel(id) {
@@ -187,7 +199,7 @@ function resDel(id) {
     _resCommit();
   });
 }
-function resSetCur(v) { RES.cur = String(v).trim() || 'RON'; _resCommit(); }
+function resSetCur(v) { RES.cur = plainText(v, 8) || 'RON'; _resCommit(); }
 
 function renderResModal() {
   const tabs = [['res', '👥 Resurse'], ['load', '📊 Încărcare'], ['usage', '📋 Utilizare'], ['budget', '💰 Buget']];
@@ -198,7 +210,7 @@ function renderResModal() {
 
 function _resSheetHtml() {
   const rows = RES.list.map(r => {
-    const rateLbl = r.type === 'work' ? RES.cur + '/oră' : r.type === 'material' ? RES.cur + '/' + (r.unit || 'unit.') : '—';
+    const rateLbl = r.type === 'work' ? esc(RES.cur) + '/oră' : r.type === 'material' ? esc(RES.cur) + '/' + esc(r.unit || 'unit.') : '—';
     return `<tr>
       <td><input value="${esc(r.name)}" onchange="resEdit(${r.id},'name',this.value)"></td>
       <td><select onchange="resEdit(${r.id},'type',this.value)">${Object.keys(RES_TYPES).map(k => `<option value="${k}" ${r.type === k ? 'selected' : ''}>${RES_TYPES[k]}</option>`).join('')}</select></td>

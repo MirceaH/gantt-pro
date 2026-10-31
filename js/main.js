@@ -190,7 +190,7 @@ function renderSidePanel() {
 
     <div class="sp-sec">Resurse și cost</div>
     <div class="sp-info"><span>Cost</span><b>${costMap[t.id] ? fmtMoney(costMap[t.id]) : "—"}</b></div>
-    ${(t.assign || []).filter(a => resById(a.rid)).map(a => { const r = resById(a.rid); return `<div class="sp-info"><span>${esc(r.name)}</span><b>${r.type === "cost" ? fmtMoney(a.units) : a.units + (r.type === "work" ? "%" : " " + (r.unit || ""))}</b></div>`; }).join("")}
+    ${(t.assign || []).filter(a => resById(a.rid)).map(a => { const r = resById(a.rid); return `<div class="sp-info"><span>${esc(r.name)}</span><b>${r.type === "cost" ? fmtMoney(a.units) : a.units + (r.type === "work" ? "%" : " " + esc(r.unit || ""))}</b></div>`; }).join("")}
     ${isSumm ? "" : `<button class="sp-btn" onclick="openTaskInfo(${t.id})">👥 Atribuie / schimbă resurse…</button>`}
 
     <div class="sp-sec">Analiză</div>
@@ -212,7 +212,8 @@ function renderStatus(){
 
 // Doar calculele (fără desenare): planificare din legături/constrângeri, capitole, drum critic, resurse, avertismente.
 // Folosită de renderAll() și de funcțiile care testează mai multe variante de plan (ex: nivelarea resurselor).
-function recomputeAll(){
+function recomputeAll(){ withIndex(_recomputeAll); }   // indexul (id → activitate, părinte → copii) face căutările din recalculare O(1)
+function _recomputeAll(){
   // Iterăm schedule + summaries până la stabilizare (dep-urile pe
   // capitole folosesc durata derivată din copii, care se poate schimba).
   for (let i = 0; i < 20; i++) {
@@ -519,8 +520,39 @@ window.addEventListener("resize",()=>{
   if(isAutoZoom && typeof renderGantt==='function') renderGantt();
 });
 
+// ======== ACCESIBILITATE ========
+// Ferestrele primesc rol de dialog; la deschidere focusul intră în fereastră, la închidere revine unde era (cititoare de ecran + tastatură).
+// Butoanele fără text (doar icoană) primesc o etichetă din `title`.
+function initA11y() {
+  document.querySelectorAll('.modal-overlay').forEach(ov => {
+    const box = ov.firstElementChild;
+    if (box) {
+      box.setAttribute('role', ov.id === 'confirmModal' ? 'alertdialog' : 'dialog'); box.setAttribute('aria-modal', 'true');
+      const h = box.querySelector('.modal-title, .modal-msg, h2, h3');
+      if (h) { if (!h.id) h.id = ov.id + 'Title'; box.setAttribute('aria-labelledby', h.id); }
+    }
+    let last = null, was = false;
+    new MutationObserver(() => {
+      const open = ov.classList.contains('open');
+      if (open && !was) {
+        was = true; last = document.activeElement;
+        setTimeout(() => {
+          if (ov.contains(document.activeElement)) return;
+          const f = ov.querySelector('input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not(.modal-close):not([disabled])');
+          if (f) f.focus({ preventScroll: true });
+        }, 30);
+      } else if (!open && was) {
+        was = false; if (last && last !== document.body && document.contains(last) && typeof last.focus === 'function') last.focus({ preventScroll: true });
+      }
+    }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+  });
+  document.querySelectorAll('.modal-close').forEach(b => { if (!b.getAttribute('aria-label')) b.setAttribute('aria-label', 'Închide'); });
+  document.querySelectorAll('button[title]:not([aria-label])').forEach(b => { if (!b.textContent.trim() || b.textContent.trim().length < 2) b.setAttribute('aria-label', b.title); });
+}
+
 // ======== BOOT ========
 initDark();
+initA11y();
 initSplitter();
 syncScroll();
 $("splitView").style.display = "flex";
