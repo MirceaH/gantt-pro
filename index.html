@@ -110,7 +110,7 @@
               <svg class="ic"><use href="#i-save"/></svg><span class="rb-lbl">Salvează ca…</span>
             </button>
             <button class="rb-btn rb-btn-big" id="btnFileAuto" onclick="fileToggleAuto()" title="Salvează singur în fișier la fiecare modificare">
-              <svg class="ic"><use href="#i-target"/></svg><span class="rb-lbl">Salvare automată</span>
+              <svg class="ic"><use href="#i-target"/></svg><span class="rb-lbl">Auto-salvare</span>
             </button>
           </div>
         </div>
@@ -118,7 +118,7 @@
         <div class="rb-group">
           <div class="rb-row">
             <button class="rb-btn rb-btn-big" onclick="openPrintPreview()" title="Tipărește planul pe pagini (A4 / A3) sau salvează-l ca PDF — Ctrl+P">
-              <svg class="ic"><use href="#i-printer"/></svg><span class="rb-lbl">Tipărește / PDF</span>
+              <svg class="ic"><use href="#i-printer"/></svg><span class="rb-lbl">Tipărește</span>
             </button>
             <div class="rb-dd">
               <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Exportă ca imagine, PDF sau pentru MS Project">
@@ -129,26 +129,29 @@
                 <button onclick="closeDD();exportPDF()"><span>PDF (captură de ecran)</span></button>
                 <button onclick="closeDD();exportMSProject()"><span>MS Project (XML)</span></button>
                 <hr>
+                <button onclick="closeDD();exportXLSX()"><span>Excel (.xlsx)</span></button>
+                <button onclick="closeDD();exportCSV()"><span>CSV (se deschide în Excel)</span></button>
+                <hr>
                 <button onclick="closeDD();exportJSON()"><span>Copie de siguranță (JSON)</span></button>
               </div>
             </div>
-            <button class="rb-btn rb-btn-big" onclick="importJSONasTab()" title="Importă un fișier JSON într-un tab nou">
-              <svg class="ic"><use href="#i-folder"/></svg><span class="rb-lbl">Import JSON</span>
-            </button>
+            <div class="rb-dd keep">
+              <button class="rb-btn rb-btn-big keep" onclick="toggleDD(this)" title="Importă o listă de activități din Excel / CSV sau un proiect salvat (JSON) — într-un tab nou">
+                <svg class="ic"><use href="#i-folder"/></svg><span class="rb-lbl">Import</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
+              </button>
+              <div class="rb-menu">
+                <button onclick="closeDD();importSheet()"><span>Din Excel / CSV…</span></button>
+                <button onclick="closeDD();importJSONasTab()"><span>Din JSON (copie de siguranță)…</span></button>
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="rb-group">
           <div class="rb-row">
-            <button class="rb-btn rb-btn-big" onclick="renameActiveTab()" title="Redenumește proiectul">
-              <svg class="ic"><use href="#i-pencil"/></svg><span class="rb-lbl">Redenumește</span>
-            </button>
-            <button class="rb-btn rb-btn-big" onclick="closeActiveTab()" title="Închide proiectul">
-              <svg class="ic"><use href="#i-x"/></svg><span class="rb-lbl">Închide</span>
-            </button>
-            <button class="rb-btn rb-btn-big rb-btn-danger" onclick="clearAll()" title="Șterge toate activitățile din proiectul curent">
-              <svg class="ic"><use href="#i-trash"/></svg><span class="rb-lbl">Golește proiectul</span>
-            </button>
+            <button class="rb-btn" onclick="renameActiveTab()" title="Redenumește proiectul"><svg class="ic"><use href="#i-pencil"/></svg></button>
+            <button class="rb-btn" onclick="closeActiveTab()" title="Închide proiectul"><svg class="ic"><use href="#i-x"/></svg></button>
+            <button class="rb-btn rb-btn-danger" onclick="clearAll()" title="Golește proiectul: șterge toate activitățile"><svg class="ic"><use href="#i-trash"/></svg></button>
           </div>
         </div>
       </div>
@@ -666,6 +669,8 @@
 <script src="js/plan.js"></script>
 <script src="js/resources.js"></script>
 <script src="js/filters.js"></script>
+<script src="js/xlsx.js"></script>
+<script src="js/sheets.js"></script>
 <script src="js/gantt.js"></script>
 <script src="js/tree.js"></script>
 <script src="js/deps.js"></script>

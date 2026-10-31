@@ -593,6 +593,158 @@
     closePrintPreview();
   });
 
+  // ============================================================
+  // F) EXCEL / CSV
+  // ============================================================
+  const enc = new TextEncoder();
+  const bytesEq = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const xmlOk = (name, u8) => { const d = new DOMParser().parseFromString(new TextDecoder().decode(u8), 'application/xml'); ok(!d.getElementsByTagName('parsererror').length, 'XML invalid: ' + name); };
+  const sheetsProject = () => {
+    const res = { cur: 'RON', next: 3, list: [{ id: 1, name: 'Echipa A', type: 'work', rate: 10, max: 100 }, { id: 2, name: 'Beton', type: 'material', rate: 450, unit: 'm³' }] };
+    const tasks = [
+      mk(1, 'Pregătire și avize', 1), mk(2, 'Releveu; "expertiză" tehnică', 5, 1, [], '2026-10-26', { prog: 100, as: '2026-10-26', af: '2026-11-03', notes: 'linia 1\nlinia 2, cu virgulă' }),
+      mk(3, 'Proiect', 8, 1, [F(2, 'FS', 1)], '2026-10-26', { prog: 40, assign: [{ rid: 1, units: 100 }, { rid: 2, units: 3 }] }),
+      mk(4, 'Avize', 4, 1, [F(3, 'SS', 2)]),
+      mk(5, 'Șantier', 1), mk(6, 'Împrejmuire', 7, 5, [F(4)]), mk(7, 'Recepție', 1, 5, [F(6)], '2026-10-26', { isMilestone: true })
+    ];
+    newTabWith('Xl', tasks, null, res); settle(); return JSON.parse(JSON.stringify(T));
+  };
+  const leafKey = list => list.filter(t => !list.some(x => x.pid === t.id)).map(t => [t.nm, t.sd, t.dur, t.prog, !!t.isMilestone, t.as || '', t.af || '']);
+  const depKey = (list, byName) => list.map(t => [t.nm, (t.deps || []).map(d => { const p = list.find(x => x.id === d.id); return p.nm + d.type + d.lag; }).sort()]);
+
+  test('excel: CRC32 corect, ZIP dus-întors, ZIP cu compresie (ca Excel) se citește', async () => {
+    eq(crc32(enc.encode('123456789')), 0xCBF43926, 'CRC32');
+    const bin = new Uint8Array(3000).map((_, i) => (i * 7 + (i >> 3)) & 255), z = await unzip(zipStore([{ name: 'a/b.txt', data: enc.encode('Șantier ă î') }, { name: 'bin.dat', data: bin }]));
+    eq(new TextDecoder().decode(z.get('a/b.txt')), 'Șantier ă î'); ok(bytesEq(z.get('bin.dat'), bin), 'binar identic');
+    // ZIP cu metoda 8 (deflate), construit aici cu CompressionStream
+    const raw = enc.encode('<x>' + 'abc'.repeat(500) + '</x>'), cs = new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw')), comp = new Uint8Array(await new Response(cs).arrayBuffer());
+    const name = enc.encode('d.xml'), lh = new DataView(new ArrayBuffer(30)), ch = new DataView(new ArrayBuffer(46)), end = new DataView(new ArrayBuffer(22));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(8, 8, true); lh.setUint32(14, crc32(raw), true); lh.setUint32(18, comp.length, true); lh.setUint32(22, raw.length, true); lh.setUint16(26, name.length, true);
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(10, 8, true); ch.setUint32(16, crc32(raw), true); ch.setUint32(20, comp.length, true); ch.setUint32(24, raw.length, true); ch.setUint16(28, name.length, true); ch.setUint32(42, 0, true);
+    const cdOff = 30 + name.length + comp.length; end.setUint32(0, 0x06054b50, true); end.setUint16(8, 1, true); end.setUint16(10, 1, true); end.setUint32(12, 46 + name.length, true); end.setUint32(16, cdOff, true);
+    const zip = new Uint8Array(cdOff + 46 + name.length + 22); let p = 0; [new Uint8Array(lh.buffer), name, comp, new Uint8Array(ch.buffer), name, new Uint8Array(end.buffer)].forEach(c => { zip.set(c, p); p += c.length; });
+    ok(bytesEq((await unzip(zip)).get('d.xml'), raw), 'deflate decomprimat');
+  });
+
+  test('excel: .xlsx construit are XML valid și se citește înapoi (text, numere, date, caractere speciale)', async () => {
+    const rows = [[{ v: 'Nume', s: XL.S_HEAD }, 'Zile', 'Start', 'Alt'], ['A <&> "b"\nlinia 2', { v: 12, t: 'n' }, { v: '2026-10-26', t: 'd', s: XL.S_DATE }, ''], ['Ș ț ă', { v: 3.5, t: 'n', s: XL.S_MONEY }, { v: '2027-02-28', t: 'd', s: XL.S_CH_DATE }, 'x']];
+    const bytes = xlsxBuild([{ name: 'Plan', widths: [20, 8, 12, 6], rows, freezeHeader: true, filter: true }, { name: 'Foaia / 2: ?', rows: [['b']] }]);
+    const z = await unzip(bytes); ['[Content_Types].xml', '_rels/.rels', 'xl/workbook.xml', 'xl/_rels/workbook.xml.rels', 'xl/styles.xml', 'xl/worksheets/sheet1.xml', 'xl/worksheets/sheet2.xml'].forEach(n => { ok(z.has(n), 'lipsește ' + n); xmlOk(n, z.get(n)); });
+    const wb = await xlsxRead(bytes); eq(wb.sheets.length, 2); eq(wb.sheets[0].name, 'Plan'); ok(!/[\/:?]/.test(wb.sheets[1].name), 'nume de foaie curățat: ' + wb.sheets[1].name);
+    eq(wb.sheets[0].rows[0], ['Nume', 'Zile', 'Start', 'Alt']); eq(wb.sheets[0].rows[1], ['A <&> "b"\nlinia 2', 12, '2026-10-26']); eq(wb.sheets[0].rows[2], ['Ș ț ă', 3.5, '2027-02-28', 'x']);
+  });
+
+  test('excel: proiectul exportat în .xlsx se importă identic (ierarhie, legături, progres, date reale, note)', async () => {
+    const orig = sheetsProject().map(t => ({ ...t, deps: t.deps.map(d => ({ ...d })) })); const before = JSON.stringify(T);
+    const wb = await xlsxRead(buildWorkbookBytes()); eq(wb.sheets.map(s => s.name), ['Plan', 'Resurse']); eq(wb.sheets[0].rows[0].slice(0, 7), SH_HEAD.slice(0, 7), 'antet');
+    const nTabs = tabs.length, res = importRowsAsTab(wb.sheets[0].rows, 'Import'); eq(tabs.length, nTabs + 1, 'tab nou'); settle();
+    eq(T.length, orig.length, 'număr de rânduri'); eq(T.map(t => t.nm), orig.map(t => t.nm), 'nume (cu ghilimele, ; și diacritice)');
+    eq(T.map(t => t.pid ? orig.find(o => o.nm === T.find(x => x.id === t.pid).nm).id : null), orig.map(t => t.pid), 'ierarhia');
+    eq(leafKey(T), leafKey(orig).map((r, i) => r), 'activități: start, durată, progres, reper, date reale'); eq(depKey(T), depKey(orig), 'legături (tip și decalaj)');
+    eq(T.find(t => t.nm.startsWith('Releveu')).notes, 'linia 1\nlinia 2, cu virgulă', 'note multi-linie');
+    eq(res.linked, 4, 'legături importate');
+    switchTab(tabs[nTabs - 1].id); eq(JSON.stringify(T), before, 'proiectul de dinainte nu s-a atins');
+  });
+
+  test('excel: CSV (separator ;) dus-întors, cu ghilimele, ; și linii noi în celule', () => {
+    sheetsProject(); const orig = T.map(t => t.nm), csv = buildCsvText(';'); ok(csv.charCodeAt(0) === 0xFEFF, 'BOM pentru Excel'); ok(csv.split('\r\n')[0].includes(';'), 'separator ;');
+    const rows = csvParse(csv); eq(rows[0], SH_HEAD); eq(rows.length - 1, orig.length + 0, 'rânduri (fără linia goală de la final)');
+    const p = parseSheetRows(rows); ok(p.ok); eq(p.tasks.map(t => t.nm), orig); eq(p.tasks[1].notes, 'linia 1\nlinia 2, cu virgulă');
+    const pc = parseSheetRows(csvParse(buildCsvText(','))); ok(pc.ok); eq(pc.tasks.map(t => t.nm), orig, 'și cu separator virgulă (SUA)'); eq(pc.tasks.map(t => t.dur), p.tasks.map(t => t.dur));
+    ok(['.', ','].length && (csvDelimiter() === ';' || csvDelimiter() === ','), 'separator ales automat');
+    eq(csvParse('a,b,c\n1,"x,y",3\n'), [['a', 'b', 'c'], ['1', 'x,y', '3']], 'delimitator virgulă detectat'); eq(csvParse('a\tb\n1\t2'), [['a', 'b'], ['1', '2']], 'tab'); eq(csvParse('x;y\r\n"a ""q"" b";2\r\n'), [['x', 'y'], ['a "q" b', '2']], 'ghilimele duble');
+  });
+
+  test('excel: CSV exportat începe cu BOM (diacritice în Excel), fără „sep=” (ar anula BOM-ul); importul înțelege „sep=” din alte fișiere', () => {
+    sheetsProject(); const csv = buildCsvText(','); eq(csv.slice(0, 4), '﻿WBS'); ok(!/^﻿sep=/.test(csv), 'fără linia sep=');
+    eq(csvParse('sep=,\r\na;b,c\r\n1,2\r\n'), [['a;b', 'c'], ['1', '2']], 'separatorul impus de sep=');
+  });
+
+  test('excel: fișier salvat de Excel-ul real (comprimat, șiruri partajate, date) se citește și se importă', async () => {
+    let buf; try { const r = await fetch('tests/fixtures/plan-salvat-de-excel.xlsx', { cache: 'no-store' }); if (!r.ok) skip('fixtura lipsește'); buf = await r.arrayBuffer(); } catch (e) { skip('fixtura nu se poate încărca'); }
+    const wb = await xlsxRead(buf); eq(wb.sheets.map(s => s.name), ['Plan', 'Resurse']);
+    const rows = wb.sheets[0].rows; eq(rows[0].slice(0, 6), ['WBS', 'Activitate', 'Durată (zile)', 'Start', 'Final', 'Progres %']); eq(rows[2][1], 'Releveu "x" ș'); eq(rows[2][3], '2026-10-26', 'dată recunoscută din format'); eq(rows[2][10], '2026-10-26'); eq(rows[3][6], '1.1FS+1d');
+    const r = importRowsAsTab(rows, 'DinExcel'); ok(r && r.parsed.ok); eq(T.map(t => t.nm), ['Cap', 'Releveu "x" ș', 'Proiect']); eq(T[1].pid, 1); eq(T[2].deps, [{ id: 2, type: 'FS', lag: 1 }]); eq(T[1].af, '2026-11-03');
+  });
+
+  test('excel: listă de lucrări făcută de un om în Excel (titluri românești, procente, date, rând gol) se importă corect', async () => {
+    let buf; try { const r = await fetch('tests/fixtures/plan-utilizator-excel.xlsx', { cache: 'no-store' }); if (!r.ok) skip('fixtura lipsește'); buf = await r.arrayBuffer(); } catch (e) { skip('fixtura nu se poate încărca'); }
+    const wb = await xlsxRead(buf), rows = wb.sheets[0].rows; eq(rows[0], ['Nr. crt.', 'Denumire lucrare', 'Durata (zile)', 'Data început', 'Data sfârșit', 'Progres', 'Predecesori', 'Observații']);
+    const p = parseSheetRows(rows); ok(p.ok, p.error);
+    eq(p.tasks.map(t => t.nm), ['Organizare șantier', 'Săpătură fundații', 'Turnare beton', 'Recepție', 'Finisaje'], 'rândul gol e ignorat');
+    eq(p.tasks.map(t => t.dur), [5, 10, 4, 1, 10], 'durate (0 = reper; din Start+Final la ultima)'); eq(p.tasks.map(t => !!t.isMilestone), [false, false, false, true, false]);
+    eq(p.tasks.map(t => t.prog), [100, 40, 0, 0, 25], 'procente din celule procentuale'); eq(p.tasks[0].sd, '2026-10-26'); eq(p.tasks[4].sd, '2026-11-02'); eq(p.tasks[1].notes, 'cu excavator');
+    eq(p.depText, { 2: '1', 3: '2FS+2', 4: '3', 5: '4' }, 'predecesori');
+    const r = importRowsAsTab(rows, 'Lucrări'); settle(); eq(r.linked, 4);
+    eq(T.map(t => t.sd), ['2026-10-26', '2026-11-02', '2026-11-18', '2026-11-24', '2026-11-25'], 'planificarea după legături (FS+2 zile lucrătoare)'); ok(T[3].isMilestone);
+  });
+
+  test('excel: titluri aproximative (denumire lucrare, data început planificat, predecesori) se recunosc', () => {
+    const p = parseSheetRows([['Denumire lucrare', 'Durată estimată', 'Data început planificat', 'Rezervă (zile)', 'Observații'], ['A', '3 zile', '26.10.2026', 4, 'x']]);
+    ok(p.ok); eq(p.tasks[0].nm, 'A'); eq(p.tasks[0].dur, 3, 'durată din text: „3 zile”'); eq(p.tasks[0].sd, '2026-10-26'); eq(p.tasks[0].notes, 'x');
+    const q = parseSheetRows([['Task Name', 'Rezervă (zile)'], ['B', 9]]); ok(q.ok); eq(q.tasks[0].dur, 1, '„Rezervă (zile)” nu e durată'); eq(q.defaults, 1);
+  });
+
+  test('excel: import din titluri englezești / MS Project, legături pe numărul rândului, durată din Start+Final', () => {
+    const rows = [['ID', 'Task Name', 'Duration', 'Start', 'Finish', '% Complete', 'Predecessors'],
+      [1, 'Foundation', 5, '2026-10-26', '', 100, ''], [2, 'Walls', '', '2026-11-02', '2026-11-06', 50, '1FS+1d'], [3, 'Roof', 0, '', '', 0, '2; 1SS']];
+    const p = parseSheetRows(rows); ok(p.ok, p.error); eq(p.tasks.map(t => t.nm), ['Foundation', 'Walls', 'Roof']); eq(p.tasks[1].dur, 5, 'durată din Start+Final'); ok(p.tasks[2].isMilestone, 'durată 0 = reper');
+    eq(p.refKind, 'numărul rândului'); eq(p.depText, { 2: '1FS+1d', 3: '2; 1SS' }); eq(p.tasks.map(t => t.prog), [100, 50, 0]);
+    const r = importRowsAsTab(rows, 'Eng'); settle(); eq(r.linked, 3); eq(T[1].deps, [{ id: 1, type: 'FS', lag: 1 }]); eq(T[2].deps.map(d => d.type + d.id).sort(), ['FS2', 'SS1']);
+  });
+
+  test('excel: ierarhie din WBS, din Nivel sau plat; părinte lipsă → rădăcină', () => {
+    let p = parseSheetRows([['WBS', 'Activitate', 'Durată'], ['1', 'Cap', 1], ['1.1', 'A', 2], ['1.2', 'B', 3], ['1.2.1', 'B1', 1], ['2', 'Alt', 1], ['3.1', 'Orfan', 1]]);
+    eq(p.tasks.map(t => t.pid), [null, 1, 1, 3, null, null], 'WBS'); eq(p.refKind, 'WBS');
+    p = parseSheetRows([['Nivel', 'Nume', 'Zile'], [1, 'Cap', 1], [2, 'A', 2], [3, 'A1', 2], [2, 'B', 2], [1, 'Cap2', 1], [2, 'C', 1]]);
+    eq(p.tasks.map(t => t.pid), [null, 1, 2, 1, null, 5], 'Nivel');
+    p = parseSheetRows([['Activitate', 'Durată'], ['A', 2], ['B', 3]]); eq(p.tasks.map(t => t.pid), [null, null], 'plat');
+    p = parseSheetRows([['Activitate', 'Zile'], ['Cap', 1], ['A', 2]]); ok(!p.tasks.some(t => t.isMilestone));
+  });
+
+  test('excel: progres ca fracție (0,4) → 40%, date în mai multe formate, rânduri goale ignorate, durată lipsă = 1', () => {
+    const ser = _excelSerial('2026-11-09');
+    const p = parseSheetRows([['Activitate', 'Start', 'Progres'], ['A', '26.10.2026', 0.4], ['', '', ''], ['B', '2026-10-27', 0.8], ['C', ser, 1], ['D', '27/10/2026', 0.25], [null, null, null]]);
+    ok(p.ok); eq(p.tasks.map(t => t.nm), ['A', 'B', 'C', 'D']); eq(p.tasks.map(t => t.sd), ['2026-10-26', '2026-10-27', '2026-11-09', '2026-10-27']); eq(p.tasks.map(t => t.prog), [40, 80, 100, 25]); eq(p.defaults, 4, 'fără durată → 1 zi (4)');
+    eq(p.tasks.every(t => t.dur === 1), true);
+  });
+
+  test('excel: fără coloana Activitate / fără date → eroare clară, nimic nu se strică', () => {
+    const n = tabs.length; let p = parseSheetRows([['Foo', 'Bar'], [1, 2]]); ok(!p.ok && /Activitate/.test(p.error)); p = parseSheetRows([['Activitate', 'Zile']]); ok(!p.ok); p = parseSheetRows([]); ok(!p.ok);
+    eq(importRowsAsTab([['x']], 'Rău'), null); eq(tabs.length, n, 'niciun tab nou'); parseSheetRows([[null], [undefined, {}], ['Activitate', 'x'], [[1], 2]]);
+  });
+
+  test('excel: nume cu cod HTML se importă ca text, nu se execută', () => {
+    window.__x = 0; importRowsAsTab([['Activitate', 'Zile'], ['<img src=x onerror="window.__x++">', 2]], 'Xss'); renderAll();
+    eq(window.__x, 0); ok(!document.querySelector('img[src="x"]'), 'fără element injectat'); eq(T[0].nm, '<img src=x onerror="window.__x++">'); delete window.__x;
+  });
+
+  test('excel: import rapid (5000 de rânduri)', () => {
+    const rows = [['WBS', 'Activitate', 'Durată', 'Start']]; for (let i = 1; i <= 5000; i++) rows.push([String(i), 'Activitate ' + i, 1 + i % 9, '26.10.2026']);
+    const t0 = performance.now(), p = parseSheetRows(rows); ok(p.ok && p.tasks.length === 5000); ok(performance.now() - t0 < 1500, 'prea lent: ' + Math.round(performance.now() - t0) + ' ms');
+  });
+
+  // ============================================================
+  // G) PANGLICA
+  // ============================================================
+  test('panglică: nicio filă nu depășește lățimea ferestrei de 1360 px (butoanele nu se taie)', () => {
+    if (innerWidth < 1340 || innerWidth > 1400) skip('se verifică doar la ~1360 px lățime (acum: ' + innerWidth + ')');
+    addNewTab('Pn'); loadDemo(); const active = document.querySelector('.rb-tab.active');
+    ['file', 'home', 'view', 'project'].forEach(k => {
+      document.querySelector('.rb-tab[data-rt="' + k + '"]').click(); const c = document.querySelector('.rb-content[data-rc="' + k + '"]');
+      ok(c.scrollWidth <= c.clientWidth + 2, 'fila „' + k + '” e prea lată: ' + c.scrollWidth + ' > ' + c.clientWidth);
+    });
+    if (active) active.click();
+  });
+
+  test('panglică: Fișier / Acasă / Vizualizare / Proiect au butoanele așteptate', () => {
+    const lbl = k => [...document.querySelectorAll('.rb-content[data-rc="' + k + '"] .rb-lbl')].map(e => e.textContent.trim());
+    ['Proiect nou', 'Deschide', 'Exemplu', 'Salvează', 'Tipărește', 'Export', 'Import'].forEach(l => ok(lbl('file').includes(l), 'Fișier: lipsește ' + l));
+    ['Activitate', 'Capitol', 'Reper'].forEach(l => ok(lbl('home').includes(l), 'Acasă: lipsește ' + l));
+    ['Filtru', 'Drum critic', 'Nume lângă bară'].forEach(l => ok(lbl('view').includes(l), 'Vizualizare: lipsește ' + l));
+    ['Calendar', 'Resurse', 'Buget', 'Urmărire'].forEach(l => ok(lbl('project').includes(l), 'Proiect: lipsește ' + l));
+  });
+
   // ---------- extensie pentru funcții viitoare ----------
   const extra = window.__regressionExtra;
   if (typeof extra === 'function') extra({ test, ok, eq, near, skip, wait, F, mk, settle, snap, setProject, confirmYes, key, newTabWith, noTransitions, toasts });

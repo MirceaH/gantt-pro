@@ -153,7 +153,7 @@ body.dark .g-row.selected{background:rgba(128,149,255,.07)!important}
 
 /* ---------- Ecran de bun venit (niciun proiect deschis) ---------- */
 body.no-project .split,body.no-project .tree-layout,body.no-project .vtabs{display:none!important}
-body.no-project .rb-btn:not(.keep),body.no-project .rb-dd{opacity:.35;pointer-events:none}
+body.no-project .rb-btn:not(.keep),body.no-project .rb-dd:not(.keep){opacity:.35;pointer-events:none}
 body.no-project .rb-btn.keep{opacity:1;pointer-events:auto}
 .welcome{display:none;flex:1;min-height:0;align-items:center;justify-content:center;padding:24px;overflow:auto;background:var(--bg)}
 body.no-project .welcome{display:flex}
