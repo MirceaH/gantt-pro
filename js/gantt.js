@@ -670,22 +670,29 @@ function updateInfoBar(t){
   const chips=[c&&c.crit?`<span class="gi-chip bad">CRITIC</span>`:"", ...(tw?[tw.lateText,tw.cons,tw.res].filter(Boolean).map(x=>`<span class="gi-chip warn">⚠ ${esc(x)}</span>`):[])].join("");
   const head=`<div class="gi-head"><span class="gi-wbs">${w[t.id]||""}</span><span class="gi-name">${esc(t.nm)}</span>${chips}</div>`;
 
-  const tiles=[tile("Perioadă",`<b>${zi(t.dur)}</b><small>${fmtDate(p._s)} → ${fmtDate(p._e)}</small>`),
-    tile("Progres",`<b>${t.prog}%</b><span class="gi-bar"><span style="width:${Math.min(100,t.prog)}%"></span></span>`)];
+  // Aceleași câmpuri, aceleași denumiri și aceeași ordine ca în fereastra „Detalii activitate” (Task Info); câmpurile goale se omit
+  const isSumm=hasK(t.id), leaf=!isSumm&&!t.isMilestone, wide="gi-wide";
+  const tiles=[];
+  if(t.sn) tiles.push(tile("Nume scurt",`<b>${esc(t.sn)}</b>`));
+  tiles.push(tile("Data start",`<b>${fmtDate(p._s)}</b>`), tile("Data final",`<b>${fmtDate(p._e)}</b>`), tile("Durată",`<b>${zi(t.dur)}</b>`),
+    tile("Progres",`<b>${t.prog}%</b><span class="gi-bar"><span style="width:${Math.min(100,t.prog)}%"></span></span>`));
+  if(leaf&&(t.as||t.af)){ tiles.push(tile("Început real",`<b>${t.as?fmtDate(pD(t.as)):"—"}</b>`), tile("Final real",`<b>${t.af?fmtDate(pD(t.af)):"—"}</b>`)); }
+  if(preds) tiles.push(tile("Se face după",preds,wide+" gi-links"));
+  if(succs) tiles.push(tile("Urmează după ea",succs,wide+" gi-links"));
+  if(t.cons&&t.cons.type&&t.cons.type!=="ASAP") tiles.push(tile("Restricție",`<b>${esc(CONS_LABELS[t.cons.type])}</b>`,wide));
+  if(t.cons&&t.cons.date) tiles.push(tile("Data restricției",`<b>${fmtDate(pD(t.cons.date))}</b>`));
+  if(t.deadline) tiles.push(tile("Termen limită",`<b>${fmtDate(pD(t.deadline))}</b>`));
+  const as=(t.assign||[]).filter(x=>resById(x.rid)), cost=costMap[t.id]||0;
+  if(as.length) tiles.push(tile("Resurse atribuite",as.map(x=>{ const r=resById(x.rid), over=(resWarn[t.id]||[]).some(s=>s.startsWith(r.name+" "));
+    return `<span class="gi-res${over?" over":""}">${esc(r.name)} <i>${r.type==="cost"?fmtMoney(x.units):x.units+(r.type==="work"?"%":" "+esc(r.unit||""))}</i></span>`; }).join(""),wide));
+  if(leaf&&t.ttype&&TASK_TYPES[t.ttype]) tiles.push(tile("Tip activitate",`<b>${esc(TASK_TYPES[t.ttype])}</b>`,wide));
+  if(cost) tiles.push(tile("Cost",`<b>${fmtMoney(cost)}</b>`));
+  // calculate de program (nu sunt câmpuri editabile)
   if(c&&!c.crit) tiles.push(tile("Rezervă",`<b>${zi(c.float)}</b>`));
   const b=blSpan(t);
   if(b){ const v=varDays(t);
-    tiles.push(tile("Linia de bază",`<small>${fmtDate(b.s)} → ${fmtDate(b.e)}</small>`+(v===0?`<span class="gi-chip ok">la termen</span>`:v>0?`<span class="gi-chip bad">+${zi(v)} întârziere</span>`:`<span class="gi-chip ok">${zi(-v)} mai devreme</span>`))); }
-  const a=actSpan(t);
-  if(a) tiles.push(tile("Real",`<small>${fmtDate(a.s)} → ${a.done?fmtDate(a.e):"<i>în desfășurare</i>"}</small>`));
-  if(t.cons&&t.cons.type&&t.cons.type!=="ASAP") tiles.push(tile("Restricție",`<b>${CONS_LABELS[t.cons.type]}</b>${t.cons.date?`<small>${fmtDate(pD(t.cons.date))}</small>`:""}`));
-  if(t.deadline) tiles.push(tile("Termen limită",`<b>${fmtDate(pD(t.deadline))}</b>`));
-  const as=(t.assign||[]).filter(x=>resById(x.rid)), cost=costMap[t.id]||0;
-  if(cost) tiles.push(tile("Cost",`<b>${fmtMoney(cost)}</b>`));
-  if(as.length) tiles.push(tile("Resurse",as.map(x=>{ const r=resById(x.rid), over=(resWarn[t.id]||[]).some(s=>s.startsWith(r.name+" "));
-    return `<span class="gi-res${over?" over":""}">${esc(r.name)} <i>${r.type==="cost"?fmtMoney(x.units):x.units+(r.type==="work"?"%":" "+esc(r.unit||""))}</i></span>`; }).join("")));
-  if(preds) tiles.push(tile("După",preds,"gi-links"));
-  if(succs) tiles.push(tile("Urmează",succs,"gi-links"));
+    tiles.push(tile("Linia de bază",`<small>${fmtDate(b.s)} → ${fmtDate(b.e)}</small>`+(v===0?`<span class="gi-chip ok">la termen</span>`:v>0?`<span class="gi-chip bad">+${zi(v)} întârziere</span>`:`<span class="gi-chip ok">${zi(-v)} mai devreme</span>`),wide)); }
+  if(t.notes&&t.notes.trim()) tiles.push(tile("Note",`<small class="gi-note" title="${esc(t.notes)}">${esc(t.notes.trim().replace(/\s+/g," ").slice(0,140))}</small>`,wide));
   el.innerHTML=head+`<div class="gi-tiles">${tiles.join("")}</div>`;
 }
 const DEP_COLORS={FS:"#8da0b5",SS:"#4ea378",FF:"#e58b35",SF:"#9870c7"};
