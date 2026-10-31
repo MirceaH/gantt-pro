@@ -1,4 +1,22 @@
 // Numele activităților lângă bară (opțional, se păstrează între sesiuni)
+// Dimensiunea tabelului + Gantt-ului (Ctrl +/−, Ctrl+rotiță, Ctrl+0): CSS zoom doar pe #splitView — panglica, filele și bara de stare rămân neschimbate.
+// Orice calcul care transformă mișcarea mouse-ului (px de ecran) în zile / px din Gantt trebuie împărțit la ZF.
+const CZ_LEVELS=[0.6,0.7,0.8,0.9,1,1.1,1.25,1.5,1.75,2];
+let ZF = (function(){ try { const v=parseFloat(localStorage.getItem("ganttContentZoom")); return v>=0.5&&v<=2.5?v:1; } catch(e) { return 1; } })();
+function _applyContentZoom(){ const s=document.getElementById("splitView"); if(s) s.style.zoom = ZF===1 ? "" : String(ZF); }
+function setContentZoom(z, quiet){
+  ZF=Math.max(0.5,Math.min(2.5,Math.round(z*100)/100));
+  try { localStorage.setItem("ganttContentZoom", String(ZF)); } catch(e) {}
+  _applyContentZoom(); renderAll();
+  if(!quiet) toast("🔍 Tabel + Gantt: "+Math.round(ZF*100)+"%"+(ZF===1?"":" (Ctrl+0 = 100%)"));
+}
+function stepContentZoom(dir){
+  if(!dir) return setContentZoom(1);
+  const next = dir>0 ? CZ_LEVELS.find(l=>l>ZF+0.001) : [...CZ_LEVELS].reverse().find(l=>l<ZF-0.001);
+  if(next===undefined){ toast(dir>0?"Dimensiunea maximă":"Dimensiunea minimă"); return; }
+  setContentZoom(next);
+}
+
 // Stilul barelor: „Nou" = plate, culoare după stare, nume lângă bară când nu încape (implicit); „Clasic" = stilul vechi
 let barStyle = (function(){ try { return localStorage.getItem("ganttBarStyle") === "classic" ? "classic" : "new"; } catch(e) { return "new"; } })();
 function _refreshBarStyleUI(){
@@ -288,7 +306,7 @@ $("thRow").addEventListener("mousedown", e => {
   const pane = $("paneL");
   document.body.style.cursor = "col-resize";
   const mv = ev => {
-    col.w = Math.max(30, startW + ev.clientX - startX);
+    col.w = Math.max(30, startW + (ev.clientX - startX) / ZF);
     const css = col.w + "px";
     document.querySelectorAll("#thRow > .th:nth-child(" + idx + "), #tBody .t-row > .c:nth-child(" + idx + ")")
       .forEach(el => { el.style.width = css; el.style.minWidth = css; });
@@ -486,7 +504,7 @@ function renderGantt(){
   let dw;
   if(isAutoZoom){
     const paneL=document.getElementById("paneL");
-    const availW=window.innerWidth-(paneL?paneL.offsetWidth:540)-6-17-tailW;
+    const availW=window.innerWidth/ZF-(paneL?paneL.offsetWidth:540)-6-17-tailW;
     let best=availW/td;
     best=Math.max(1.2,Math.min(best,120));
     zoomLevel=Math.round((best/30)*100);
@@ -739,7 +757,7 @@ function attachBars(cs,td,dw){
         const orig=pD(t.sd), sx=e.clientX, startLeft=parseFloat(bar.style.left);
         bar.classList.add("dragging");
         const mv=ev=>{
-          const days=Math.round((ev.clientX-sx)/dw);
+          const days=Math.round((ev.clientX-sx)/(dw*ZF));
           bar.style.left=(startLeft+days*dw)+"px";
           liveBadge(ev,_liveText(t,aD(orig,days),t.dur));
         };
@@ -747,7 +765,7 @@ function attachBars(cs,td,dw){
           bar.classList.remove("dragging"); hideLive();
           document.removeEventListener("mousemove",mv);
           document.removeEventListener("mouseup",up);
-          const ns=fD(aD(orig,Math.round((ev.clientX-sx)/dw)));
+          const ns=fD(aD(orig,Math.round((ev.clientX-sx)/(dw*ZF))));
           if(ns!==t.sd){                                // mutarea unei bare intră în istoric (Ctrl+Z) doar dacă s-a mutat
             pushHistory(); t.sd=ns;
             const d=lagFromMove(t);                     // task cu legături: mutarea devine lag pe legătura care îl ține pe loc
@@ -803,7 +821,7 @@ function attachBars(cs,td,dw){
       const bar=h.closest(".gb"), origEnd=endDate(t2), sx=e.clientX, origW=parseFloat(bar.style.width);
       bar.classList.add("dragging");
       const mv=ev=>{
-        const days=Math.round((ev.clientX-sx)/dw);
+        const days=Math.round((ev.clientX-sx)/(dw*ZF));
         bar.style.width=Math.max(dw,origW+days*dw)+"px";
         liveBadge(ev,_liveText(t2,pD(t2.sd),workDur(pD(t2.sd),aD(origEnd,days))));
       };
@@ -811,7 +829,7 @@ function attachBars(cs,td,dw){
         bar.classList.remove("dragging"); hideLive();
         document.removeEventListener("mousemove",mv);
         document.removeEventListener("mouseup",up);
-        const nd=workDur(pD(t2.sd),aD(origEnd,Math.round((ev.clientX-sx)/dw)));
+        const nd=workDur(pD(t2.sd),aD(origEnd,Math.round((ev.clientX-sx)/(dw*ZF))));
         if(nd!==t2.dur){ pushHistory(); t2.dur=nd; }
         syncTabData(); renderAll();
       };
@@ -828,7 +846,7 @@ function attachBars(cs,td,dw){
       const origW=parseFloat(bar.style.width), origL=parseFloat(bar.style.left);
       bar.classList.add("dragging");
       const mv=ev=>{
-        const days=Math.round((ev.clientX-sx)/dw);
+        const days=Math.round((ev.clientX-sx)/(dw*ZF));
         if(days<od){
           bar.style.left=(origL+days*dw)+"px";
           bar.style.width=Math.max(dw,origW-days*dw)+"px";
@@ -839,7 +857,7 @@ function attachBars(cs,td,dw){
         bar.classList.remove("dragging"); hideLive();
         document.removeEventListener("mousemove",mv);
         document.removeEventListener("mouseup",up);
-        const d=Math.round((ev.clientX-sx)/dw);
+        const d=Math.round((ev.clientX-sx)/(dw*ZF));
         let nsd, ndur;
         if(d>=od){nsd=fD(endD); ndur=1}
         else{const ns=aD(orig,d); nsd=fD(ns); ndur=workDur(ns,endD)}
@@ -878,10 +896,10 @@ function alignPanes(){
   const r=e=>e.getBoundingClientRect();
   th.style.boxSizing="border-box";
   const dTop=r(gb).top-r(tb).top;
-  if(Math.abs(dTop)>0.5) th.style.height=Math.max(24,r(th).height+dTop)+"px";
+  if(Math.abs(dTop)>0.5) th.style.height=Math.max(24,(r(th).height+dTop)/ZF)+"px";
   const cur=parseFloat(getComputedStyle(pl).paddingBottom)||0;
   const extra=(r(pr).bottom-r(gb).bottom)-(r(pl).bottom-r(tb).bottom);
-  if(Math.abs(extra)>0.5) pl.style.paddingBottom=Math.max(0,cur+extra)+"px";
+  if(Math.abs(extra)>0.5) pl.style.paddingBottom=Math.max(0,cur+extra/ZF)+"px";
   // același spațiu de derulare jos (bara de derulare orizontală + marginea de sub ultimul rând din Gantt)
   const sb=gb.offsetHeight-gb.clientHeight;
   tb.style.paddingBottom=(sb+RH_BOTTOM)+"px";

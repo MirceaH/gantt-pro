@@ -1081,6 +1081,38 @@
     ok(!$('gBody').classList.contains('zoom-micro'), 'după „Auto” revine');
   });
 
+  test('dimensiune tabel + Gantt: Ctrl +/−/0 și Ctrl+rotiță scalează doar tabelul și graficul (nu panglica); se salvează', () => {
+    newTabWith('Cz', [mk(1, 'A', 5), mk(2, 'B', 5, null, [F(1)])]); settle(); renderAll();
+    const kd = (key, o) => { const ev = new KeyboardEvent('keydown', Object.assign({ key, ctrlKey: true, bubbles: true, cancelable: true }, o || {})); document.dispatchEvent(ev); return ev.defaultPrevented; };
+    try {
+      ok(kd('+'), 'Ctrl + nu mai face zoom de pagină'); eq(ZF, 1.1); eq($('splitView').style.zoom, '1.1'); eq(localStorage.getItem('ganttContentZoom'), '1.1');
+      eq(getComputedStyle($('ribbonTabs')).zoom, '1', 'panglica nu se scalează'); eq(getComputedStyle($('sbar')).zoom, '1', 'bara de stare nu se scalează');
+      kd('='); eq(ZF, 1.25); kd('-'); eq(ZF, 1.1); kd('0'); eq(ZF, 1); eq($('splitView').style.zoom, '', '100% = fără zoom');
+      const wh = new WheelEvent('wheel', { ctrlKey: true, deltaY: -120, bubbles: true, cancelable: true }); document.querySelector('.t-row').dispatchEvent(wh);
+      ok(wh.defaultPrevented, 'Ctrl+rotiță peste tabel / grafic nu face zoom de pagină'); eq(ZF, 1.1);
+      const w2 = new WheelEvent('wheel', { ctrlKey: true, deltaY: -120, bubbles: true, cancelable: true }); $('ribbonTabs').dispatchEvent(w2); ok(!w2.defaultPrevented, 'peste panglică rămâne zoom-ul browserului');
+      ok(!kd('+', { ctrlKey: false }), 'fără Ctrl nu face nimic'); eq(ZF, 1.1);
+      setContentZoom(1.5, true); ok($('sbar').textContent.includes('150%'), 'indicator în bara de stare');
+    } finally { setContentZoom(1, true); }
+    eq(ZF, 1); ok(!$('sbar').textContent.includes('Dimensiune'));
+  });
+
+  test('dimensiune tabel + Gantt: la 150% rândurile rămân aliniate, bara se mută cu numărul corect de zile, coloana se redimensionează corect', () => {
+    newTabWith('Cz2', [mk(1, 'A', 5, null, [], '2026-10-26')]); settle();
+    try {
+      setContentZoom(1.5, true);
+      if ($('gBody').clientHeight >= 100) { alignPanes(); const r = document.querySelector('.t-row').getBoundingClientRect(), g = document.querySelector('.g-row').getBoundingClientRect(); near(r.top, g.top, 1.5, 'rând tabel / rând Gantt aliniate la 150%'); near(r.height, g.height, 1, 'aceeași înălțime'); }
+      const bar = document.querySelector('.gb[data-bid="1"]'), br = bar.getBoundingClientRect(), x0 = br.left + 12, y0 = br.top + 6, dw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--day-w'));
+      const fire = (el, type, x, y) => el.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 }));
+      fire(bar, 'mousedown', x0, y0); fire(document, 'mousemove', x0 + dw * ZF * 3, y0); fire(document, 'mouseup', x0 + dw * ZF * 3, y0);
+      eq(byId(1).sd, '2026-10-29', 'mouse-ul mutat cu 3 zile pe ecran = 3 zile, nu 4,5');
+      const th = document.querySelector('#thRow .th:nth-child(3)'), w0 = C[2].w, hx = th.querySelector('.col-rs').getBoundingClientRect(), sx = hx.left + 2;
+      th.querySelector('.col-rs').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: sx, clientY: hx.top + 4, button: 0 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: sx + 30 * ZF })); document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: sx + 30 * ZF }));
+      near(C[2].w, w0 + 30, 1.5, 'coloana crește cu 30 px din spațiul ei, nu cu 45');
+    } finally { setContentZoom(1, true); C[2].w = 44; localStorage.removeItem('ganttColW'); }
+  });
+
   test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {
     document.querySelectorAll('.modal-overlay').forEach(ov => { const b = ov.firstElementChild; ok(b && b.getAttribute('role') && b.getAttribute('aria-modal') === 'true', 'fără rol: #' + ov.id); });
     eq($('confirmModal').firstElementChild.getAttribute('role'), 'alertdialog');

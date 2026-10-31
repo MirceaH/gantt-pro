@@ -94,8 +94,8 @@ function _cursorToInner(e) {
   const rect = gInner.getBoundingClientRect();
   const gBody = gInner.parentElement;
   return {
-    x: e.clientX - rect.left + gBody.scrollLeft,
-    y: e.clientY - rect.top + gBody.scrollTop
+    x: (e.clientX - rect.left) / ZF + gBody.scrollLeft,
+    y: (e.clientY - rect.top) / ZF + gBody.scrollTop
   };
 }
 

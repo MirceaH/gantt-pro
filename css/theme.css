@@ -586,3 +586,8 @@ body.bars-new .g-body.zoom-micro .gb.task{top:10px;height:10px;border-radius:4px
 body.bars-new .g-body.zoom-micro .gb.task .bn,body.bars-new .g-body.zoom-micro .gb.task .bp-pct{display:none}
 body.bars-new .g-body.zoom-micro .gb.task .rs{width:3px}
 .lg-row i.lg-st{background:linear-gradient(90deg,#3f58d8 0 45%,#6b83f2 45% 100%);border-radius:4px;height:14px!important;margin-top:2px}
+
+/* indicator de dimensiune (tabel + Gantt) în bara de stare */
+.sbar .sb-click{cursor:pointer;padding:1px 8px;border-radius:10px;background:var(--accentL)}
+.sbar .sb-click:hover{filter:brightness(.96)}
+.sbar .sb-click b{color:var(--accent)}

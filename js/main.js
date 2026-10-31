@@ -263,6 +263,7 @@ function renderStatus(){
   if(showCritical&&cpmInfo.end) parts.push(it("Critice",cpmInfo.count,"bad"), it("Final proiect",fmtDate(pD(cpmInfo.end))));
   if(costMap.total) parts.push(it("Buget",fmtMoney(costMap.total)));
   if(hasCustomStatus()) parts.push(it("Status",fmtDate(pD(META.sdate))));
+  if(ZF!==1) parts.push(`<span class="sb-i sb-click" title="Dimensiunea tabelului și a Gantt-ului (Ctrl +/−). Click = 100%" onclick="setContentZoom(1)"><i>Dimensiune</i><b>${Math.round(ZF*100)}%</b></span>`);
   if(bh) parts.push(`<span class="sb-i bad" title="Ar fi trebuit să fie gata până la ${hasCustomStatus()?"data de status":"azi"}, dar nu sunt finalizate"><b>⏰ ${bh} întârziate</b></span>`);
   $("sbar").innerHTML=parts.join("")+(typeof fileStatusHtml==="function"?fileStatusHtml():"");
 }
@@ -327,7 +328,7 @@ function initSplitter(){
   document.addEventListener("mousemove",e=>{
     if(!dr) return;
     // Rămâne în modul extins (cu coloanele Note/Status/ID) cât timp îl tragi
-    pl.style.width=Math.max(200,Math.min(window.innerWidth*0.88,sw+(e.clientX-sx)))+"px";
+    pl.style.width=Math.max(200,Math.min(window.innerWidth*0.88/ZF,sw+(e.clientX-sx)/ZF))+"px";
     if(isAutoZoom && typeof renderGantt==='function') renderGantt();
   });
   document.addEventListener("mouseup",()=>{if(dr){dr=false;document.body.style.cursor=""}});
@@ -573,6 +574,25 @@ window.addEventListener("resize",()=>{
   if(isAutoZoom && typeof renderGantt==='function') renderGantt();
 });
 
+// ======== DIMENSIUNE TABEL + GANTT (Ctrl + / − / 0, Ctrl + rotiță) ========
+// Înlocuiește zoom-ul paginii: se mărește / micșorează doar tabelul și graficul; panglica, filele și bara de stare rămân la mărimea normală.
+const _czBlocked = () => !!document.querySelector(".modal-overlay.open") || ($("printPreview") && $("printPreview").style.display === "flex");
+document.addEventListener("keydown", e => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || _czBlocked()) return;
+  const k = e.key; let dir = null;
+  if (k === "+" || k === "=" || k === "Add") dir = 1; else if (k === "-" || k === "_" || k === "Subtract") dir = -1; else if (k === "0") dir = 0;
+  if (dir === null) return;
+  if (view === "gantt") { e.preventDefault(); stepContentZoom(dir); }
+  else if (view === "tree") { e.preventDefault(); if (dir) setTreeZoom(treeZoom + dir * 0.1); else treeFit(); }
+});
+let _czAcc = 0, _czT = 0;
+document.addEventListener("wheel", e => {
+  if (!e.ctrlKey || view !== "gantt" || _czBlocked() || !e.target.closest || !e.target.closest("#splitView")) return;
+  e.preventDefault();                                    // fără zoom de pagină; un „pas" la fiecare ~40 de unități de rotiță (și la pinch pe touchpad)
+  _czAcc += e.deltaY; const now = Date.now();
+  if (Math.abs(_czAcc) >= 40 && now - _czT > 90) { stepContentZoom(_czAcc < 0 ? 1 : -1); _czAcc = 0; _czT = now; }
+}, { passive: false });
+
 // ======== ACCESIBILITATE ========
 // Ferestrele primesc rol de dialog; la deschidere focusul intră în fereastră, la închidere revine unde era (cititoare de ecran + tastatură).
 // Butoanele fără text (doar icoană) primesc o etichetă din `title`.
@@ -607,6 +627,7 @@ function initA11y() {
 initDark();
 initA11y();
 _refreshBarStyleUI();
+_applyContentZoom();
 initSplitter();
 syncScroll();
 $("splitView").style.display = "flex";
