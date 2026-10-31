@@ -145,10 +145,10 @@ async function fileAutoWrite() {
 
 function fileStatusHtml() {
   const n = fileNames[activeTabId];
-  if (!n) return '<span style="color:rgba(255,255,255,.75);margin-left:14px">📄 Doar în browser — salvează cu Ctrl+S</span>';
+  if (!n) return '<span class="sb-file">📄 Doar în browser — salvează cu Ctrl+S</span>';
   const t = fileSavedAt[activeTabId];
   const hh = t ? `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}` : "";
-  return `<span style="color:#fff;margin-left:14px">📄 ${esc(n)}${hh ? " · salvat " + hh : ""}${fileAuto[activeTabId] ? " · 🔁 auto" : ""}</span>`;
+  return `<span class="sb-file ok">📄 ${esc(n)}${hh ? " · salvat " + hh : ""}${fileAuto[activeTabId] ? " · 🔁 auto" : ""}</span>`;
 }
 
 function _refreshFileUI() {

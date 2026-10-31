@@ -566,12 +566,10 @@ function _saveIndicator(text, bad) {
   if (!ind) {
     ind = document.createElement('span');
     ind.className = 'save-indicator';
-    ind.style.cssText = 'color:rgba(255,255,255,.6);font-size:10px;margin-left:auto';
     sbar.appendChild(ind);
   }
   ind.textContent = text;
-  ind.style.color = bad ? '#ffb4a8' : 'rgba(255,255,255,.6)';
-  ind.style.fontWeight = bad ? '800' : '';
+  ind.classList.toggle('bad', !!bad);
 }
 
 // Scrie acum în localStorage. Returnează true dacă a reușit; la eșec (memorie plină, mod privat) avertizează vizibil, o singură dată.

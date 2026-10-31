@@ -207,7 +207,20 @@ function renderStatus(){
   const tab = tabs.find(t=>t.id===activeTabId);
   const tabName = tab ? tab.name : 'Proiect';
   const n=T.length, b=ab(), td=b?dD(b.mn,b.mx)+1:0, av=n?(T.reduce((s,t)=>s+t.dur,0)/n).toFixed(1):0, ap=n?Math.round(T.reduce((s,t)=>s+t.prog,0)/n):0;
-  $("sbar").innerHTML=`<span style="color:#fff">📋 ${tabName} | Noduri: ${n}${filterActive()?` (afișate ${viewRows().length})`:""} | Zile: ${td} | Durată Medie: ${av} zile | Progres Mediu: ${ap}%${showCritical&&cpmInfo.end?` | 🔴 Critice: ${cpmInfo.count} | Final proiect: ${fmtDate(pD(cpmInfo.end))}`:''}</span>${costMap.total?` | 💰 Buget: ${fmtMoney(costMap.total)}`:""}${hasCustomStatus()?` | 📅 Status: ${fmtDate(pD(META.sdate))}`:""}${behindCount()?` | <span title="Ar fi trebuit să fie gata până la ${hasCustomStatus()?"data de status":"azi"}, dar nu sunt finalizate">⏰ ${behindCount()} întârziate</span>`:""}${typeof fileStatusHtml==="function"?fileStatusHtml():""}`;
+  // Bara de stare: valori grupate (etichetă discretă + valoare îngroșată), nu un șir lung separat prin „|"
+  const it=(lbl,val,cls="",title="")=>`<span class="sb-i ${cls}"${title?` title="${esc(title)}"`:""}><i>${lbl}</i><b>${val}</b></span>`;
+  const bh=behindCount(), parts=[
+    `<span class="sb-name" title="${esc(tabName)}">${esc(tabName)}</span>`,
+    it("Activități",n+(filterActive()?` (afișate ${viewRows().length})`:"")),
+    it("Durată",td+" zile"),
+    it("Medie",av+" zile"),
+    `<span class="sb-i"><i>Progres</i><b>${ap}%</b><span class="sb-bar"><span style="width:${ap}%"></span></span></span>`
+  ];
+  if(showCritical&&cpmInfo.end) parts.push(it("Critice",cpmInfo.count,"bad"), it("Final proiect",fmtDate(pD(cpmInfo.end))));
+  if(costMap.total) parts.push(it("Buget",fmtMoney(costMap.total)));
+  if(hasCustomStatus()) parts.push(it("Status",fmtDate(pD(META.sdate))));
+  if(bh) parts.push(`<span class="sb-i bad" title="Ar fi trebuit să fie gata până la ${hasCustomStatus()?"data de status":"azi"}, dar nu sunt finalizate"><b>⏰ ${bh} întârziate</b></span>`);
+  $("sbar").innerHTML=parts.join("")+(typeof fileStatusHtml==="function"?fileStatusHtml():"");
 }
 
 // Doar calculele (fără desenare): planificare din legături/constrângeri, capitole, drum critic, resurse, avertismente.

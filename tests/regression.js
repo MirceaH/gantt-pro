@@ -979,6 +979,18 @@
     eq(JSON.stringify([T, cpm]), a, 'index vs fără index');
   });
 
+  test('securitate: numele proiectului din bara de stare nu poate injecta HTML', () => {
+    newTabWith('<img src=x onerror=alert(1)>', [mk(1, 'A', 2)]); settle(); renderStatus();
+    ok(!$('sbar').querySelector('img'), 'fără element <img> în bara de stare'); ok($('sbar').textContent.includes('<img src=x'), 'numele apare ca text');
+    ok($('sbar').textContent.includes('Activități'), 'etichetele valorilor sunt prezente');
+  });
+
+  test('design: proiectele și vederile sunt pe același rând; bara de stare are valori grupate', () => {
+    const r = $('tabsRow'); ok(r && r.contains($('projTabsBar')) && r.contains($('vtabs')), 'tabs-row conține ambele');
+    const a = $('projTabsBar').getBoundingClientRect(), b = $('vtabs').getBoundingClientRect(); if (a.height) ok(Math.abs((a.top + a.height / 2) - (b.top + b.height / 2)) < 20, 'același rând');
+    addNewTab('Dsg'); ok(document.querySelectorAll('#sbar .sb-i').length >= 4, 'valori în bara de stare');
+  });
+
   test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {
     document.querySelectorAll('.modal-overlay').forEach(ov => { const b = ov.firstElementChild; ok(b && b.getAttribute('role') && b.getAttribute('aria-modal') === 'true', 'fără rol: #' + ov.id); });
     eq($('confirmModal').firstElementChild.getAttribute('role'), 'alertdialog');

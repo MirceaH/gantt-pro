@@ -226,13 +226,13 @@ function clearHighlight(){
 }
 
 const C=[
-  {k:"wbs", l:"WBS",       w:44},
-  {k:"nm",  l:"Activitate", w:142},
-  {k:"dur", l:"Zile",       w:46},
-  {k:"sd",  l:"Start",      w:112},
-  {k:"ed",  l:"Final",      w:112},
-  {k:"prog",l:"%",          w:38},
-  {k:"deps",l:"După",       w:54}
+  {k:"wbs", l:"WBS",       w:40},
+  {k:"nm",  l:"Activitate", w:208},
+  {k:"dur", l:"Zile",       w:44},
+  {k:"sd",  l:"Start",      w:92},
+  {k:"ed",  l:"Final",      w:92},
+  {k:"prog",l:"%",          w:40},
+  {k:"deps",l:"După",       w:52}
 ];
 // Coloane EXTRA afișate doar când panel-ul e expanded (clase CSS gestionează vizibilitatea)
 const CX=[
