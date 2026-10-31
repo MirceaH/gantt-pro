@@ -190,9 +190,10 @@ function resDel(id) {
 function resSetCur(v) { RES.cur = String(v).trim() || 'RON'; _resCommit(); }
 
 function renderResModal() {
-  const tabs = [['res', '👥 Resurse'], ['load', '📊 Încărcare'], ['budget', '💰 Buget']];
+  const tabs = [['res', '👥 Resurse'], ['load', '📊 Încărcare'], ['usage', '📋 Utilizare'], ['budget', '💰 Buget']];
   $('resTabs').innerHTML = tabs.map(([k, l]) => `<button class="${_resTab === k ? 'active' : ''}" onclick="resTab('${k}')">${l}</button>`).join('');
-  $('resBody').innerHTML = _resTab === 'res' ? _resSheetHtml() : _resTab === 'load' ? _resLoadHtml() : _resBudgetHtml();
+  $('resBody').innerHTML = _resTab === 'res' ? _resSheetHtml() : _resTab === 'load' ? _resLoadHtml() : _resTab === 'usage' ? _usageHtml() : _resBudgetHtml();
+  const box = $('resModal').querySelector('.res-box'); if (box) box.classList.toggle('wide', _resTab === 'usage');
 }
 
 function _resSheetHtml() {
@@ -242,7 +243,11 @@ function _resLoadHtml() {
       <div class="res-chart-w"><svg width="${total * bw}" height="${H + 16}">
         ${bars}<line x1="0" x2="${total * bw}" y1="${my}" y2="${my}" stroke="#e0a030" stroke-width="1.5" stroke-dasharray="4 3"/>${ticks}</svg></div></div>`;
   }).join('');
-  return `<div class="res-help" style="margin-top:0">Fiecare coloană = o zi lucrătoare. Linia galbenă = capacitatea; coloanele roșii depășesc capacitatea (supraalocare).</div>${charts}`;
+  const lvN = _levelCount();
+  const tools = `<div class="res-top"><button class="modal-btn primary" onclick="levelResources()" title="Mută activitățile nepornite ca nicio resursă să nu depășească capacitatea">⚖ Nivelează resursele</button>
+      ${lvN ? `<button class="modal-btn cancel" onclick="clearLeveling()">↩ Anulează nivelarea (${lvN})</button>` : ''}</div>
+    ${_levelNote ? `<div class="res-help" style="margin:0 0 12px">⚖ ${esc(_levelNote)}</div>` : ''}`;
+  return `${tools}<div class="res-help" style="margin-top:0">Fiecare coloană = o zi lucrătoare. Linia galbenă = capacitatea; coloanele roșii depășesc capacitatea (supraalocare).</div>${charts}`;
 }
 
 function _resBudgetHtml() {
@@ -265,3 +270,159 @@ function _resBudgetHtml() {
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('resModal') && $('resModal').classList.contains('open')) closeResources(); });
+
+// ============================================================
+// UTILIZAREA RESURSELOR (ore pe perioade) + NIVELAREA RESURSELOR
+// ============================================================
+const _unitsOn = (t, rid) => (t.assign || []).filter(a => a.rid === rid).reduce((s, a) => s + (a.units || 0), 0);
+
+// Tabel: pentru fiecare resursă de tip „Muncă", orele ei pe perioade (zile / săptămâni / luni, după cât durează proiectul),
+// defalcate pe activități. Perioadele în care resursa depășește capacitatea apar în roșu.
+function _usageHtml() {
+  const work = RES.list.filter(r => r.type === 'work');
+  if (!work.length) return '<div class="res-empty">Adaugă resurse de tip „Muncă” și atribuie-le activităților ca să vezi utilizarea lor.</div>';
+  const b = ab(); if (!b) return '<div class="res-empty">Proiect gol.</div>';
+  const span = dD(b.mn, b.mx) + 1, mode = span <= 70 ? 'day' : (span <= 400 ? 'week' : 'month');
+  const keyOf = d => mode === 'day' ? fD(d) : (mode === 'week' ? fD(aD(d, -((d.getDay() + 6) % 7))) : fD(new Date(d.getFullYear(), d.getMonth(), 1)));
+  const periods = [], idxOf = new Map();
+  for (let d = new Date(b.mn); d <= b.mx; d = aD(d, 1)) {
+    if (mode === 'day' && !isWork(d)) continue;
+    const k = keyOf(d);
+    if (idxOf.has(k)) continue;
+    const kd = pD(k);
+    idxOf.set(k, periods.length);
+    periods.push({ k, label: mode === 'month' ? MN(kd) + ' ' + String(kd.getFullYear()).slice(2) : kd.getDate() + ' ' + MN(kd).toLowerCase() });
+  }
+  const body = [];
+  work.forEach(r => {
+    const tasks = T.filter(t => _isLeafTask(t) && _unitsOn(t, r.id) > 0);
+    if (!tasks.length) return;
+    const L = loadMap[r.id] || { days: {}, max: r.max || 100, over: [], peak: 0 };
+    const gh = periods.map(() => 0), go = periods.map(() => false), trows = [];
+    tasks.forEach(t => {
+      const u = _unitsOn(t, r.id), h = periods.map(() => 0);
+      for (let d = pD(t.sd), e = endDate(t); d <= e; d = aD(d, 1)) {
+        if (!isWork(d)) continue;
+        const i = idxOf.get(keyOf(d)); if (i !== undefined) h[i] += u / 100 * 8;
+      }
+      h.forEach((v, i) => { gh[i] += v; });
+      trows.push({ t, h, u });
+    });
+    L.over.forEach(day => { const i = idxOf.get(keyOf(pD(day))); if (i !== undefined) go[i] = true; });
+    const cell = (v, o) => '<td class="' + (o ? 'over' : '') + '">' + (v ? Math.round(v) : '') + '</td>';
+    body.push('<tr class="ru-group"><td class="ru-name"><b>' + esc(r.name) + '</b> <small>capacitate ' + L.max + '%' + (L.peak ? ' · vârf ' + Math.round(L.peak) + '%' : '') + '</small></td>' + gh.map((v, i) => cell(v, go[i])).join('') + '</tr>');
+    const w = wbs();
+    trows.forEach(x => body.push('<tr><td class="ru-name" title="' + esc(x.t.nm) + '">' + esc((w[x.t.id] || '') + ' ' + x.t.nm) + ' <small>' + x.u + '%</small></td>' + x.h.map(v => cell(v, false)).join('') + '</tr>'));
+  });
+  if (!body.length) return '<div class="res-empty">Nicio activitate nu are resurse de tip „Muncă” atribuite.</div>';
+  const unit = mode === 'day' ? 'zi' : (mode === 'week' ? 'săptămână (de luni)' : 'lună');
+  return '<div class="res-help" style="margin:0 0 10px">Ore de muncă pe ' + unit + ' (o zi lucrătoare = 8 ore × % din timpul resursei). <b style="color:#d94040">Roșu</b> = în perioadă resursa depășește capacitatea.</div>'
+    + '<div class="ru-wrap"><table class="res-usage"><thead><tr><th class="ru-name">Resursă / activitate</th>' + periods.map(p => '<th>' + p.label + '</th>').join('') + '</tr></thead><tbody>' + body.join('') + '</tbody></table></div>';
+}
+
+// ----- nivelarea resurselor -----
+// Activitățile nepornite și fără restricții puse de utilizator se mută (restricție „nu începe înainte de", marcată lv)
+// până când nicio resursă nu mai depășește capacitatea. Se mută întâi cele cu cea mai mare rezervă.
+const _levelCount = () => T.filter(t => t.cons && t.cons.lv).length;
+let _levelNote = '';
+
+function _levelable(t) {
+  if (!_isLeafTask(t)) return false;
+  if (t.prog > 0 || t.as || t.af) return false;                                   // începută: nu se mută
+  const c = t.cons;
+  return !(c && c.type && c.type !== 'ASAP' && !c.lv);                            // restricție pusă de utilizator: nu se atinge
+}
+
+// Planificare în serie (metoda standard de nivelare): pornim de la planul „natural" (fără nivelarea veche), apoi așezăm
+// activitățile care folosesc resurse, una câte una, în ordinea urgenței (cele cu cea mai mică rezervă întâi), fiecare pe
+// prima zi lucrătoare de la care resursele ei au loc pe toată durata. O activitate așezată nu mai e deranjată de cele de după ea,
+// deci procesul se termină garantat. Nu se mută: activitățile începute, cele cu restricții puse de utilizator și cele
+// care singure depășesc capacitatea unei resurse. Întoarce un rezumat.
+function _levelRun(limitMs) {
+  const t0 = Date.now();
+  T.forEach(t => { if (t.cons && t.cons.lv) { if (t.cons.o) t.sd = t.cons.o; delete t.cons; } });   // înapoi la planul natural
+  recomputeAll();
+  const endOf = () => T.filter(x => !hasK(x.id)).reduce((m, x) => { const e = endDate(x); return e > m ? e : m; }, new Date(0));
+  const endBefore = endOf();
+  const cap = {}; RES.list.forEach(r => { if (r.type === 'work') cap[r.id] = r.max || 100; });
+  const work = t => (t.assign || []).filter(a => cap[a.rid] !== undefined && a.units > 0);
+  const byId = new Map(T.map(t => [t.id, t]));
+  const users = T.filter(t => _isLeafTask(t) && work(t).length);
+  const userIds = new Set(users.map(t => t.id));
+  const movable = new Set(users.filter(t => _levelable(t) && work(t).every(a => a.units <= cap[a.rid])).map(t => t.id));
+  const flt = {}; users.forEach(t => { flt[t.id] = cpm[t.id] ? cpm[t.id].float : 0; });
+
+  // ordinea zilelor lucrătoare (ca să măsurăm „cât de târziu poate începe" în zile lucrătoare)
+  const base = users.length ? users.map(t => t.sd).sort()[0] : fD(new Date());
+  const wcache = new Map();
+  const widx = iso => { if (wcache.has(iso)) return wcache.get(iso); let n = 0; for (let d = pD(base), e = pD(iso), g = 0; d < e && g < 36600; d = aD(d, 1), g++) if (isWork(d)) n++; wcache.set(iso, n); return n; };
+
+  // predecesorii (frunze) ai unei activități; un capitol ca predecesor = toate activitățile lui
+  const preds = id => {
+    const out = [];
+    (byId.get(id).deps || []).forEach(d => {
+      const p = byId.get(d.id); if (!p) return;
+      if (hasK(p.id)) allD(p.id).forEach(x => { const c = byId.get(x); if (c && !hasK(c.id)) out.push(c.id); }); else out.push(p.id);
+    });
+    return out;
+  };
+  const ancUsers = new Map();
+  users.forEach(t => {
+    const seen = new Set(), stack = preds(t.id).slice();
+    while (stack.length) { const id = stack.pop(); if (seen.has(id)) continue; seen.add(id); preds(id).forEach(x => stack.push(x)); }
+    ancUsers.set(t.id, [...seen].filter(id => userIds.has(id) && id !== t.id));
+  });
+
+  const daysOf = (startDate, dur) => { const out = []; let d = nextWork(startDate); for (let i = 0; i < dur; i++) { out.push(fD(d)); d = addWorkDays(d, 1); } return out; };
+  const addLoad = (use, t) => { const days = daysOf(pD(t.sd), Math.max(1, t.dur)); work(t).forEach(a => { const m = use[a.rid] || (use[a.rid] = {}); days.forEach(k => { m[k] = (m[k] || 0) + a.units; }); }); };
+  const fits = (use, t, start) => { const days = daysOf(start, Math.max(1, t.dur)); return work(t).every(a => days.every(k => ((use[a.rid] && use[a.rid][k]) || 0) + a.units <= cap[a.rid] + 0.01)); };
+
+  const placed = new Set(), moved = []; let stopped = false;
+  while (placed.size < users.length) {
+    if (Date.now() - t0 > limitMs) { stopped = true; break; }
+    const elig = users.filter(t => !placed.has(t.id) && ancUsers.get(t.id).every(id => placed.has(id)));
+    const pool = elig.length ? elig : users.filter(t => !placed.has(t.id));
+    pool.sort((a, b) => (widx(a.sd) + flt[a.id]) - (widx(b.sd) + flt[b.id]) || a.id - b.id);
+    const t = pool[0]; placed.add(t.id);
+    if (!movable.has(t.id)) continue;
+    const use = {};
+    users.forEach(u => { if (u.id !== t.id && (placed.has(u.id) || !movable.has(u.id))) addLoad(use, u); });
+    const natural = nextWork(pD(t.sd)); let s = natural;
+    for (let g = 0; g < 2000 && !fits(use, t, s); g++) s = addWorkDays(s, 1);
+    if (s > natural) { t.cons = { type: 'SNET', date: fD(s), lv: true, o: t.sd }; moved.push(t.id); recomputeAll(); }
+  }
+  recomputeAll();
+  const remaining = Object.keys(loadMap).filter(rid => loadMap[rid].over.length).map(rid => resById(+rid).name);
+  return { moved: moved.length, stopped, remaining, endBefore: fD(endBefore), endAfter: fD(endOf()) };
+}
+
+function levelResources() {
+  if (!RES.list.some(r => r.type === 'work')) { toast('ℹ️ Nu ai resurse de tip „Muncă”'); return; }
+  recomputeAll();
+  if (!Object.values(loadMap).some(L => L.over.length)) { toast('✓ Nicio resursă nu e supraalocată — nu e nimic de nivelat'); return; }
+  customConfirm('Nivelez resursele: mut activitățile nepornite (întâi cele cu cea mai mare rezervă) până când nicio resursă nu mai depășește capacitatea. Finalul proiectului poate crește. Activitățile începute și cele cu restricții puse de tine nu se ating. Poți anula cu Ctrl+Z.', () => {
+    pushHistory();
+    const r = _levelRun(10000);
+    syncTabData(); renderAll();
+    const days = dD(pD(r.endBefore), pD(r.endAfter));
+    _levelNote = (r.moved ? r.moved + (r.moved === 1 ? ' activitate mutată' : ' activități mutate') : 'Nicio activitate nu a putut fi mutată')
+      + ' · final proiect ' + fmtDate(pD(r.endBefore)) + ' → ' + fmtDate(pD(r.endAfter)) + (days > 0 ? ' (+' + days + ' zile)' : '')
+      + (r.remaining.length ? ' · încă supraalocate (activități începute sau cu restricții): ' + r.remaining.join(', ') : ' · toate resursele sunt în capacitate')
+      + (r.stopped ? ' · oprită după limita de timp' : '');
+    if ($('resModal').classList.contains('open')) renderResModal();
+    toast('⚖ Nivelare: ' + r.moved + ' mutate' + (days > 0 ? ', final +' + days + ' zile' : '') + (r.remaining.length ? ', rămân supraalocate: ' + r.remaining.length : ''));
+  });
+}
+
+function clearLeveling() {
+  const n = _levelCount();
+  if (!n) { toast('ℹ️ Nu există activități mutate de nivelare'); return; }
+  customConfirm('Anulez nivelarea? Cele ' + n + ' activități mutate revin la datele de dinainte.', () => {
+    pushHistory();
+    T.forEach(t => { if (t.cons && t.cons.lv) { if (t.cons.o) t.sd = t.cons.o; delete t.cons; } });
+    _levelNote = '';
+    syncTabData(); renderAll();
+    if ($('resModal').classList.contains('open')) renderResModal();
+    toast('↩️ Nivelare anulată (' + n + ' activități)');
+  });
+}

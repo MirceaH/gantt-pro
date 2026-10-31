@@ -291,3 +291,19 @@ body.dark .filter-bar button:hover{color:#0f1220}
   body.pp-open .pp-page:last-child{break-after:auto;page-break-after:auto}
   body.pp-open *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+
+/* Confirmările și ferestrele de nume trebuie să apară PESTE ferestre ca „Resurse” (altfel rămân ascunse în spatele lor) */
+#confirmModal,#nameModal{z-index:10000}
+
+/* ---------- Utilizarea resurselor ---------- */
+.res-box.wide{max-width:1240px}
+.ru-wrap{overflow:auto;max-height:60vh;border:1px solid var(--grid);border-radius:8px}
+.res-usage{border-collapse:separate;border-spacing:0;font-size:11px;min-width:100%}
+.res-usage th{position:sticky;top:0;z-index:3;background:var(--grid2);padding:5px 6px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;border-bottom:1px solid var(--grid)}
+.res-usage td{padding:3px 6px;text-align:center;border-bottom:1px solid var(--grid2);min-width:36px;color:var(--text2)}
+.res-usage .ru-name{position:sticky;left:0;z-index:2;text-align:left;min-width:230px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--card);border-right:1px solid var(--grid);color:var(--text)}
+.res-usage th.ru-name{z-index:4;background:var(--grid2)}
+.res-usage .ru-group td{background:var(--grid2);font-weight:800;color:var(--text)}
+.res-usage .ru-group .ru-name{background:var(--grid2)}
+.res-usage td.over{background:rgba(224,58,58,.2);color:#c0392b;font-weight:800}
+.res-usage small{color:var(--muted);font-weight:600}

@@ -368,6 +368,7 @@ function loadTabData(tabId) {
   if (!tab) return;
   setCal(tab.cal); setRes(tab.res); setMeta(tab.meta);
   if (typeof clearFilter === 'function') clearFilter(true);   // filtrul aparține proiectului pe care îl părăsim
+  if (typeof _levelNote !== 'undefined') _levelNote = '';      // la fel și rezumatul ultimei nivelări
   T   = JSON.parse(JSON.stringify(tab.T));
   _sanitizeTasks();
   nid = Math.max(+tab.nid || 1, ...T.map(t => t.id + 1));

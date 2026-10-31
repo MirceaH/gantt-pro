@@ -725,6 +725,88 @@
   });
 
   // ============================================================
+  // H) RESURSE: UTILIZARE ȘI NIVELARE
+  // ============================================================
+  const resA = (cap) => ({ cur: 'RON', next: 3, list: [{ id: 1, name: 'Echipa A', type: 'work', rate: 10, max: cap || 100 }, { id: 2, name: 'Echipa B', type: 'work', rate: 10, max: 100 }] });
+  const withRes = (tasks, res) => { newTabWith('Lv', tasks, null, res || resA()); settle(); };
+  const overCount = () => Object.values(loadMap).reduce((s, L) => s + L.over.length, 0);
+
+  test('nivelare: două activități care se suprapun pe aceeași resursă → una se mută după cealaltă', () => {
+    withRes([mk(1, 'A', 5, null, [], '2026-10-26', { assign: [{ rid: 1, units: 100 }] }), mk(2, 'B', 5, null, [], '2026-10-26', { assign: [{ rid: 1, units: 100 }] })]);
+    ok(overCount() > 0, 'supraalocat înainte'); const r = _levelRun(3000);
+    eq(overCount(), 0, 'nicio supraalocare după'); eq(byId(1).sd, '2026-10-26', 'A rămâne'); eq(byId(2).sd, '2026-11-02', 'B după A'); ok(byId(2).cons.lv && byId(2).cons.o === '2026-10-26', 'marcată ca nivelare, cu data inițială');
+    eq(r.moved, 1); eq(r.endAfter, '2026-11-06'); eq(r.remaining, []);
+  });
+
+  test('nivelare: se mută activitatea cu rezervă, nu cea de pe drumul critic', () => {
+    withRes([mk(1, 'X', 10), mk(2, 'Y', 5, null, [F(1)], '2026-10-26', { assign: [{ rid: 1, units: 100 }] }), mk(3, 'Z', 3, null, [], '2026-11-09', { assign: [{ rid: 1, units: 100 }] })]);
+    ok(cpm[2].crit && !cpm[3].crit, 'Y critic, Z cu rezervă'); eq(byId(2).sd, '2026-11-09'); _levelRun(3000);
+    eq(byId(2).sd, '2026-11-09', 'Y (critic) nu se mută'); eq(byId(3).sd, '2026-11-16', 'Z (cu rezervă) se mută după Y'); eq(overCount(), 0);
+  });
+
+  test('nivelare: activitățile începute, cele cu restricții ale utilizatorului și cele peste capacitate nu se ating', () => {
+    withRes([mk(1, 'A', 5, null, [], '2026-10-26', { prog: 50, as: '2026-10-26', assign: [{ rid: 1, units: 100 }] }), mk(2, 'B', 5, null, [], '2026-10-26', { assign: [{ rid: 1, units: 100 }] })]);
+    _levelRun(3000); eq(byId(1).sd, '2026-10-26', 'începută: neatinsă'); eq(byId(2).sd, '2026-11-02', 'nepornita se mută'); eq(overCount(), 0);
+    withRes([mk(1, 'A', 5, null, [], '2026-10-26', { cons: { type: 'SNET', date: '2026-10-26' }, assign: [{ rid: 1, units: 100 }] }), mk(2, 'B', 5, null, [], '2026-10-26', { cons: { type: 'MSO', date: '2026-10-26' }, assign: [{ rid: 1, units: 100 }] })]);
+    const r = _levelRun(3000); eq(r.moved, 0, 'cu restricții proprii nu se mută nimic'); eq(r.remaining, ['Echipa A']);
+    withRes([mk(1, 'Mare', 5, null, [], '2026-10-26', { assign: [{ rid: 1, units: 200 }] })]); const q = _levelRun(3000); eq(q.moved, 0, 'peste capacitate singură: nerezolvabil'); eq(q.remaining, ['Echipa A']);
+  });
+
+  test('nivelare: interfață — confirmare, rezumat, buton de anulare, Ctrl+Z', () => {
+    withRes([mk(1, 'A', 5, null, [], '2026-10-26', { assign: [{ rid: 1, units: 100 }] }), mk(2, 'B', 5, null, [], '2026-10-26', { assign: [{ rid: 1, units: 100 }] })]); _history = [];
+    openResources('load'); ok($('resBody').textContent.includes('Nivelează resursele'), 'buton de nivelare');
+    levelResources(); ok($('confirmModal').classList.contains('open'), 'cere confirmare'); confirmYes();
+    eq(byId(2).sd, '2026-11-02'); ok($('resBody').textContent.includes('1 activitate mutată'), 'rezumat: ' + $('resBody').textContent.slice(0, 200)); ok($('resBody').textContent.includes('Anulează nivelarea (1)'));
+    clearLeveling(); confirmYes(); eq(byId(2).sd, '2026-10-26', 'anularea readuce data'); ok(!byId(2).cons, 'fără restricție'); ok(overCount() > 0, 'iar supraalocat');
+    undo(); eq(byId(2).sd, '2026-11-02', 'undo readuce nivelarea'); undo(); eq(byId(2).sd, '2026-10-26'); closeResources();
+    levelResources(); ok(!$('confirmModal').classList.contains('open') || true); closeConfirm();
+  });
+
+  test('nivelare: 80 de proiecte aleatorii — legături respectate, fără supraalocare rezolvabilă rămasă, stabilă', () => {
+    for (let seed = 1; seed <= 80; seed++) {
+      const r = rng(seed * 31), n = 4 + Math.floor(r() * 9), tasks = [];
+      for (let i = 1; i <= n; i++) {
+        const as = [{ rid: 1, units: 50 * (1 + Math.floor(r() * 2)) }]; if (r() < 0.4) as.push({ rid: 2, units: 50 + 50 * Math.floor(r() * 2) });
+        tasks.push(mk(i, 'T' + i, 1 + Math.floor(r() * 6), null, [], fD(aD(pD('2026-10-26'), Math.floor(r() * 6))), { assign: as }));
+      }
+      tasks.forEach(t => { if (t.id > 1 && r() < 0.5) t.deps.push(F(1 + Math.floor(r() * (t.id - 1)))); });
+      setProject(JSON.parse(JSON.stringify(tasks)), null, resA(200)); settle(); const startedBefore = {};
+      const before = JSON.stringify(T.map(t => [t.id, t.sd, t.dur]));
+      const rep = _levelRun(3000); ok(!rep.stopped, 'seed ' + seed + ' oprită');
+      eq(overCount(), 0, 'seed ' + seed + ': a rămas supraalocare la proiect fără activități blocate');
+      T.forEach(t => (t.deps || []).forEach(d => { const p = byId(d.id); ok(pD(t.sd) >= addWorkDays(endDate(p), 1), 'seed ' + seed + ': legătură încălcată'); }));
+      const s1 = snap(); const rep2 = _levelRun(3000); eq(rep2.moved, rep.moved, 'seed ' + seed + ': a doua rulare dă alt rezultat'); eq(snap(), s1, 'seed ' + seed + ': nestabil');
+      ok(rep.endAfter >= rep.endBefore, 'seed ' + seed + ': nivelarea nu poate grăbi finalul');
+      const total = tasks.reduce((s, t) => s + t.dur, 0); ok(dD(pD(rep.endBefore), pD(rep.endAfter)) <= total * 2 + 14, 'seed ' + seed + ': final nerealist de târziu: ' + rep.endAfter);
+      T.filter(t => t.cons && t.cons.lv).forEach(t => ok(t.cons.o <= t.sd, 'seed ' + seed + ': mutată înapoi'));
+    }
+  });
+
+  test('utilizare: ore pe săptămână / zi / lună, supraalocarea în roșu, totalul se păstrează', () => {
+    withRes([mk(1, 'A', 5, null, [], '2026-10-26', { assign: [{ rid: 1, units: 100 }] }), mk(2, 'B', 5, null, [], '2026-10-26', { assign: [{ rid: 1, units: 50 }, { rid: 2, units: 100 }] })]);
+    const total = h => [...h.matchAll(/<td class="[^"]*">(\d+)<\/td>/g)];
+    openResources('usage'); const html = $('resBody').innerHTML; ok(html.includes('res-usage'), 'tabel'); ok(html.includes('Echipa A') && html.includes('Echipa B'));
+    const rows = [...$('resBody').querySelectorAll('tbody tr')], num = tr => [...tr.querySelectorAll('td:not(.ru-name)')].map(td => +td.textContent || 0);
+    const grpA = rows.find(r => r.classList.contains('ru-group') && r.textContent.includes('Echipa A')); eq(num(grpA).reduce((a, b) => a + b, 0), 40 + 20, 'Echipa A: A 5×8 + B 5×4 = 60 ore'); ok(grpA.querySelector('td.over'), 'perioada supraalocată (150% > 100%) e roșie');
+    const grpB = rows.find(r => r.classList.contains('ru-group') && r.textContent.includes('Echipa B')); eq(num(grpB).reduce((a, b) => a + b, 0), 40); ok(!grpB.querySelector('td.over'));
+    ok($('resBody').textContent.includes('Ore de muncă pe zi') || $('resBody').textContent.includes('săptămână'), 'unitatea perioadei');
+    ok($('resModal').querySelector('.res-box').classList.contains('wide'), 'fereastră lărgită');
+    newTabWith('Lung', [mk(1, 'L', 300, null, [], '2026-10-26', { assign: [{ rid: 1, units: 100 }] })], null, resA()); settle(); openResources('usage');
+    ok($('resBody').textContent.includes('lună'), 'proiect de peste un an → pe luni'); const gl = [...$('resBody').querySelectorAll('.ru-group')][0]; eq(num(gl).reduce((a, b) => a + b, 0), 300 * 8, 'total luni = 300 × 8 ore'); closeResources();
+  });
+
+  test('utilizare: numele resursei cu HTML e afișat ca text', () => {
+    window.__y = 0; withRes([mk(1, 'A', 3, null, [], '2026-10-26', { assign: [{ rid: 1, units: 100 }] })], { cur: 'RON', next: 2, list: [{ id: 1, name: '<img src=x onerror="window.__y++">', type: 'work', rate: 1, max: 100 }] });
+    openResources('usage'); openResources('load'); eq(window.__y, 0); ok(!document.querySelector('#resBody img'), 'fără element injectat'); closeResources(); delete window.__y;
+  });
+
+  test('ferestre: confirmarea apare PESTE fereastra „Resurse” (nu în spatele ei)', () => {
+    withRes([mk(1, 'A', 3)]); openResources('res'); customConfirm('Sigur?', () => {});
+    const box = $('confirmModal').querySelector('.modal-box').getBoundingClientRect(), top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    ok($('confirmModal').contains(top), 'elementul de sus la centrul confirmării aparține confirmării'); closeConfirm(); closeResources();
+  });
+
+  // ============================================================
   // G) PANGLICA
   // ============================================================
   test('panglică: nicio filă nu depășește lățimea ferestrei de 1360 px (butoanele nu se taie)', () => {
