@@ -484,10 +484,11 @@ function _scrollRowIntoView(id) {
 
 document.addEventListener("keydown",e=>{
   if(!tabs.length){ if((e.ctrlKey||e.metaKey)&&e.key==="n"){ e.preventDefault(); newProject(); } return; }
+  if(document.body.classList.contains("pp-open")) return;     // previzualizarea de tipărire are propriile taste
   if((e.ctrlKey||e.metaKey)&&e.key==="z"){ e.preventDefault(); undo(); return; }
   if((e.ctrlKey||e.metaKey)&&(e.key==="y"||(e.shiftKey&&e.key==="Z"))){ e.preventDefault(); redo(); return; }
   if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT"||e.target.tagName==="TEXTAREA") return;
-  if(document.querySelector(".modal-overlay.open")) return;
+  if(document.querySelector(".modal-overlay.open") || document.body.classList.contains("pp-open")) return;
   if((e.ctrlKey||e.metaKey)&&e.key==="n"){ e.preventDefault(); newProject(); return; }
   if(e.key==="Escape"){ closeProiectMenu(); if(!document.body.classList.contains("gantt-full")) deselectAll(); return; }
   if(e.key==="Delete"&&sel) delSel();

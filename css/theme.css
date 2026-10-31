@@ -247,3 +247,47 @@ body.dark .filter-bar button:hover{color:#0f1220}
 .rb-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accentL)}
 .rb-menu button.on{background:var(--accentL);color:var(--accent)}
 .rb-zoom-lbl{white-space:nowrap}
+
+/* ---------- Tipărire / PDF: previzualizare și foi de hârtie ---------- */
+.pp-overlay{position:fixed;inset:0;z-index:9000;background:#5b6270;display:none;flex-direction:column;user-select:none}
+.pp-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--grid);font-size:12px;font-weight:600;color:var(--text);flex-shrink:0}
+.pp-bar label{display:flex;align-items:center;gap:6px}
+.pp-bar select,.pp-bar input[type=text]{height:28px;border:1px solid var(--grid);border-radius:6px;padding:0 8px;background:var(--card);color:var(--text);font-family:var(--font);font-size:12px}
+.pp-bar .modal-btn{padding:6px 12px;font-size:12px}
+.pp-spacer{flex:1}
+.pp-info{color:var(--muted);font-weight:700}
+.pp-area{flex:1;overflow:auto;padding:18px 0 40px}
+.pp-pages{display:flex;flex-direction:column;align-items:center;gap:18px}
+.pp-page{position:relative;background:#fff;color:#1c2133;box-shadow:0 4px 18px rgba(0,0,0,.4);overflow:hidden;flex:none}
+.pp-page *{pointer-events:none}
+.pp-head{position:absolute;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:1.5px solid #4f6bed;padding-bottom:5px;box-sizing:border-box}
+.pp-head b{font-size:17px;font-weight:800;color:#1c2133;line-height:1.2}
+.pp-head span{font-size:10.5px;color:#6b7388;font-weight:600;text-align:right;line-height:1.5}
+.pp-content{position:absolute;overflow:hidden}
+.pp-scale{transform-origin:0 0}
+.pp-cols{display:flex;align-items:flex-start}
+.pp-left{flex:none}
+.pp-right{flex:none;border-left:1px solid #cfd4e0;position:relative}
+.pp-th{display:flex;align-items:center;box-sizing:border-box;background:#eceef4;border-bottom:2px solid #cfd4e0}
+.pp-th .pc{font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7388}
+.pp-row{display:flex;align-items:center;height:30px;box-sizing:border-box;border-bottom:1px solid #e6e8ef;font-size:12px;color:#1c2133}
+.pp-row.summ{background:#eef0f6;font-weight:800}
+.pc{flex:none;box-sizing:border-box;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-wbs{color:#6b7388;font-size:11px}
+.pc-n{text-align:center}
+.pc-d{text-align:center;font-size:11.5px}
+.pp-ghead{box-sizing:border-box;overflow:hidden}
+.pp-gbody{position:relative!important;overflow:hidden!important;flex:none!important}
+.pp-foot{position:absolute;display:flex;justify-content:space-between;font-size:10px;color:#8c94a8;font-weight:600;height:18px;align-items:flex-end}
+
+@media print {
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important}
+  body.pp-open > *:not(#printPreview):not(#ppPageCss){display:none!important}
+  body.pp-open #printPreview{position:static!important;display:block!important;background:#fff!important;overflow:visible!important}
+  body.pp-open .pp-bar{display:none!important}
+  body.pp-open .pp-area{overflow:visible!important;padding:0!important}
+  body.pp-open .pp-pages{zoom:1!important;display:block!important}
+  body.pp-open .pp-page{box-shadow:none!important;break-after:page;page-break-after:always;margin:0!important}
+  body.pp-open .pp-page:last-child{break-after:auto;page-break-after:auto}
+  body.pp-open *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}

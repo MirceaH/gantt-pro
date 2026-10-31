@@ -723,6 +723,7 @@ document.addEventListener('keydown', function(e) {
   }
 
   if (inForm) return;
+  if (document.body.classList.contains('pp-open')) return;   // cu previzualizarea de tipărire deschisă nu modificăm proiectul
 
   if ((e.ctrlKey || e.metaKey) && e.key === 'x' && sel) { e.preventDefault(); cutTask(); }
   else if ((e.ctrlKey || e.metaKey) && e.key === 'c' && sel) { e.preventDefault(); copyTask(); }

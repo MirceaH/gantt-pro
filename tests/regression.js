@@ -510,6 +510,89 @@
     key('ArrowDown'); eq(sel, 1); key('ArrowDown'); eq(sel, 3); key('ArrowDown'); eq(sel, 3, 'rămâne pe ultimul'); clearFilter(true); META.sdate = null;
   });
 
+  // ============================================================
+  // E) TIPĂRIRE / PDF
+  // ============================================================
+  const bigProject = n => { const t = []; for (let i = 1; i <= n; i++) t.push(mk(i, 'Activitatea numărul ' + i + ' din plan', 3 + (i % 5), i % 10 === 1 ? null : null, i > 1 && i % 3 ? [F(i - 1)] : [])); return t; };
+  const ppOpen = (opts) => {
+    if ($('printPreview').style.display !== 'none') closePrintPreview();
+    openPrintPreview();
+    if (opts) { if (opts.paper) $('ppPaper').value = opts.paper; if (opts.orient) $('ppOrient').value = opts.orient; if (opts.fit) $('ppFit').value = opts.fit; if (opts.names !== undefined) $('ppNames').checked = opts.names; }
+    return ppRebuild();
+  };
+
+  test('tipărire: pagini cu aceleași rânduri ca pe ecran, aliniate stânga/dreapta, nimic pierdut sau dublat', () => {
+    newTabWith('Pr', bigProject(60)); const n = viewRows().length;
+    const r = ppOpen({ paper: 'a4', orient: 'l', fit: 'w', names: true });
+    const pages = [...document.querySelectorAll('#ppPages .pp-page')]; eq(pages.length, r.pages); ok(pages.length > 1, 'mai multe pagini: ' + pages.length);
+    eq(pages.reduce((s, p) => s + (+p.dataset.rows), 0), n, 'suma rândurilor pe pagini = rândurile proiectului');
+    const seen = []; pages.forEach((p, i) => {
+      const left = [...p.querySelectorAll('.pp-row')]; eq(left.length, +p.dataset.rows, 'rânduri în tabel, pagina ' + i);
+      const gb = p.querySelector('.pp-gbody').getBoundingClientRect();
+      left.forEach(l => {
+        seen.push(+l.dataset.tid);
+        const g = p.querySelector('.g-row[data-gid="' + l.dataset.tid + '"]'); ok(g, 'rând Gantt lipsă ' + l.dataset.tid);
+        near(l.getBoundingClientRect().top, g.getBoundingClientRect().top, 1, 'aliniere rând ' + l.dataset.tid);
+        ok(g.getBoundingClientRect().top >= gb.top - 1 && g.getBoundingClientRect().bottom <= gb.bottom + 1, 'rândul Gantt e în pagină');
+      });
+      ok(p.querySelector('.pp-foot').textContent.includes('Pagina ' + (i + 1) + ' din ' + pages.length), 'subsol');
+      ok(p.querySelector('.pp-th') && p.querySelector('.pp-ghead .hc.mo'), 'antet repetat pe fiecare pagină');
+      const cont = p.querySelector('.pp-content').getBoundingClientRect(), sc = p.querySelector('.pp-scale').getBoundingClientRect();
+      ok(sc.width <= cont.width + 1, 'încape pe lățime: ' + Math.round(sc.width) + ' ≤ ' + Math.round(cont.width));
+    });
+    eq(seen, viewRows().map(t => t.id), 'ordinea și unicitatea rândurilor');
+    closePrintPreview();
+  });
+
+  test('tipărire: totul pe o pagină (A3 portret) și scară rezonabilă', () => {
+    newTabWith('P1', bigProject(25)); const n = viewRows().length;
+    const r = ppOpen({ paper: 'a3', orient: 'p', fit: '1', names: false });
+    eq(r.pages, 1); eq(+document.querySelector('#ppPages .pp-page').dataset.rows, n);
+    const k = parseFloat(document.querySelector('.pp-scale').style.transform.replace('scale(', '')); ok(k > 0.25 && k <= 1.3, 'scară ' + k);
+    const pg = document.querySelector('.pp-page'), cont = pg.querySelector('.pp-content').getBoundingClientRect(), sc = pg.querySelector('.pp-scale').getBoundingClientRect();
+    ok(sc.width <= cont.width + 1 && sc.height <= cont.height + 1, 'încape și pe înălțime');
+    ok($('ppPageCss').textContent.includes('size:297.0mm 420.0mm') || $('ppPageCss').textContent.includes('size:297.0mm 420.1mm') || /size:29\d\.\dmm 4\d\d\.\dmm/.test($('ppPageCss').textContent), 'format de pagină: ' + $('ppPageCss').textContent);
+    closePrintPreview();
+  });
+
+  test('tipărire: tema luminoasă pe hârtie; starea ecranului (zoom, selecție, nume, temă) se restaurează', () => {
+    newTabWith('Ps', bigProject(12)); document.body.classList.add('dark'); sel = 3; isAutoZoom = false; zoomLevel = 55; document.documentElement.style.setProperty('--day-w', '16px');
+    const before = { auto: isAutoZoom, zl: zoomLevel, dw: document.documentElement.style.getPropertyValue('--day-w'), side: showSideNames, sel };
+    ppOpen({ names: !showSideNames });
+    ok(!document.body.classList.contains('dark'), 'fără clasa dark cât timp e deschis'); ok(document.body.classList.contains('pp-open'));
+    eq({ auto: isAutoZoom, zl: zoomLevel, dw: document.documentElement.style.getPropertyValue('--day-w'), side: showSideNames, sel }, before, 'starea ecranului după captură');
+    closePrintPreview();
+    ok(document.body.classList.contains('dark'), 'tema revine'); ok(!document.body.classList.contains('pp-open')); eq($('printPreview').style.display, 'none'); eq($('ppPages').innerHTML, ''); eq($('ppPageCss').textContent, '');
+    document.body.classList.remove('dark'); isAutoZoom = true;
+  });
+
+  test('tipărire: respectă filtrul și capitolele închise; fără rânduri → mesaj', () => {
+    filterProject(); setFilter('crit'); const n = viewRows().length;
+    ppOpen(); eq(document.querySelectorAll('#ppPages .pp-row').length, n, 'doar rândurile filtrate'); ok(document.querySelector('.pp-head span').textContent.includes('filtru'), 'filtrul apare în antet');
+    closePrintPreview(); clearFilter(true); coll.add(1); renderAll(); const m = viewRows().length;
+    ppOpen(); eq(document.querySelectorAll('#ppPages .pp-row').length, m, 'capitolul închis nu își arată copiii'); closePrintPreview(); coll.clear();
+    FILTER.text = 'zzz'; renderAll(); openPrintPreview(); ok($('ppPages').textContent.includes('Niciun rând'), 'mesaj'); closePrintPreview(); clearFilter(true); META.sdate = null;
+  });
+
+  test('tipărire: regulile @media print, Ctrl+P și Esc', () => {
+    let found = false; for (const s of document.styleSheets) { try { for (const r of s.cssRules) if (r.media && /print/.test(r.conditionText || r.media.mediaText) && r.cssText.includes('pp-open')) found = true; } catch (e) {} }
+    ok(found, 'regulă @media print pentru previzualizare');
+    newTabWith('Pk', bigProject(5)); ok($('printPreview').style.display === 'none');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true })); eq($('printPreview').style.display, 'flex', 'Ctrl+P deschide');
+    key('Escape'); eq($('printPreview').style.display, 'none', 'Esc închide');
+    sel = 1; const n0 = T.length; openPrintPreview(); key('Delete'); eq(T.length, n0, 'Delete nu modifică proiectul cât e deschisă previzualizarea'); closePrintPreview();
+  });
+
+  test('tipărire: proiect gol nu deschide previzualizarea', () => {
+    addNewTab('Gol2'); openPrintPreview(); eq($('printPreview').style.display, 'none'); ok(toasts.slice(-1)[0].includes('gol'));
+  });
+
+  test('tipărire: PDF direct are câte o pagină per foaie', async () => {
+    newTabWith('Pd', bigProject(40)); const r = ppOpen({ paper: 'a4', orient: 'l', fit: 'w', names: false });
+    const pdf = await ppBuildPdf(); eq(pdf.getNumberOfPages(), r.pages, 'pagini în PDF'); ok(pdf.output('arraybuffer').byteLength > 5000, 'PDF nevid');
+    closePrintPreview();
+  });
+
   // ---------- extensie pentru funcții viitoare ----------
   const extra = window.__regressionExtra;
   if (typeof extra === 'function') extra({ test, ok, eq, near, skip, wait, F, mk, settle, snap, setProject, confirmYes, key, newTabWith, noTransitions, toasts });

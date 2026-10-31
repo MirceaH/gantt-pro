@@ -59,6 +59,7 @@
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
     <symbol id="i-tag" viewBox="0 0 24 24"><path d="M4 4h8l8 8-8 8-8-8z"/><circle cx="8.5" cy="8.5" r="1.2"/></symbol>
     <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 8v6l-4-2v-4z"/></symbol>
+    <symbol id="i-printer" viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H5a2 2 0 01-2-2v-4a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2h-2"/><path d="M7 14h10v7H7z"/></symbol>
     <symbol id="i-chevup" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
     <symbol id="i-chevdown" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
   </defs>
@@ -116,13 +117,16 @@
 
         <div class="rb-group">
           <div class="rb-row">
+            <button class="rb-btn rb-btn-big" onclick="openPrintPreview()" title="Tipărește planul pe pagini (A4 / A3) sau salvează-l ca PDF — Ctrl+P">
+              <svg class="ic"><use href="#i-printer"/></svg><span class="rb-lbl">Tipărește / PDF</span>
+            </button>
             <div class="rb-dd">
               <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Exportă ca imagine, PDF sau pentru MS Project">
                 <svg class="ic"><use href="#i-export"/></svg><span class="rb-lbl">Export</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
               </button>
               <div class="rb-menu">
                 <button onclick="closeDD();exportPNG()"><span>Imagine (PNG)</span></button>
-                <button onclick="closeDD();exportPDF()"><span>Document (PDF)</span></button>
+                <button onclick="closeDD();exportPDF()"><span>PDF (captură de ecran)</span></button>
                 <button onclick="closeDD();exportMSProject()"><span>MS Project (XML)</span></button>
                 <hr>
                 <button onclick="closeDD();exportJSON()"><span>Copie de siguranță (JSON)</span></button>
@@ -630,6 +634,25 @@
   <button class="fs-exit" onclick="toggleGanttFull()" title="Ieși (Esc)">✕ Ieși</button>
 </div>
 
+<!-- Previzualizare tipărire / PDF -->
+<style id="ppPageCss"></style>
+<div id="printPreview" class="pp-overlay" style="display:none">
+  <div class="pp-bar">
+    <b>🖨 Tipărire / PDF</b>
+    <label>Hârtie <select id="ppPaper" onchange="ppRebuild()"><option value="a4">A4</option><option value="a3">A3</option><option value="letter">Letter</option></select></label>
+    <label>Orientare <select id="ppOrient" onchange="ppRebuild()"><option value="l">Peisaj</option><option value="p">Portret</option></select></label>
+    <label>Scară <select id="ppFit" onchange="ppRebuild()"><option value="w">Încadrează pe lățime</option><option value="1">Totul pe o pagină</option></select></label>
+    <label><input type="checkbox" id="ppNames" checked onchange="ppRebuild()"> Nume lângă bare</label>
+    <label>Titlu <input type="text" id="ppTitle" style="width:170px" oninput="ppRebuildSoon()" autocomplete="off"></label>
+    <span class="pp-spacer"></span>
+    <span id="ppInfo" class="pp-info"></span>
+    <button class="modal-btn primary" onclick="ppPrint()" title="În fereastra de tipărire alege „Salvează ca PDF” ca să obții un fișier PDF">🖨 Tipărește / Salvează ca PDF</button>
+    <button class="modal-btn cancel" onclick="ppPdf()" title="Generează direct un PDF (pagini ca imagini)">⬇ PDF (imagine)</button>
+    <button class="modal-btn cancel" onclick="closePrintPreview()">Închide</button>
+  </div>
+  <div class="pp-area" id="ppArea"><div class="pp-pages" id="ppPages"></div></div>
+</div>
+
 <div id="toast" class="toast"></div>
 <div class="ctx" id="ctx"></div>
 <div class="tip" id="tip"></div>
@@ -648,6 +671,7 @@
 <script src="js/deps.js"></script>
 <script src="js/toolbar.js"></script>
 <script src="js/files.js"></script>
+<script src="js/print.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
