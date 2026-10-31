@@ -531,3 +531,26 @@ body.no-project .rb-quick-group{display:none!important}
 /* Fila Vizualizare: filtrul rapid mai îngust și butoanele de vedere mai strânse, ca toate să încapă la 1360 px */
 .rb-content[data-rc="view"] .rb-input{width:92px}
 .rb-seg .rb-btn{padding:0 9px}
+
+/* ===== Panglică redesenată: titluri de grup, straturi clare, filă activă cu linie ===== */
+.ribbon-tabs{background:var(--bg);height:40px;padding:0 12px 0 10px;gap:0;align-items:stretch}
+.ribbon-tabs .app-brand{align-self:center;margin-right:10px}
+.ribbon-tabs .ribbon-spacer{flex:1}
+.ribbon-tabs .rb-quick{align-self:center}
+.ribbon-tabs .rb-quick-group{align-self:center}
+.rb-tab{display:flex;align-items:center;height:100%;padding:0 14px;margin:0;border-radius:0;color:var(--text2);font-weight:600;position:relative}
+.rb-tab:hover{background:var(--grid2);color:var(--text)}
+.rb-tab.active,body.dark .rb-tab.active{background:transparent;color:var(--accent);font-weight:800;box-shadow:inset 0 -2px 0 var(--accent)}
+.ribbon-body,body.dark .ribbon-body{height:62px;background:var(--card);border-top:1px solid var(--grid);border-bottom:1px solid var(--grid);box-shadow:0 1px 2px rgba(20,28,60,.04)}
+.rb-content{padding:4px 8px 3px;align-items:stretch}
+.rb-group{display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:1px;padding:0 10px}
+.rb-group[data-cap]::after{content:attr(data-cap);display:block;width:0;min-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;line-height:13px;font-weight:700;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+.rb-group > .rb-row{flex:1;align-items:center}
+.rb-seg{margin-top:0}
+.proj-tabs-bar{padding:5px 12px 0;min-height:32px}
+/* mai puțină înălțime: panglica ocupă ~10 px mai puțin */
+.ribbon-tabs{height:38px}
+.ribbon-body,body.dark .ribbon-body{height:57px}
+.rb-content{padding:3px 8px 2px}
+.rb-group[data-cap]::after{line-height:12px}
+.rb-group{padding:0 8px}

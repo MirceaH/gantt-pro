@@ -92,7 +92,7 @@
       <!-- TAB FIȘIER -->
       <div class="rb-content" data-rc="file">
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Proiect">
           <div class="rb-row">
             <button class="rb-btn rb-btn-big keep" onclick="newProject()" title="Proiect nou (Ctrl+N)">
               <svg class="ic"><use href="#i-plus"/></svg><span class="rb-lbl">Proiect nou</span>
@@ -106,7 +106,7 @@
           </div>
         </div>
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Salvare">
           <div class="rb-row">
             <button class="rb-btn rb-btn-big" onclick="fileSave()" title="Salvează în fișier (Ctrl+S)">
               <svg class="ic"><use href="#i-save"/></svg><span class="rb-lbl">Salvează</span>
@@ -120,7 +120,7 @@
           </div>
         </div>
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Export și import">
           <div class="rb-row">
             <button class="rb-btn rb-btn-big" onclick="openPrintPreview()" title="Tipărește planul pe pagini (A4 / A3) sau salvează-l ca PDF — Ctrl+P">
               <svg class="ic"><use href="#i-printer"/></svg><span class="rb-lbl">Tipărește</span>
@@ -152,7 +152,7 @@
           </div>
         </div>
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Acțiuni">
           <div class="rb-row">
             <button class="rb-btn" onclick="renameActiveTab()" title="Redenumește proiectul"><svg class="ic"><use href="#i-pencil"/></svg></button>
             <button class="rb-btn" onclick="closeActiveTab()" title="Închide proiectul"><svg class="ic"><use href="#i-x"/></svg></button>
@@ -164,7 +164,7 @@
       <!-- TAB HOME -->
       <div class="rb-content active" data-rc="home">
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Inserare">
           <div class="rb-row">
             <button class="rb-btn rb-btn-big primary" onclick="openAddTask(false)" title="Adaugă o activitate (Enter confirmă în dialog)">
               <svg class="ic"><use href="#i-plus"/></svg><span class="rb-lbl">Activitate</span>
@@ -178,7 +178,7 @@
           </div>
         </div>
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Structură">
           <div class="rb-row">
             <button class="rb-btn" onclick="indentSel()" title="Indent (Tab)"><svg class="ic"><use href="#i-indent"/></svg></button>
             <button class="rb-btn" onclick="outdentSel()" title="Outdent (Shift+Tab)"><svg class="ic"><use href="#i-outdent"/></svg></button>
@@ -188,7 +188,7 @@
           </div>
         </div>
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Clipboard">
           <div class="rb-row">
             <button class="rb-btn" onclick="cutTask()" title="Taie (Ctrl+X)"><svg class="ic"><use href="#i-scissors"/></svg></button>
             <button class="rb-btn" onclick="copyTask()" title="Copiază (Ctrl+C)"><svg class="ic"><use href="#i-copy"/></svg></button>
@@ -196,7 +196,7 @@
           </div>
         </div>
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Editare">
           <div class="rb-row">
             <button class="rb-btn" id="btnUndo" onclick="undo()" title="Anulează (Ctrl+Z)" style="opacity:.4"><svg class="ic"><use href="#i-undo"/></svg></button>
             <button class="rb-btn" id="btnRedo" onclick="redo()" title="Refă (Ctrl+Y)" style="opacity:.4"><svg class="ic"><use href="#i-redo"/></svg></button>
@@ -210,7 +210,7 @@
       <!-- TAB VIEW -->
       <div class="rb-content" data-rc="view">
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Vedere">
           <div class="rb-row rb-seg">
             <button class="rb-btn" id="rbViewGantt" onclick="setViewMode('gantt')" title="Gantt: tabel + bare"><svg class="ic"><use href="#i-gantt"/></svg><span class="rb-lbl">Gantt</span></button>
             <button class="rb-btn" id="rbViewTree" onclick="setViewMode('tree')" title="Arbore: structura proiectului"><svg class="ic"><use href="#i-tree"/></svg><span class="rb-lbl">Arbore</span></button>
@@ -218,7 +218,7 @@
           </div>
         </div>
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Capitole">
           <div class="rb-row">
             <button class="rb-btn" onclick="expandAll()" title="Deschide toate capitolele"><svg class="ic"><use href="#i-expand"/></svg></button>
             <button class="rb-btn" onclick="collapseAll()" title="Închide toate capitolele"><svg class="ic"><use href="#i-collapse"/></svg></button>
@@ -226,7 +226,7 @@
           </div>
         </div>
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Afișare">
           <div class="rb-row">
             <button class="rb-btn rb-btn-big" id="btnCrit" onclick="toggleCritical()" title="Evidențiază drumul critic (activități fără rezervă)">
               <svg class="ic"><use href="#i-flag"/></svg><span class="rb-lbl">Drum critic</span>
@@ -243,7 +243,7 @@
           </div>
         </div>
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Filtru">
           <div class="rb-row">
             <div class="rb-dd">
               <button class="rb-btn rb-btn-big" id="btnFilter" onclick="toggleDD(this)" title="Arată doar activitățile care te interesează (în tabel și în Gantt)">
@@ -268,7 +268,7 @@
           </div>
         </div>
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Zoom">
           <div class="rb-row">
             <button class="rb-btn" onclick="zoom(-1)" title="Zoom out"><svg class="ic"><use href="#i-minus"/></svg></button>
             <span class="rb-zoom-lbl" id="zoomLbl" onclick="fitZoom()" title="Click pt Auto-Încadrare">Auto</span>
@@ -282,7 +282,7 @@
       <!-- TAB PROJECT -->
       <div class="rb-content" data-rc="project">
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Planificare">
           <div class="rb-row">
             <button class="rb-btn rb-btn-big" onclick="openCalendar()" title="Zile lucrătoare și zile libere pentru acest proiect">
               <svg class="ic"><use href="#i-calendar"/></svg><span class="rb-lbl">Calendar</span>
@@ -310,7 +310,7 @@
           </div>
         </div>
 
-        <div class="rb-group">
+        <div class="rb-group" data-cap="Urmărire">
           <div class="rb-row">
             <div class="rb-dd">
               <button class="rb-btn rb-btn-big" id="btnTrack" onclick="toggleDD(this)" title="Progres real: data de status, început / final real, actualizarea planului">
