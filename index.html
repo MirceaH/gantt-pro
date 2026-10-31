@@ -58,6 +58,7 @@
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
     <symbol id="i-tag" viewBox="0 0 24 24"><path d="M4 4h8l8 8-8 8-8-8z"/><circle cx="8.5" cy="8.5" r="1.2"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 8v6l-4-2v-4z"/></symbol>
     <symbol id="i-chevup" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
     <symbol id="i-chevdown" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
   </defs>
@@ -235,6 +236,31 @@
 
         <div class="rb-group">
           <div class="rb-row">
+            <div class="rb-dd">
+              <button class="rb-btn rb-btn-big" id="btnFilter" onclick="toggleDD(this)" title="Arată doar activitățile care te interesează (în tabel și în Gantt)">
+                <svg class="ic"><use href="#i-filter"/></svg><span class="rb-lbl" id="btnFilterLbl">Filtru</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
+              </button>
+              <div class="rb-menu" id="filterMenu">
+                <button data-f="all" onclick="closeDD();setFilter('all')"><span>Toate activitățile</span></button>
+                <hr>
+                <button data-f="crit" onclick="closeDD();setFilter('crit')"><span>Drum critic</span></button>
+                <button data-f="late" onclick="closeDD();setFilter('late')"><span>Întârziate</span></button>
+                <button data-f="open" onclick="closeDD();setFilter('open')"><span>Nefinalizate</span></button>
+                <button data-f="wip" onclick="closeDD();setFilter('wip')"><span>În lucru</span></button>
+                <button data-f="todo" onclick="closeDD();setFilter('todo')"><span>Nepornite</span></button>
+                <button data-f="done" onclick="closeDD();setFilter('done')"><span>Finalizate</span></button>
+                <button data-f="ms" onclick="closeDD();setFilter('ms')"><span>Repere</span></button>
+                <button data-f="warn" onclick="closeDD();setFilter('warn')"><span>Cu avertismente</span></button>
+                <hr>
+                <button onclick="closeDD();openFilterModal()"><span>După resursă, interval de date, nume…</span></button>
+              </div>
+            </div>
+            <input id="flText" class="rb-input" placeholder="Filtrează după nume…" oninput="setFilterTextDebounced(this.value)" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="rb-group">
+          <div class="rb-row">
             <button class="rb-btn" onclick="zoom(-1)" title="Zoom out"><svg class="ic"><use href="#i-minus"/></svg></button>
             <span class="rb-zoom-lbl" id="zoomLbl" onclick="fitZoom()" title="Click pt Auto-Încadrare">Auto</span>
             <button class="rb-btn" onclick="zoom(1)" title="Zoom in"><svg class="ic"><use href="#i-plus"/></svg></button>
@@ -329,6 +355,13 @@
   <div class="vtabs" id="vtabs">
     <div class="vtab active" data-v="gantt"><svg class="ic"><use href="#i-gantt"/></svg>Gantt</div>
     <div class="vtab" data-v="tree"><svg class="ic"><use href="#i-tree"/></svg>Arbore</div>
+  </div>
+
+  <!-- Bara de filtru activ -->
+  <div class="filter-bar" id="filterBar" style="display:none">
+    <span id="filterBarTxt"></span>
+    <button type="button" onclick="openFilterModal()">Schimbă</button>
+    <button type="button" onclick="clearFilter()">✕ Elimină filtrul</button>
   </div>
 
   <div class="split" id="splitView">
@@ -439,6 +472,40 @@
     </div>
     <div class="res-tabs" id="resTabs"></div>
     <div class="res-body" id="resBody"></div>
+  </div>
+</div>
+
+<!-- Filtre -->
+<div class="modal-overlay" id="filterModal">
+  <div class="modal-box ti-box" style="max-width:460px">
+    <div class="ti-header">
+      <span class="ti-title">🔎 Filtre</span>
+      <button class="modal-close" onclick="closeFilterModal()">✕</button>
+    </div>
+    <div class="ti-body">
+      <div class="ti-row">
+        <label>Arată</label>
+        <select id="flType" onchange="_flToggle()" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--grid);font-family:var(--font)"></select>
+      </div>
+      <div class="ti-row" id="flResRow">
+        <label>Resursa</label>
+        <select id="flRes" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--grid);font-family:var(--font)"></select>
+      </div>
+      <div class="ti-row ti-2col" id="flRangeRow">
+        <div><label>De la</label><input type="date" id="flFrom"></div>
+        <div><label>Până la</label><input type="date" id="flTo"></div>
+      </div>
+      <div class="ti-row">
+        <label>Numele conține (opțional)</label>
+        <input id="flName" placeholder="ex: fundații" autocomplete="off">
+      </div>
+      <div class="ti-info">Filtrul arată doar rândurile care se potrivesc (plus capitolele lor). Nu schimbă nimic în plan și se oprește când treci la alt proiect.</div>
+    </div>
+    <div class="ti-actions">
+      <button class="modal-btn cancel" onclick="closeFilterModal();clearFilter()">Elimină filtrul</button>
+      <button class="modal-btn cancel" onclick="closeFilterModal()">Anulează</button>
+      <button class="modal-btn primary" onclick="applyFilterModal()">Aplică</button>
+    </div>
   </div>
 </div>
 
@@ -575,6 +642,7 @@
 <script src="js/cpm.js"></script>
 <script src="js/plan.js"></script>
 <script src="js/resources.js"></script>
+<script src="js/filters.js"></script>
 <script src="js/gantt.js"></script>
 <script src="js/tree.js"></script>
 <script src="js/deps.js"></script>

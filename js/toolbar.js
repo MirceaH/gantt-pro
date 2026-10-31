@@ -33,6 +33,7 @@ function copyTask() {
 
 function pasteTask() {
   if (!_clipboard || !_clipboard.tasks.length) { toast('⚠️ Clipboard gol'); return; }
+  stopFilterForEdit();
   pushHistory();
 
   // Map vechi-id → nou-id
@@ -84,6 +85,7 @@ function defaultNewStart() {
 // „+ Capitol": adaugă un rând-capitol chiar deasupra rândului selectat (sau la final), gata de redenumit.
 // Activitățile de sub el se mută în capitol cu săgeata → (Tab).
 function addChapter() {
+  stopFilterForEdit();
   pushHistory();
   const selTask = sel ? T.find(x => x.id === sel) : null;
   const ch = { id: nid++, nm: 'Capitol nou', sd: defaultNewStart(), dur: 1, prog: 0, pid: selTask ? selTask.pid : null, deps: [] };
@@ -97,6 +99,7 @@ function addChapter() {
 }
 
 function openAddTask(asMilestone) {
+  stopFilterForEdit();
   const w = wbs();
   const opts = ['<option value="">— fără (nivel principal) —</option>'];
   T.forEach(t => opts.push('<option value="' + t.id + '">' + esc((w[t.id] || '') + ' ' + t.nm) + '</option>'));

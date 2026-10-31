@@ -308,14 +308,16 @@ function _statusOf(t){
 }
 
 function renderTBody(){
-  const o=flat(), w=wbs();
+  const o=viewRows(), w=wbs(), filtered=filterActive();
   if(!o.length){
-    $("tBody").innerHTML='<div style="padding:20px;color:var(--muted);text-align:center;font-weight:700">Proiect gol — apasă <b>+ Activitate</b> sau <b>+ Capitol</b> ca să începi.</div>';
+    $("tBody").innerHTML = (filtered && T.length)
+      ? '<div style="padding:20px;color:var(--muted);text-align:center;font-weight:700">Niciun rând nu se potrivește filtrului.<br><button type="button" class="sp-btn" style="margin-top:10px;width:auto;padding:6px 14px" onclick="clearFilter()">✕ Elimină filtrul</button></div>'
+      : '<div style="padding:20px;color:var(--muted);text-align:center;font-weight:700">Proiect gol — apasă <b>+ Activitate</b> sau <b>+ Capitol</b> ca să începi.</div>';
     return;
   }
   let h="";
   o.forEach(t=>{
-    const p=ps(t), dp=Math.min(dep(t.id),3), isSumm=hasK(t.id), isCol=coll.has(t.id), indent=dep(t.id)*18;
+    const p=ps(t), dp=Math.min(dep(t.id),3), isSumm=hasK(t.id), isCol=coll.has(t.id)&&!filtered, indent=dep(t.id)*18;
     const isMs = !!t.isMilestone && !isSumm;
     const ci = isSumm
       ? '<span class="cico" onclick="event.stopPropagation();toggleC('+t.id+')">'+(isCol?"▶":"▼")+'</span>'
@@ -452,7 +454,7 @@ function attachDnD(sel2,attr,cls){
 function clearDI(cls){document.querySelectorAll("."+cls).forEach(r=>r.classList.remove("drop-above","drop-below","drop-inside"))}
 
 function renderGantt(){
-  const o=flat(); if(!o.length){$("gHead").innerHTML=""; $("gBody").innerHTML=""; return;}
+  const o=viewRows(); if(!o.length){$("gHead").innerHTML=""; $("gBody").innerHTML=""; return;}
   const b=ab(), cs=aD(b.mn,-3), ce=aD(b.mx,5), td=dD(cs,ce)+1;
 
   // Spațiu la capăt = cât ocupă cea mai lungă etichetă a activităților care se termină spre final

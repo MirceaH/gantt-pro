@@ -207,7 +207,7 @@ function renderStatus(){
   const tab = tabs.find(t=>t.id===activeTabId);
   const tabName = tab ? tab.name : 'Proiect';
   const n=T.length, b=ab(), td=b?dD(b.mn,b.mx)+1:0, av=n?(T.reduce((s,t)=>s+t.dur,0)/n).toFixed(1):0, ap=n?Math.round(T.reduce((s,t)=>s+t.prog,0)/n):0;
-  $("sbar").innerHTML=`<span style="color:#fff">📋 ${tabName} | Noduri: ${n} | Zile: ${td} | Durată Medie: ${av} zile | Progres Mediu: ${ap}%${showCritical&&cpmInfo.end?` | 🔴 Critice: ${cpmInfo.count} | Final proiect: ${fmtDate(pD(cpmInfo.end))}`:''}</span>${costMap.total?` | 💰 Buget: ${fmtMoney(costMap.total)}`:""}${hasCustomStatus()?` | 📅 Status: ${fmtDate(pD(META.sdate))}`:""}${behindCount()?` | <span title="Ar fi trebuit să fie gata până la ${hasCustomStatus()?"data de status":"azi"}, dar nu sunt finalizate">⏰ ${behindCount()} întârziate</span>`:""}${typeof fileStatusHtml==="function"?fileStatusHtml():""}`;
+  $("sbar").innerHTML=`<span style="color:#fff">📋 ${tabName} | Noduri: ${n}${filterActive()?` (afișate ${viewRows().length})`:""} | Zile: ${td} | Durată Medie: ${av} zile | Progres Mediu: ${ap}%${showCritical&&cpmInfo.end?` | 🔴 Critice: ${cpmInfo.count} | Final proiect: ${fmtDate(pD(cpmInfo.end))}`:''}</span>${costMap.total?` | 💰 Buget: ${fmtMoney(costMap.total)}`:""}${hasCustomStatus()?` | 📅 Status: ${fmtDate(pD(META.sdate))}`:""}${behindCount()?` | <span title="Ar fi trebuit să fie gata până la ${hasCustomStatus()?"data de status":"azi"}, dar nu sunt finalizate">⏰ ${behindCount()} întârziate</span>`:""}${typeof fileStatusHtml==="function"?fileStatusHtml():""}`;
 }
 
 // Doar calculele (fără desenare): planificare din legături/constrângeri, capitole, drum critic, resurse, avertismente.
@@ -246,6 +246,7 @@ function renderAll(){
   saveAllTabs();
   updateUndoRedoBtns();
   if (typeof updateFormatTabVisibility === "function") updateFormatTabVisibility();
+  updateFilterUI();
   alignPanes();
 }
 
@@ -497,7 +498,7 @@ document.addEventListener("keydown",e=>{
     e.preventDefault();
     const dir=e.key==="ArrowUp"?-1:1;
     if(e.altKey){ if(sel) moveSel(dir); return; }
-    const o=flat(); if(!o.length) return;
+    const o=viewRows(); if(!o.length) return;
     const i=o.findIndex(t=>t.id===sel);
     const n=i<0?(dir>0?0:o.length-1):Math.max(0,Math.min(o.length-1,i+dir));
     setSel(o[n].id); _scrollRowIntoView(o[n].id);
@@ -523,7 +524,7 @@ $("treeLayout").style.display = "none";
 view = "gantt";
 
 // Încarcă proiectele salvate; la prima rulare (sau după ce le închizi pe toate) apare ecranul de bun venit
-dtWrapStatic("atStart"); dtWrapStatic("calHolDate"); dtWrapStatic("stDate");
+dtWrapStatic("atStart"); dtWrapStatic("calHolDate"); dtWrapStatic("stDate"); dtWrapStatic("flFrom"); dtWrapStatic("flTo");
 const hadData = loadAllTabs();
 if (!hadData) { tabs = []; activeTabId = null; }
 

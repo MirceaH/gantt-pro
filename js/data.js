@@ -367,6 +367,7 @@ function loadTabData(tabId) {
   const tab = tabs.find(t => t.id === tabId);
   if (!tab) return;
   setCal(tab.cal); setRes(tab.res); setMeta(tab.meta);
+  if (typeof clearFilter === 'function') clearFilter(true);   // filtrul aparține proiectului pe care îl părăsim
   T   = JSON.parse(JSON.stringify(tab.T));
   _sanitizeTasks();
   nid = Math.max(+tab.nid || 1, ...T.map(t => t.id + 1));
@@ -426,7 +427,7 @@ function closeTab(tabId, e) {
       // Niciun proiect deschis: ecranul de bun venit
       activeTabId = null;
       T = []; nid = 1; sel = null; coll.clear(); _history = []; _future = [];
-      setCal(null); setRes(null); setMeta(null);
+      setCal(null); setRes(null); setMeta(null); clearFilter(true);
       updateUndoRedoBtns();
     } else if (activeTabId === tabId) {
       // Dacă am închis tab-ul activ, activăm vecinul
@@ -614,6 +615,7 @@ function toggleMilestone() {
 
 function delSel() {
   if(!sel) return;
+  if(filterActive() && view==='gantt' && hasK(sel)) { toast('🔎 Oprește filtrul ca să ștergi un capitol (ar șterge și rândurile ascunse)'); return; }
   pushHistory();
   const d=allD(sel), rm=new Set([sel,...d]);
   // Curățăm referințele de dependență către task-urile șterse
@@ -668,6 +670,7 @@ function updDeps(id, wbsStr) {
 
 function indentSel() {
   if(!sel) return;
+  if(structLocked()) return;
   const t=T.find(x=>x.id===sel); if(!t) return;
   const sibs=t.pid?kids(t.pid):T.filter(x=>!x.pid);
   const i=sibs.findIndex(s=>s.id===sel); if(i<=0) return;
@@ -680,6 +683,7 @@ function indentSel() {
 
 function outdentSel() {
   if(!sel) return;
+  if(structLocked()) return;
   const t=T.find(x=>x.id===sel); if(!t||!t.pid) return;
   pushHistory();
   if(!_tryHierarchyChange(()=>{ const x=T.find(y=>y.id===sel), par=T.find(y=>y.id===x.pid); x.pid=par?par.pid:null; })){ _history.pop(); updateUndoRedoBtns(); renderAll(); return; }
@@ -688,6 +692,7 @@ function outdentSel() {
 
 function moveSel(dir) {
   if(!sel) return;
+  if(structLocked()) return;
   const t=T.find(x=>x.id===sel); if(!t) return;
   const sibs=t.pid?kids(t.pid):T.filter(x=>!x.pid);
   const si=sibs.findIndex(s=>s.id===sel), ni=si+dir; if(ni<0||ni>=sibs.length) return;
@@ -702,6 +707,7 @@ function selTask(id) { sel=sel===id?null:id; renderAll(); if(typeof closeCtx==='
 function handleDrop(dragId, targetId, dropType) {
   if(!dragId||dragId===targetId||isD(targetId,dragId)) return;
   const src=T.find(x=>x.id===dragId), tgt=T.find(x=>x.id===targetId); if(!src||!tgt) return;
+  if(structLocked()) return;
   pushHistory();
   const msg = dropType==="inside" ? "Subcapitol în: "+tgt.nm : (dropType==="above" ? "Mutat deasupra" : "Mutat dedesubt");
   const ok = _tryHierarchyChange(()=>{

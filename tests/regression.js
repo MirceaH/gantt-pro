@@ -422,6 +422,94 @@
     ok(byId(1).sd !== '2026-10-26', 'bara s-a mutat'); eq(_history.length, 1, 'mutarea intră în istoric'); undo(); eq(byId(1).sd, '2026-10-26', 'undo readuce bara');
   });
 
+  // ============================================================
+  // D) FILTRE
+  // ============================================================
+  const filterProject = () => {
+    const res = { cur: 'RON', next: 3, list: [{ id: 1, name: 'Echipa A', type: 'work', rate: 10, max: 100 }, { id: 2, name: 'Echipa B', type: 'work', rate: 10, max: 100 }] };
+    const tasks = [
+      mk(1, 'Cap1', 1), mk(2, 'A', 5, 1, [], '2026-10-26', { prog: 100 }), mk(3, 'B', 5, 1, [F(2)], '2026-10-26', { prog: 40, assign: [{ rid: 1, units: 100 }] }), mk(4, 'C', 3, 1, [F(3)]),
+      mk(5, 'Cap2', 1), mk(6, 'D', 4, 5, [], '2026-10-26', { assign: [{ rid: 2, units: 100 }] }), mk(7, 'M', 1, 5, [F(4)], '2026-10-26', { isMilestone: true })
+    ];
+    newTabWith('Fl', tasks, null, res); META.sdate = '2026-11-05'; settle(); clearFilter(true); renderAll();
+  };
+  const rowsOf = () => viewRows().map(t => t.id);
+  const withFilter = (type, extra) => { clearFilter(true); FILTER.type = type; Object.assign(FILTER, extra || {}); renderAll(); return rowsOf(); };
+
+  test('filtre: fără filtru, viewRows() = flat()', () => {
+    filterProject(); eq(viewRows().map(t => t.id), flat().map(t => t.id)); ok(!filterActive());
+    coll.add(1); renderAll(); eq(rowsOf(), flat().map(t => t.id), 'respectă capitolele închise'); coll.clear(); renderAll();
+  });
+
+  test('filtre: tipuri (critic, întârziate, nefinalizate, în lucru, nepornite, finalizate, repere, resursă, interval, avertismente)', () => {
+    filterProject();
+    eq(withFilter('crit'), [1, 2, 3, 4, 5, 7], 'drum critic');
+    eq(withFilter('late'), [5, 6], 'întârziate (D) la data de status 05.11');
+    eq(withFilter('open'), [1, 3, 4, 5, 6, 7], 'nefinalizate');
+    eq(withFilter('wip'), [1, 3], 'în lucru'); eq(withFilter('todo'), [1, 4, 5, 6, 7], 'nepornite'); eq(withFilter('done'), [1, 2], 'finalizate');
+    eq(withFilter('ms'), [5, 7], 'repere'); eq(withFilter('res', { rid: 1 }), [1, 3], 'resursa A'); eq(withFilter('res', { rid: 2 }), [5, 6], 'resursa B');
+    eq(withFilter('range', { from: '2026-11-09', to: '2026-11-12' }), [1, 4, 5, 7], 'interval');
+    byId(6).deadline = '2026-10-28'; renderAll(); eq(withFilter('warn'), [5, 6], 'avertismente (termen depășit)');
+    clearFilter(true); META.sdate = null;
+  });
+
+  test('filtre: nume fără diacritice / majuscule; numele capitolului arată tot conținutul lui', () => {
+    filterProject(); byId(3).nm = 'Fundații turnate'; renderAll();
+    clearFilter(true); FILTER.text = 'FUNDATII'; renderAll(); eq(rowsOf(), [1, 3], 'diacritice și majuscule');
+    FILTER.text = 'cap2'; renderAll(); eq(rowsOf(), [5, 6, 7], 'numele capitolului → toate rândurile lui');
+    FILTER.text = 'zzz'; renderAll(); eq(rowsOf(), []); ok($('tBody').textContent.includes('Niciun rând'), 'mesaj fără rezultate');
+    FILTER.text = 'fundatii'; FILTER.type = 'done'; renderAll(); eq(rowsOf(), [], 'tip + nume se combină (ȘI)');
+    clearFilter(true); META.sdate = null;
+  });
+
+  test('filtre: tabelul și Gantt-ul au aceleași rânduri, aliniate, săgețile doar între rândurile afișate', () => {
+    filterProject(); withFilter('crit');
+    const n = rowsOf().length; eq(document.querySelectorAll('.t-row').length, n); eq(document.querySelectorAll('.g-row').length, n);
+    if ($('gBody').clientHeight >= 100) {
+      alignPanes(); const rows = [...document.querySelectorAll('.t-row')], g = [...document.querySelectorAll('.g-row')];
+      rows.forEach((r, i) => near(r.getBoundingClientRect().top, g[i].getBoundingClientRect().top, 1, 'rând ' + i));
+    }
+    const vis = new Set(rowsOf()); document.querySelectorAll('.dep-group').forEach(g => ok(vis.has(+g.dataset.depFrom) && vis.has(+g.dataset.depTo), 'săgeată spre rând ascuns'));
+    ok(document.querySelectorAll('.dep-group').length >= 2, 'săgeți între rândurile critice');
+    clearFilter(true); META.sdate = null;
+  });
+
+  test('filtre: bara de filtru, butonul și numărul de rânduri din bara de stare', () => {
+    filterProject(); eq($('filterBar').style.display, 'none');
+    setFilter('crit'); eq($('filterBar').style.display, 'flex'); ok($('filterBarTxt').textContent.includes('Drum critic')); ok($('btnFilter').classList.contains('active')); ok($('sbar').textContent.includes('afișate'));
+    clearFilter(); eq($('filterBar').style.display, 'none'); ok(!$('btnFilter').classList.contains('active')); META.sdate = null;
+  });
+
+  test('filtre: cu filtru pornit nu se pot muta / șterge capitole (ar afecta rânduri ascunse)', () => {
+    filterProject(); withFilter('open'); sel = 3; const pid = byId(3).pid, n = T.length;
+    indentSel(); eq(byId(3).pid, pid, 'indent blocat'); moveSel(1); eq(T.map(t => t.id), [1, 2, 3, 4, 5, 6, 7], 'mutare blocată');
+    sel = 1; delSel(); eq(T.length, n, 'capitolul nu se șterge'); ok(toasts.slice(-1)[0].includes('filtrul'), 'mesaj');
+    sel = 4; delSel(); eq(T.length, n - 1, 'activitatea vizibilă se poate șterge');
+    clearFilter(true); META.sdate = null;
+  });
+
+  test('filtre: adăugarea unui capitol / activități oprește filtrul', () => {
+    filterProject(); withFilter('done'); addChapter(); ok(!filterActive(), 'addChapter oprește filtrul');
+    withFilter('done'); openAddTask(false); ok(!filterActive(), 'openAddTask oprește filtrul'); closeAddTask(); META.sdate = null;
+  });
+
+  test('filtre: schimbarea proiectului oprește filtrul', () => {
+    filterProject(); setFilter('crit'); ok(filterActive());
+    newTabWith('Alt', [mk(1, 'X', 2)]); ok(!filterActive(), 'filtrul nu trece în alt proiect'); eq($('flText').value, '');
+  });
+
+  test('filtre: fereastra de filtre aplică resursa și intervalul', () => {
+    filterProject(); openFilterModal(); $('flType').value = 'res'; _flToggle(); $('flRes').value = '2'; applyFilterModal();
+    eq(FILTER.type, 'res'); eq(rowsOf(), [5, 6]);
+    openFilterModal(); $('flType').value = 'range'; _flToggle(); dtSet('flFrom', '2026-11-09'); dtSet('flTo', '2026-11-12'); $('flName').value = 'm'; applyFilterModal();
+    eq(rowsOf(), [5, 7], 'interval + nume „m" (M)'); clearFilter(); META.sdate = null;
+  });
+
+  test('filtre: navigarea cu săgeți merge doar printre rândurile afișate', () => {
+    filterProject(); withFilter('wip'); sel = null; renderAll();   // rânduri: Cap1, B
+    key('ArrowDown'); eq(sel, 1); key('ArrowDown'); eq(sel, 3); key('ArrowDown'); eq(sel, 3, 'rămâne pe ultimul'); clearFilter(true); META.sdate = null;
+  });
+
   // ---------- extensie pentru funcții viitoare ----------
   const extra = window.__regressionExtra;
   if (typeof extra === 'function') extra({ test, ok, eq, near, skip, wait, F, mk, settle, snap, setProject, confirmYes, key, newTabWith, noTransitions, toasts });
