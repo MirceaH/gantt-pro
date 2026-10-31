@@ -1148,6 +1148,19 @@
     } finally { document.querySelector('.rb-tab[data-rt="home"]').click(); uiMode = prev; try { localStorage.setItem('ganttUiScale', prev === 'auto' ? 'auto' : String(prev)); } catch (e) {} applyUiScale(); }
   });
 
+  test('avertisment „!” pe bară: stă deasupra punctelor de legătură (nu se acoperă cu ele), în ambele stiluri de bare', () => {
+    newTabWith('Wr', [mk(1, 'A', 5, null, [], null, { deadline: '2026-10-27' })]); settle(); renderAll();
+    const keep = barStyle;
+    try {
+      ['classic', 'new'].forEach(st => {
+        if (barStyle !== st) toggleBarStyle();
+        const bar = document.querySelector('.gb.task[data-bid="1"]'); ok(bar.classList.contains('warn'), 'bara are avertisment (' + st + ')');
+        const b = getComputedStyle(bar, '::before'), top = parseFloat(b.top), h = parseFloat(b.height), dot = getComputedStyle(bar.querySelector('.dep-dot-right')), dotTop = parseFloat(dot.top);
+        ok(top + h <= dotTop + 0.5, 'avertismentul (sus ' + top + ', înălțime ' + h + ') acoperă punctul de legătură (sus ' + dotTop + ') în stilul ' + st);
+      });
+    } finally { if (barStyle !== keep) toggleBarStyle(); }
+  });
+
   test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {
     document.querySelectorAll('.modal-overlay').forEach(ov => { const b = ov.firstElementChild; ok(b && b.getAttribute('role') && b.getAttribute('aria-modal') === 'true', 'fără rol: #' + ov.id); });
     eq($('confirmModal').firstElementChild.getAttribute('role'), 'alertdialog');
