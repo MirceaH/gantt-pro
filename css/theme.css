@@ -529,7 +529,7 @@ body.no-project .rb-quick-group{display:none!important}
 .rb-seg .rb-btn{padding:0 11px;gap:6px}
 .rb-seg .rb-btn.active{background:var(--card);color:var(--accent);box-shadow:0 1px 3px rgba(20,28,60,.14)}
 /* Fila Vizualizare: filtrul rapid mai îngust și butoanele de vedere mai strânse, ca toate să încapă la 1360 px */
-.rb-content[data-rc="view"] .rb-input{width:92px}
+.rb-content[data-rc="view"] .rb-input{width:84px}
 .rb-seg .rb-btn{padding:0 9px}
 
 /* ===== Panglică redesenată: titluri de grup, straturi clare, filă activă cu linie ===== */
@@ -554,3 +554,35 @@ body.no-project .rb-quick-group{display:none!important}
 .rb-content{padding:3px 8px 2px}
 .rb-group[data-cap]::after{line-height:12px}
 .rb-group{padding:0 8px}
+
+/* ===== Gantt: stilul de bare „Nou" (body.bars-new) =====
+   plate, mai subțiri; culoarea arată STAREA (nepornit / în lucru / finalizat / critic), nu adâncimea;
+   progresul = umplere mai închisă (fără dungi); numele întreg intră în bară sau stă lângă ea */
+body.bars-new .gb.task{top:7px;height:16px;border-radius:5px;border:1px solid var(--b-brd);background:var(--b-bg)!important;box-shadow:none!important;
+  --b-bg:#e8ecfc;--b-fill:#b9c4f3;--b-brd:#9fb0ee;--b-fg:#2a3562}
+body.bars-new .gb.task.st-wip{--b-bg:#6b83f2;--b-fill:#3f58d8;--b-brd:#3f58d8;--b-fg:#fff}
+body.bars-new .gb.task.st-done{--b-bg:#46b27f;--b-fill:#2f9566;--b-brd:#2f9566;--b-fg:#fff}
+body.bars-new .gb.task.crit{--b-bg:#ee7373;--b-fill:#cc4543;--b-brd:#cc4543;--b-fg:#fff}
+body.dark.bars-new .gb.task{--b-bg:#262d55;--b-fill:#36407e;--b-brd:#4a56a0;--b-fg:#cfd6ff}
+body.dark.bars-new .gb.task.st-wip{--b-bg:#6f86ff;--b-fill:#4a60e0;--b-brd:#4a60e0;--b-fg:#fff}
+body.dark.bars-new .gb.task.st-done{--b-bg:#3bb27d;--b-fill:#27895f;--b-brd:#27895f;--b-fg:#fff}
+body.dark.bars-new .gb.task.crit{--b-bg:#e86a6a;--b-fill:#bf3f3f;--b-brd:#bf3f3f;--b-fg:#fff}
+body.bars-new .gb.task:hover{filter:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--b-brd) 40%,transparent)!important}
+body.bars-new .gb.task.active{box-shadow:0 0 0 2px var(--accent)!important}
+body.bars-new .gb.task .bp{background:var(--b-fill);background-image:none;border-right:none;border-radius:4px 0 0 4px}
+body.bars-new .gb.task .bp-pct{color:#fff;font-size:9.5px}
+body.bars-new .gb.task .bn{color:var(--b-fg);text-shadow:none;font-size:11.5px;font-weight:700;padding:0 7px;text-overflow:clip}
+body.bars-new .gb.task .bn.dp0,body.bars-new .gb.task .bn.dp1{font-size:11.5px;font-weight:700}
+/* nume lângă bară (automat, doar când nu încape în bară): halou ca să se citească și peste săgeți */
+body.bars-new .g-row .bar-side{background:none;padding:0 2px;font-size:11.5px;font-weight:700;text-shadow:0 0 3px var(--card),0 0 3px var(--card),0 0 5px var(--card)}
+/* mai puțin zgomot: weekenduri, linia de bază și bara reală, până pui mouse-ul pe rând */
+body.bars-new .g-grid .vl.we{opacity:.55}
+body.bars-new .g-row .bl-bar{opacity:.2}
+body.bars-new .g-row:hover .bl-bar,body.bars-new .g-row.selected .bl-bar{opacity:.95}
+body.bars-new .g-row .act-bar{opacity:.45}
+body.bars-new .g-row:hover .act-bar,body.bars-new .g-row.selected .act-bar{opacity:1}
+/* zoom foarte mic: bare-pilulă, numele apare la hover / selecție */
+body.bars-new .g-body.zoom-micro .gb.task{top:10px;height:10px;border-radius:4px}
+body.bars-new .g-body.zoom-micro .gb.task .bn,body.bars-new .g-body.zoom-micro .gb.task .bp-pct{display:none}
+body.bars-new .g-body.zoom-micro .gb.task .rs{width:3px}
+.lg-row i.lg-st{background:linear-gradient(90deg,#3f58d8 0 45%,#6b83f2 45% 100%);border-radius:4px;height:14px!important;margin-top:2px}

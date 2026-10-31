@@ -431,6 +431,7 @@ function toggleLegend(e) {
   p.id = "legendPop"; p.className = "legend-pop";
   p.innerHTML = `<div class="lg-title">Legendă Gantt <button onclick="toggleLegend()">✕</button></div>
     <div class="lg-row"><i class="lg-tip">✋</i><span><b>Cum folosești</b> — trage rândurile = ierarhie · trage barele = date · dublu-click pe rând sau pe bară = <b>Detalii activitate</b>. Detaliile apar și într-o bară jos când pui Gantt-ul pe tot ecranul.</span></div>
+    <div class="lg-row"><i class="lg-st"></i><span><b>Culoarea barei</b> (stilul „Nou”) — <b style="color:#8a98c8">pal</b> = nepornită, <b style="color:#3f58d8">albastru</b> = în lucru (partea închisă = progresul), <b style="color:#2f9566">verde</b> = finalizată, <b style="color:#cc4543">roșu</b> = pe drumul critic. Numele care nu încape în bară apare lângă ea.</span></div>
     <div class="lg-row"><i class="lg-today"></i><span><b>Linie roșie verticală</b> — ziua de azi.</span></div>
     <div class="lg-row"><i class="lg-bar crit"></i><span><b>Bară roșie</b> — activitate de pe drumul critic (orice întârziere mută finalul proiectului).</span></div>
     <div class="lg-row"><i class="lg-bl"></i><span><b>Linie subțire sub bară</b> — planul inițial (linia de bază). <b style="color:#d94040">Roșie</b> = activitatea a întârziat față de plan, <b style="color:#2f9e6a">verde</b> = mai devreme, gri = la termen.</span></div>
@@ -605,6 +606,7 @@ function initA11y() {
 // ======== BOOT ========
 initDark();
 initA11y();
+_refreshBarStyleUI();
 initSplitter();
 syncScroll();
 $("splitView").style.display = "flex";

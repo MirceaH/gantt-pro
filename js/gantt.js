@@ -1,4 +1,16 @@
 // Numele activităților lângă bară (opțional, se păstrează între sesiuni)
+// Stilul barelor: „Nou" = plate, culoare după stare, nume lângă bară când nu încape (implicit); „Clasic" = stilul vechi
+let barStyle = (function(){ try { return localStorage.getItem("ganttBarStyle") === "classic" ? "classic" : "new"; } catch(e) { return "new"; } })();
+function _refreshBarStyleUI(){
+  document.body.classList.toggle("bars-new", barStyle==="new");
+  const b=document.getElementById("btnBarStyle"); if(b){ b.classList.toggle("active", barStyle==="new"); b.title="Stil bare: "+(barStyle==="new"?"Nou":"Clasic")+" — click ca să treci la "+(barStyle==="new"?"Clasic":"Nou"); }
+}
+function toggleBarStyle(){
+  barStyle = barStyle==="new" ? "classic" : "new";
+  try { localStorage.setItem("ganttBarStyle", barStyle); } catch(e) {}
+  _refreshBarStyleUI(); renderAll();
+  toast(barStyle==="new" ? "Bare: stil Nou (culoare după stare, nume lângă bară)" : "Bare: stil Clasic");
+}
 // Codul WBS (1.2.3) ca prefix înaintea numelui, ca în MS Project; se poate ascunde din Vizualizare
 let showWbs = (function(){ try { return localStorage.getItem("ganttWbs") !== "0"; } catch(e) { return true; } })();
 function _refreshWbsUI(){ const b=document.getElementById("btnWbs"); if(b) b.classList.toggle("active", showWbs); }
@@ -467,10 +479,10 @@ function renderGantt(){
   o.forEach(t=>{
     const endsLate=dD(ps(t)._e,ce)<=lastDays+5; if(!endsLate) return;
     const shown=t.nm.length>20?t.nm.slice(0,19)+'…':t.nm;
-    const lw=hasK(t.id)?_textW(shown,'800 11px Nunito')+(t.prog>0?50:12)+10:(t.isMilestone?_textW(t.nm,'700 11px Nunito')+34:(showSideNames?_textW(t.nm,'700 11.5px '+getComputedStyle(document.body).fontFamily)+28:50));
+    const lw=hasK(t.id)?_textW(shown,'800 11px Nunito')+(t.prog>0?50:12)+10:(t.isMilestone?_textW(t.nm,'700 11px Nunito')+34:((showSideNames||barStyle==="new")?_textW(t.nm,'700 11.5px '+getComputedStyle(document.body).fontFamily)+28:50));
     if(lw>tailW) tailW=lw;
   });
-  tailW=Math.min(showSideNames?340:240,Math.round(tailW));
+  tailW=Math.min((showSideNames||barStyle==="new")?340:240,Math.round(tailW));
   let dw;
   if(isAutoZoom){
     const paneL=document.getElementById("paneL");
@@ -489,6 +501,9 @@ function renderGantt(){
   }
 
   ["gBody","gHead"].forEach(id=>$(id).classList.toggle("zoom-tiny",dw<7));
+  const NB=barStyle==="new", micro=NB&&dw<4;     // micro: bare-pilulă, numele doar la hover
+  ["gBody","gHead"].forEach(id=>$(id).classList.toggle("zoom-micro",micro));
+  const nbFont='700 11.5px '+getComputedStyle(document.body).fontFamily;
   const tw=td*dw;
   let mons=[], cm=null;
   for(let i=0;i<td;i++){
@@ -533,7 +548,7 @@ function renderGantt(){
     const p=ps(t), dp=Math.min(dep(t.id),3), isSumm=hasK(t.id), isMs=!!t.isMilestone && !isSumm;
     const off=dD(cs,p._s), w=Math.max(calSpan(t)*dw,dw), l=off*dw;
     const sc=sel===t.id?"selected":"", ac=sel===t.id?" active":"", bc=isMs?"milestone":(isSumm?"summ":"task");
-    let bi="";
+    let bi="", sideAuto=false;
     if(isMs){
       // Milestone: doar diamant + nume lângă
       bi+=`<div class="ms-diamond"></div><span class="ms-name">${esc(t.nm)}</span>`;
@@ -542,10 +557,13 @@ function renderGantt(){
       // Textul se ascunde automat dacă bara e prea îngustă (via CSS)
       // Numele se prescurtează automat ca să încapă în bară (niciodată numărul rândului)
       const showPct = t.prog>0 && w>=110, tight = w<80;
-      const lbl = showSideNames ? "" : barLabel(t, w - (tight?10:20) - (showPct?38:0));
+      let lbl;
+      if(NB && !showSideNames){          // stil Nou: numele întreg în bară dacă încape, altfel întreg lângă bară (niciodată „Săp…")
+        if(!micro && _textW(t.nm,nbFont)+14+(showPct?38:0)<=w) lbl=t.nm; else { lbl=""; sideAuto=!micro; }
+      } else lbl = showSideNames ? "" : barLabel(t, w - (tight?10:20) - (showPct?38:0));
       bi+=`<div class="bp" style="width:${t.prog}%"></div>`;
       if(lbl) bi+=`<div class="bn dp${dp}${tight?" tight":""}"${showPct?' style="padding-right:38px"':""}>${esc(lbl)}</div>`;
-      if(!showSideNames && lbl!==t.nm) bi+=`<span class="bn-hov">${esc(t.nm)}</span>`;   // numele complet, la hover / selecție
+      if(!showSideNames && !sideAuto && lbl!==t.nm) bi+=`<span class="bn-hov">${esc(t.nm)}</span>`;   // numele complet, la hover / selecție
       if(showPct) bi+=`<span class="bp-pct">${t.prog}%</span>`;
       bi+=`<div class="rs rs-l" data-rl="${t.id}"></div><div class="rs rs-r" data-rr="${t.id}"></div>`;
     } else {
@@ -561,7 +579,7 @@ function renderGantt(){
         +' oncontextmenu="showCtx(event,'+t.id+')"'
         +' onmouseenter="highlightRow('+t.id+')"'
         +' onmouseleave="clearHighlight()">'
-        +'<div class="gb '+bc+' dp'+dp+ac+(!isSumm&&isCrit(t.id)?' crit':'')+(taskWarn[t.id]?' warn':'')+(isBehind(t)?' late-task':'')+'" data-bid="'+t.id+'" style="'+styleStr+'">'+bi+'</div>'+_blBar(t,cs,dw)+_actBar(t,cs,dw)+_dlMark(t,cs,dw)+(showSideNames&&!isSumm&&!isMs?'<span class="bar-side" style="left:'+(l+w+8)+'px">'+esc(t.nm)+'</span>':'')+'</div>';
+        +'<div class="gb '+bc+' dp'+dp+ac+(NB&&!isSumm&&!isMs?(t.prog>=100?' st-done':(t.prog>0?' st-wip':' st-todo')):'')+(!isSumm&&isCrit(t.id)?' crit':'')+(taskWarn[t.id]?' warn':'')+(isBehind(t)?' late-task':'')+'" data-bid="'+t.id+'" style="'+styleStr+'">'+bi+'</div>'+_blBar(t,cs,dw)+_actBar(t,cs,dw)+_dlMark(t,cs,dw)+((showSideNames||sideAuto)&&!isSumm&&!isMs?'<span class="bar-side" style="left:'+(l+w+8)+'px">'+esc(t.nm)+'</span>':'')+'</div>';
   });
 
   // ===== DEPENDENCY ARROWS (Orthogonal / Manhattan routing) =====

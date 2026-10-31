@@ -157,3 +157,10 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 - **Mutare bară cu legături:** `lagFromMove(t)` transformă mutarea într-un lag pe legătura dominantă (minim 0, nu creează suprapuneri din greșeală); `depStart(t,d,lag)` e formula comună de programare.
 - **Undo:** instantaneele identice nu se dublează; plafon `MAX_HISTORY` și `MAX_HISTORY_CHARS`.
 - **Accesibilitate:** `initA11y()` (main.js) pune `role="dialog"`, mută focusul la deschiderea ferestrelor și îl readuce la închidere.
+
+## Design (ramura curentă)
+
+- **Sus (stil MS Project):** fila Vizualizare conține vederile (Gantt / Arbore / Cronologie, etichetate); rândul de sub panglică are doar file de proiecte; „Legendă" și „Tot ecranul" sunt butoane rapide sus-dreapta (`#ganttTools`, doar în Gantt). Grupurile din panglică au titluri prin `data-cap` (CSS `::after`). Orice buton nou în fila Vizualizare: verifică testul de lățime la 1360 px.
+- **Tabel:** prima coloană = ID (nr. rând, `rowIds()`); codul WBS e prefix înaintea numelui (`showWbs` / `toggleWbs()`, buton „WBS" în Vizualizare). Dependențele se scriu tot cu coduri WBS.
+- **Detalii activitate:** panoul din Arbore, fereastra Task Info și bara de informații (doar în Gantt pe tot ecranul) folosesc aceleași denumiri; `tests/regression.js` le leagă între ele.
+- **Bare Gantt:** `barStyle` = `"new"` (implicit) | `"classic"` (`toggleBarStyle()`, butonul ✦ din Vizualizare › Afișare, salvat în `ganttBarStyle`). Stilul Nou = `body.bars-new`: bare plate (16 px), culoare după stare (`st-todo` / `st-wip` / `st-done` / `crit`), nume întreg în bară dacă încape, altfel `.bar-side` lângă ea; sub 4 px/zi (`zoom-micro`) bare-pilulă, numele doar la hover.

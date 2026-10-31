@@ -878,7 +878,7 @@
     const lbl = k => [...document.querySelectorAll('.rb-content[data-rc="' + k + '"] .rb-lbl')].map(e => e.textContent.trim());
     ['Proiect nou', 'Deschide', 'Exemplu', 'Salvează', 'Tipărește', 'Export', 'Import'].forEach(l => ok(lbl('file').includes(l), 'Fișier: lipsește ' + l));
     ['Activitate', 'Capitol', 'Reper'].forEach(l => ok(lbl('home').includes(l), 'Acasă: lipsește ' + l));
-    ['Filtru', 'Drum critic', 'Nume lângă bară'].forEach(l => ok(lbl('view').includes(l), 'Vizualizare: lipsește ' + l));
+    ['Filtru', 'Drum critic', 'Nume lângă bară', 'WBS'].forEach(l => ok(lbl('view').includes(l), 'Vizualizare: lipsește ' + l));
     ['Calendar', 'Resurse', 'Buget', 'Urmărire'].forEach(l => ok(lbl('project').includes(l), 'Proiect: lipsește ' + l));
   });
 
@@ -1055,6 +1055,30 @@
     $('rbViewTree').click(); eq(view, 'tree'); eq(getComputedStyle($('ganttTools')).display, 'none', 'ascunse în Arbore');
     $('rbViewTimeline').click(); eq(view, 'timeline'); $('rbViewGantt').click(); eq(view, 'gantt'); ok(getComputedStyle($('ganttTools')).display !== 'none');
     $('btnLegend').click(); ok($('legendPop'), 'legenda se deschide'); $('btnLegend').click();
+  });
+
+  test('bare stil Nou: culoare după stare, numele întreg lângă bară când nu încape, comutator Clasic / Nou salvat', () => {
+    const LONG = 'Activitate cu un nume foarte lung care nu încape în bară';
+    newTabWith('Bs', [mk(1, LONG, 2), mk(2, 'B', 60, null, [F(1)], null, { prog: 100 }), mk(3, 'C', 30, null, [F(2)], null, { prog: 40 })]); settle(); renderAll();
+    const bar = id => document.querySelector('.gb[data-bid="' + id + '"]');
+    ok(document.body.classList.contains('bars-new'), 'stilul Nou e implicit'); ok($('btnBarStyle').classList.contains('active'));
+    ok(bar(1).classList.contains('st-todo') && bar(2).classList.contains('st-done') && bar(3).classList.contains('st-wip'), 'clase de stare');
+    const sides = [...document.querySelectorAll('.bar-side')].map(e => e.textContent);
+    ok(sides.includes(LONG), 'numele întreg stă lângă bara îngustă (nu „Activitate cu…”)'); ok(!bar(1).querySelector('.bn'), 'bara îngustă nu are text tăiat înăuntru');
+    ok(bar(2).querySelector('.bn') && bar(2).querySelector('.bn').textContent === 'B' && !sides.includes('B'), 'numele care încape rămâne în bară');
+    const h = bar(1).getBoundingClientRect().height; if (h) ok(h <= 17, 'bară subțire: ' + h);
+    toggleBarStyle(); ok(!document.body.classList.contains('bars-new')); ok(!bar(1).classList.contains('st-todo'), 'Clasic: fără clase de stare'); eq(localStorage.getItem('ganttBarStyle'), 'classic');
+    toggleBarStyle(); eq(localStorage.getItem('ganttBarStyle'), 'new'); ok(bar(1).classList.contains('st-todo'));
+  });
+
+  test('bare stil Nou: la zoom foarte mic bara devine pilulă, fără nume înăuntru sau lângă ea (doar la hover)', () => {
+    newTabWith('Mz', [mk(1, 'Activitate scurtă', 3), mk(2, 'Alta', 3, null, [F(1)])]); settle();
+    isAutoZoom = false; document.documentElement.style.setProperty('--day-w', '2px'); renderAll();
+    try {
+      ok($('gBody').classList.contains('zoom-micro'), 'clasa zoom-micro'); eq(document.querySelectorAll('.bar-side').length, 0, 'fără nume lângă bară');
+      ok(document.querySelector('.gb.task .bn-hov'), 'numele complet la hover');
+    } finally { fitZoom(); }
+    ok(!$('gBody').classList.contains('zoom-micro'), 'după „Auto” revine');
   });
 
   test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {
