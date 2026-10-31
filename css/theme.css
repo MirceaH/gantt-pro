@@ -463,3 +463,52 @@ body.no-project .tabs-row .tabs-tools{display:none!important}
 
 /* Panoul „Detalii Activitate": indiciu discret lângă etichetă */
 .sp-lbl .sp-opt{font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted)}
+
+/* ===== Fereastra „Detalii activitate” — redesign: antet cu stare, rezumat, carduri pe două coloane ===== */
+.ti-box{max-width:900px!important;width:94vw!important;max-height:90vh!important;background:var(--bg)}
+.ti-header{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--card);border-bottom:1px solid var(--grid);border-radius:inherit}
+.ti-header .ti-wbs{flex:0 0 auto;padding:2px 9px;border-radius:7px;background:var(--grid2);color:var(--muted);font-weight:800;font-size:12px}
+.ti-header .ti-title{flex:0 1 auto;max-width:46%;font-size:17px;font-weight:800;color:var(--text)}
+.ti-header .ti-chips{flex:1 1 auto;display:flex;flex-wrap:wrap;gap:5px;min-width:0;justify-content:flex-start;margin-left:4px}
+.ti-chip{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:800;white-space:nowrap;background:var(--grid2);color:var(--text2)}
+.ti-chip.bad{background:#fdecea;color:#c0392b}.ti-chip.warn{background:#fff3dc;color:#a8650a}
+body.dark .ti-chip.bad{background:#3a1a22;color:#ff9a9a}body.dark .ti-chip.warn{background:#3a2e14;color:#ffc66b}
+.ti-summary{display:flex;gap:8px;padding:10px 18px;background:var(--card);border-bottom:1px solid var(--grid);overflow-x:auto;scrollbar-width:thin}
+.ti-summary:empty{display:none}
+.ti-stat{flex:0 0 auto;min-width:104px;padding:7px 12px;border:1px solid var(--grid);border-radius:10px;background:var(--bg)}
+.ti-sk{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ti-sv{display:flex;flex-direction:column;gap:2px;margin-top:2px;font-size:12px;color:var(--text)}
+.ti-sv b{font-size:13px}.ti-sv b.bad{color:#d94040}.ti-sv b.ok{color:#2f9e6a}
+.ti-sv small{font-size:10.5px;font-weight:600;color:var(--muted)}
+.ti-bar{display:block;width:110px;height:5px;border-radius:3px;background:var(--grid2);overflow:hidden}
+.ti-bar span{display:block;height:100%;border-radius:3px;background:#3fa968}
+.ti-body{padding:14px 18px}
+.ti-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.ti-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.ti-card{padding:12px 14px 4px;border:1px solid var(--grid);border-radius:12px;background:var(--card)}
+.ti-ct{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.ti-ct::before{content:'';width:4px;height:13px;border-radius:2px;background:var(--accent)}
+.ti-card .ti-row{margin-bottom:12px}
+.ti-card select{width:100%;padding:9px 10px;border-radius:8px;border:1.5px solid var(--grid);font-family:var(--font);font-size:13px;font-weight:600;background:var(--bg);color:var(--text)}
+.ti-opt{font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted)}
+.ti-meta{margin:2px 0 12px;font-size:11.5px;font-weight:600;color:var(--muted)}.ti-meta b{color:var(--text2)}
+.ti-chips-row{display:flex;flex-wrap:wrap;gap:5px}.ti-none{color:var(--muted)}
+.ti-link{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:7px;border:1px solid var(--c);font-weight:800;font-size:12px;color:var(--text)}
+.ti-link i{font-style:normal;color:var(--c)}
+.ti-res-actions{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}.ti-res-actions .modal-btn{padding:6px 12px}
+.ti-actions{background:var(--card);border-top:1px solid var(--grid)}
+@media (max-width:760px){.ti-grid{grid-template-columns:1fr}.ti-header .ti-title{max-width:60%}}
+
+/* Bara cu detalii (carduri) apare doar în Gantt pe tot ecranul; în vederea obișnuită detaliile sunt în fereastra „Detalii activitate” */
+.g-info{display:none!important}
+body.gantt-full .g-info{display:block!important}
+
+/* Corecții fereastră Detalii: antet / rezumat / butoane nu se micșorează; text aliniat la stânga; câmpuri de dată pe înălțime naturală */
+.ti-header,.ti-summary,.ti-actions{flex:0 0 auto}
+.ti-summary,.ti-stat,.ti-body{text-align:left}
+.ti-summary{overflow-y:hidden}
+.ti-card .dtx{height:auto}
+.ti-card .dtx-t{width:100%}
+.ti-card .ti-2col{align-items:start}
+.ti-card .ti-2col > div{min-width:0}
+.dtx-n{font-size:0!important;color:transparent!important;background:none!important;box-shadow:none!important;overflow:hidden}

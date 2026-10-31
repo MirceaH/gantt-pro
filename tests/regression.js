@@ -1002,6 +1002,31 @@
     undo(); undo(); ok(!T.find(t => t.id === 1).ttype, 'anulare');
   });
 
+  test('detalii: bara cu carduri apare doar în Gantt pe tot ecranul; fereastra Detalii are antet, rezumat și carduri și salvează', () => {
+    newTabWith('Fs', [mk(1, 'A', 5), mk(2, 'B', 3, null, [F(1)])]); settle();
+    ok(getComputedStyle($('gInfo')).display === 'none', 'bara e ascunsă în vederea obișnuită');
+    toggleGanttFull(); const shown = getComputedStyle($('gInfo')).display !== 'none'; toggleGanttFull();
+    ok(shown, 'bara apare pe tot ecranul'); ok(!document.body.classList.contains('gantt-full'), 'ieșit din ecranul complet');
+    openTaskInfo(2);
+    eq($('tiWbs').textContent, '2'); eq($('tiTitle').textContent, 'B'); ok($('tiSummary').textContent.includes('Perioadă') && $('tiSummary').textContent.includes('Progres'), 'rezumat');
+    ok($('tiChips').textContent.includes('Activitate'), 'etichetă de tip'); ok(document.querySelectorAll('#tiBody .ti-card').length >= 6, 'carduri: ' + document.querySelectorAll('#tiBody .ti-card').length);
+    eq($('tiDeps').value, '1', 'câmpul „Se face după” arată predecesorul');
+    $('tiName').value = 'B2'; $('tiDur').value = '4'; $('tiDur').dispatchEvent(new Event('input', { bubbles: true })); $('tiSaveBtn').click();
+    const b = T.find(t => t.id === 2); eq(b.nm, 'B2'); eq(b.dur, 4); eq($('taskInfoModal').classList.contains('open'), false, 'fereastra se închide după salvare');
+    openTaskInfo(1); ok($('tiBody').querySelector('.ti-link'), 'activitatea 1 arată succesorul ca etichetă'); closeTaskInfo();
+  });
+
+  test('detalii: în fereastră, startul, durata și finalul sunt legate (nu se mai anulează între ele la salvare)', () => {
+    newTabWith('Lnk', [mk(1, 'A', 5)]); settle(); const a = T.find(t => t.id === 1); openTaskInfo(1);
+    const fire = (id, ev) => $(id).dispatchEvent(new Event(ev, { bubbles: true }));
+    dtSet('tiStart', '2026-11-02'); fire('tiStart', 'change');
+    eq($('tiDur').value, '5', 'mutarea startului păstrează durata'); eq($('tiEnd').value, fD(endDate({ sd: '2026-11-02', dur: 5 })), 'finalul urmează startul');
+    $('tiDur').value = '8'; fire('tiDur', 'input'); eq($('tiEnd').value, fD(endDate({ sd: '2026-11-02', dur: 8 })), 'durata nouă mută finalul');
+    dtSet('tiEnd', fD(endDate({ sd: '2026-11-02', dur: 3 }))); fire('tiEnd', 'change'); eq($('tiDur').value, '3', 'finalul nou schimbă durata');
+    $('tiSaveBtn').click(); eq(a.sd, '2026-11-02'); eq(a.dur, 3);
+    openTaskInfo(1); $('tiDur').value = '6'; fire('tiDur', 'input'); $('tiSaveBtn').click(); eq(a.dur, 6, 'durata scrisă în fereastră se salvează');
+  });
+
   test('securitate: numele proiectului din bara de stare nu poate injecta HTML', () => {
     newTabWith('<img src=x onerror=alert(1)>', [mk(1, 'A', 2)]); settle(); renderStatus();
     ok(!$('sbar').querySelector('img'), 'fără element <img> în bara de stare'); ok($('sbar').textContent.includes('<img src=x'), 'numele apare ca text');

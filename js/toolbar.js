@@ -310,6 +310,33 @@ function unlinkSelected() {
 // ============================================================
 // TASK INFO MODAL
 // ============================================================
+// Antetul ferestrei „Detalii activitate”: etichete de stare + rezumat calculat de program (nu se editează aici)
+function tiChipsHtml(t) {
+  const c = cpm[t.id], tw = taskWarn[t.id], out = [];
+  out.push(`<span class="ti-chip kind">${hasK(t.id) ? 'Capitol' : t.isMilestone ? 'Reper' : 'Activitate'}</span>`);
+  if (c && c.crit) out.push('<span class="ti-chip bad">CRITICĂ</span>');
+  if (isBehind(t)) out.push('<span class="ti-chip bad">Întârziată</span>');
+  if (tw) [tw.lateText, tw.cons, tw.res].filter(Boolean).forEach(x => out.push(`<span class="ti-chip warn">⚠ ${esc(x)}</span>`));
+  return out.join('');
+}
+
+function tiSummaryHtml(t) {
+  const c = cpm[t.id], p = ps(t), zi = n => `${n} ${n === 1 ? 'zi' : 'zile'}`;
+  const st = (k, v) => `<div class="ti-stat"><div class="ti-sk">${k}</div><div class="ti-sv">${v}</div></div>`;
+  const out = [
+    st('Perioadă', `<b>${fmtDate(p._s)} → ${fmtDate(p._e)}</b><small>${zi(t.dur)}</small>`),
+    st('Progres', `<b>${t.prog}%</b><span class="ti-bar"><span style="width:${Math.min(100, t.prog)}%"></span></span>`)
+  ];
+  if (c) out.push(st('Rezervă', c.crit ? '<b class="bad">0 zile</b><small>pe drumul critic</small>' : `<b>${zi(c.float)}</b><small>fără să întârzie proiectul</small>`));
+  if (costMap[t.id]) out.push(st('Cost', `<b>${fmtMoney(costMap[t.id])}</b>`));
+  const b = blSpan(t);
+  if (b) { const v = varDays(t);
+    out.push(st('Față de linia de bază', `<b class="${v > 0 ? 'bad' : 'ok'}">${v === 0 ? 'la termen' : v > 0 ? '+' + zi(v) + ' întârziere' : zi(-v) + ' mai devreme'}</b><small>${fmtDate(b.s)} → ${fmtDate(b.e)}</small>`)); }
+  const a = actSpan(t);
+  if (a) out.push(st('Real', `<b>${fmtDate(a.s)} → ${a.done ? fmtDate(a.e) : 'în desfășurare'}</b>`));
+  return out.join('');
+}
+
 function openTaskInfo(id) {
   const t = T.find(x => x.id === id);
   if (!t) return;
@@ -326,75 +353,61 @@ function openTaskInfo(id) {
   const succsList = T.filter(x => (x.deps || []).some(d => d.id === id))
     .map(x => w[x.id]).filter(Boolean).join('; ');
 
-  $('tiBody').innerHTML = `
-    <div class="ti-sec">General</div>
+  const card = (title, inner, extra = '') => `<section class="ti-card"${extra}><h4 class="ti-ct">${title}</h4>${inner}</section>`;
+  const linkChip = (id, d) => `<span class="ti-link" style="--c:${DEP_COLORS[d.type] || DEP_COLORS.FS}" title="${esc((T.find(x => x.id === id) || {}).nm || '')}">${w[id] || '?'}<i>${esc(depLabel(d))}</i></span>`;
+  const succChips = T.filter(x => (x.deps || []).some(d => d.id === id)).map(x => linkChip(x.id, x.deps.find(d => d.id === id))).join('') || '<span class="ti-none">—</span>';
+  const kind = isSumm ? '🗂️ Capitol — datele se calculează automat din subactivități' : t.isMilestone ? '◆ Reper' : '📌 Activitate';
+
+  const cGeneral = card('General', `
     <div class="ti-row">
       <label>Nume</label>
       <input id="tiName" value="${esc(t.nm)}">
-      <label style="margin-top:8px">Nume scurt <span style="font-weight:500;color:var(--muted)">(opțional — apare în bară când numele complet nu încape)</span></label>
+    </div>
+    <div class="ti-row">
+      <label>Nume scurt <span class="ti-opt">(opțional — apare în bară când numele complet nu încape)</span></label>
       <input id="tiShort" value="${esc(t.sn || '')}" placeholder="${esc(_autoShort(t))}" maxlength="24">
     </div>
+    <div class="ti-meta">WBS <b>${w[t.id] || ''}</b> · ID intern <b>${t.id}</b> · ${kind}</div>`);
+
+  const cPlan = card('Plan: date, durată, progres', `
     <div class="ti-row ti-2col">
-      <div>
-        <label>WBS</label>
-        <input value="${w[t.id] || ''}" disabled>
-      </div>
-      <div>
-        <label>ID intern</label>
-        <input value="${t.id}" disabled>
-      </div>
-    </div>
-    <div class="ti-sec">Plan: date, durată, progres</div>
-    <div class="ti-row ti-2col">
-      <div>
-        <label>Data start</label>
-        ${dtField(t.sd, {id:'tiStart', dis:isSumm})}
-      </div>
-      <div>
-        <label>Data final</label>
-        ${dtField(fD(p._e), {id:'tiEnd', dis:isSumm})}
-      </div>
+      <div><label>Data start</label>${dtField(t.sd, {id:'tiStart', dis:isSumm})}</div>
+      <div><label>Data final</label>${dtField(fD(p._e), {id:'tiEnd', dis:isSumm})}</div>
     </div>
     <div class="ti-row ti-2col">
-      <div>
-        <label>Durată (zile)</label>
-        <input type="number" min="1" id="tiDur" value="${t.dur}" ${isSumm ? 'disabled' : ''}>
-      </div>
-      <div>
-        <label>Progres (%)</label>
-        <input type="number" min="0" max="100" id="tiProg" value="${t.prog}" ${isSumm ? 'disabled' : ''}>
-      </div>
-    </div>
-    ${(isSumm || t.isMilestone) ? '' : `<div class="ti-sec">Progres real</div>
+      <div><label>Durată (zile)</label><input type="number" min="1" id="tiDur" value="${t.dur}" ${isSumm ? 'disabled' : ''}></div>
+      <div><label>Progres (%)</label><input type="number" min="0" max="100" id="tiProg" value="${t.prog}" ${isSumm ? 'disabled' : ''}></div>
+    </div>`);
+
+  const cReal = (isSumm || t.isMilestone) ? '' : card('Progres real', `
     <div class="ti-row ti-2col">
-      <div>
-        <label>Început real <button type="button" class="ti-mini" onclick="dtSet('tiAs',statusDay())" title="Pune data de status">azi</button></label>
-        ${dtField(t.as || '', {id:'tiAs'})}
-      </div>
-      <div>
-        <label>Final real <button type="button" class="ti-mini" onclick="dtSet('tiAf',statusDay())" title="Pune data de status">azi</button></label>
-        ${dtField(t.af || '', {id:'tiAf'})}
-      </div>
-      <div class="dep-hint" style="grid-column:1/-1">Se completează singure când progresul trece de 0% / ajunge la 100% (cu data de status). Planul se mută după ele doar când apeși „Actualizează planul" (Proiect › Urmărire).</div>
-    </div>`}
-    <div class="ti-sec">Legături</div>
+      <div><label>Început real <button type="button" class="ti-mini" onclick="dtSet('tiAs',statusDay())" title="Pune data de status">azi</button></label>${dtField(t.as || '', {id:'tiAs'})}</div>
+      <div><label>Final real <button type="button" class="ti-mini" onclick="dtSet('tiAf',statusDay())" title="Pune data de status">azi</button></label>${dtField(t.af || '', {id:'tiAf'})}</div>
+    </div>
+    <div class="dep-hint">Se completează singure când progresul trece de 0% / ajunge la 100% (cu data de status). Planul se mută după ele doar când apeși „Actualizează planul" (Proiect › Urmărire).</div>`);
+
+  const cNotes = card('Note', `
+    <div class="ti-row">
+      <label>Note</label>
+      <textarea id="tiNotes" rows="3" placeholder="Note opționale...">${esc(t.notes || '')}</textarea>
+    </div>`);
+
+  const cLinks = card('Legături', `
     <div class="ti-row">
       <label>Se face după (WBS[Tip][±zile], separat cu ;)</label>
       <input id="tiDeps" value="${esc(depsList)}" placeholder="ex: 1.1; 2.3FS+2; 3.4SS-1">
-      <div class="dep-hint">Scrie numărul rândului după care se face. <b>1.2</b> = începe după ce se termină 1.2. <b>1.2SS+3</b> = începe la 3 zile după ce începe 1.2. Mai multe: separate cu ;</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:3px">
-        Tipuri: FS (implicit) • SS (start-start) • FF (finish-finish) • SF (start-finish). Lag opțional: +2 / -1
-      </div>
+      <div class="dep-hint">Scrie numărul rândului după care se face. <b>1.2</b> = începe după ce se termină 1.2. <b>1.2SS+3</b> = începe la 3 zile după ce începe 1.2. Mai multe: separate cu ;<br>Tipuri: FS (implicit) • SS (start-start) • FF (finish-finish) • SF (start-finish). Lag opțional: +2 / -1</div>
     </div>
     <div class="ti-row">
       <label>Urmează după ea (doar informativ)</label>
-      <input value="${esc(succsList) || '—'}" disabled>
-    </div>
-    <div class="ti-sec">Restricții și termen</div>
+      <div class="ti-chips-row">${succChips}</div>
+    </div>`);
+
+  const cCons = card('Restricții și termen', `
     <div class="ti-row ti-2col">
       <div>
         <label>Restricție</label>
-        <select id="tiCons" ${isSumm ? 'disabled' : ''} onchange="$('tiConsDate').disabled = !CONS_NEEDS_DATE.includes(this.value)" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--grid);font-family:var(--font)">
+        <select id="tiCons" ${isSumm ? 'disabled' : ''} onchange="$('tiConsDate').disabled = !CONS_NEEDS_DATE.includes(this.value)">
           ${Object.keys(CONS_LABELS).map(k => `<option value="${k}" ${((t.cons && t.cons.type) || 'ASAP') === k ? 'selected' : ''}>${CONS_LABELS[k]}</option>`).join('')}
         </select>
       </div>
@@ -404,42 +417,53 @@ function openTaskInfo(id) {
       </div>
     </div>
     <div class="ti-row">
-      <label>Termen limită (deadline) — nu mută nimic, doar avertizează dacă e depășit</label>
+      <label>Termen limită (deadline)</label>
       ${dtField(t.deadline || '', {id:'tiDeadline'})}
-    </div>
-    <div class="ti-sec" ${isSumm ? 'style="display:none"' : ''}>Resurse și cost</div>
-    <div class="ti-row ti-res" ${isSumm ? 'style="display:none"' : ''}>
+      <div class="dep-hint">Nu mută nimic — doar avertizează dacă e depășit.</div>
+    </div>`);
+
+  const cRes = card('Resurse și cost', `
+    <div class="ti-row ti-res">
       <label>Resurse atribuite</label>
       <div id="tiAssign"></div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
-        <button type="button" class="modal-btn cancel" style="padding:6px 12px" onclick="tiAddAssign()">＋ Adaugă resursă</button>
-        <button type="button" class="modal-btn cancel" style="padding:6px 12px" onclick="openResources('res')">👥 Gestionează resursele</button>
+      <div class="ti-res-actions">
+        <button type="button" class="modal-btn cancel" onclick="tiAddAssign()">＋ Adaugă resursă</button>
+        <button type="button" class="modal-btn cancel" onclick="openResources('res')">👥 Gestionează resursele</button>
         <span id="tiCost" class="ti-cost"></span>
       </div>
     </div>
-    <div class="ti-row" ${isSumm ? 'style="display:none"' : ''}>
+    <div class="ti-row">
       <label>Tip activitate (ce se păstrează când schimbi durata sau resursele)</label>
-      <select id="tiType" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--grid);font-family:var(--font)">
+      <select id="tiType">
         ${Object.keys(TASK_TYPES).map(k => `<option value="${k}" ${(t.ttype || 'fu') === k ? 'selected' : ''}>${TASK_TYPES[k]}</option>`).join('')}
       </select>
-      <div style="font-size:10px;color:var(--muted);margin-top:3px">Durată fixă: la mai multe resurse crește munca. Muncă fixă: la mai multe resurse scade durata. Unități fixe: la altă durată se schimbă munca.</div>
-    </div>
-    <div class="ti-sec">Altele</div>
-    <div class="ti-row">
-      <label>Note</label>
-      <textarea id="tiNotes" rows="3" placeholder="Note opționale...">${esc(t.notes || '')}</textarea>
-    </div>
-    <div class="ti-info">
-      ${isSumm ? '🗂️ Capitol — datele se calculează automat din subtask-uri' : '📌 Activitate'}
-    </div>
-  `;
+      <div class="dep-hint">Durată fixă: la mai multe resurse crește munca. Muncă fixă: la mai multe resurse scade durata. Unități fixe: la altă durată se schimbă munca.</div>
+    </div>`, isSumm ? ' style="display:none"' : '');
+
+  $('tiBody').innerHTML = `<div class="ti-grid"><div class="ti-col">${cGeneral}${cPlan}${cReal}${cNotes}</div><div class="ti-col">${cLinks}${cCons}${cRes}</div></div>`;
 
   _tiAssign = JSON.parse(JSON.stringify(t.assign || []));
   _tiOld = { dur: t.dur, assign: JSON.parse(JSON.stringify(t.assign || [])) };
   _tiTaskId = id;
   tiRenderAssign();
   $('tiDur') && $('tiDur').addEventListener('input', tiRenderCost);
-  $('tiTitle').textContent = (w[t.id] || '') + ' · ' + t.nm;
+  if (!isSumm) {
+    // Start, durată și final sunt legate între ele (la salvare, finalul ar anula altfel durata scrisă de tine):
+    // schimbi startul sau durata → se recalculează finalul; schimbi finalul → se recalculează durata.
+    const syncEnd = () => { const sd = $('tiStart').value, d = parseInt($('tiDur').value, 10); if (sd && d >= 1) dtSet('tiEnd', fD(endDate({ sd, dur: d }))); };
+    $('tiStart').addEventListener('change', syncEnd);
+    $('tiDur').addEventListener('input', syncEnd);
+    $('tiEnd').addEventListener('change', () => {
+      const sd = $('tiStart').value, ed = $('tiEnd').value; if (!sd || !ed) return;
+      if (ed < sd) { toast('⚠️ Finalul nu poate fi înaintea startului'); syncEnd(); return; }
+      $('tiDur').value = workDur(pD(sd), pD(ed)); tiRenderCost();
+    });
+  }
+  $('tiWbs').textContent = w[t.id] || '';
+  $('tiTitle').textContent = t.nm;
+  $('tiChips').innerHTML = tiChipsHtml(t);
+  $('tiSummary').innerHTML = tiSummaryHtml(t);
+  $('tiBody').scrollTop = 0;
   $('taskInfoModal').classList.add('open');
   $('tiSaveBtn').onclick = () => saveTaskInfo(id);
 }
