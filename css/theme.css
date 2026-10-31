@@ -605,3 +605,9 @@ body.bars-new .g-body.zoom-micro .gb.task .rs{width:3px}
 /* panou îngust (zoom de pagină mare / fereastră mică): prefixul WBS dispare ca numele activităților să aibă loc */
 .pane-l{container-type:inline-size;container-name:pl}
 @container pl (max-width:540px){.t-row .t-wbs{display:none}}
+
+/* ===== Mărimea panglicii, a filelor de proiect și a barei de stare (--ui-zoom, vezi main.js › stepUiScale) ===== */
+.ribbon,.tabs-row,.sbar{zoom:var(--ui-zoom,1)}
+.rb-quick-txt{width:auto;min-width:28px;padding:0 6px;font-size:12px;font-weight:800;color:var(--text2)}
+body.no-project #ganttTools{display:none!important}
+body.no-project .rb-quick-group:not(#ganttTools){display:flex!important}

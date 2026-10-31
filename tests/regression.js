@@ -1131,6 +1131,23 @@
     pl.style.width = ''; const cs = getComputedStyle(pl); ok(parseFloat(cs.width) >= 480 && parseFloat(cs.width) <= 600, 'lățimea implicită a panoului: ' + cs.width); pl.style.width = old;
   });
 
+  test('panglică: mărimea butoanelor se alege (A− / A+, Ctrl+Alt), se adaptează la fereastră, iar meniurile rămân sub buton când e scalată', () => {
+    const prev = uiMode, ribbon = document.querySelector('.ribbon'), key = (k, o) => document.dispatchEvent(new KeyboardEvent('keydown', Object.assign({ key: k, bubbles: true, cancelable: true }, o)));
+    try {
+      stepUiScale(0); eq(uiMode, 'auto'); ok(uiScale() >= 1 && uiScale() <= 1.8, 'scala automată: ' + uiScale());
+      ok(innerWidth / 1600 < 1.0 ? uiScale() === 1 : true, 'la ~1360 px rămâne 100%');
+      stepUiScale(1); eq(uiScale(), 1.15); eq(document.documentElement.style.getPropertyValue('--ui-zoom'), '1.15'); eq(getComputedStyle(ribbon).zoom, '1.15', 'panglica e scalată');
+      eq(getComputedStyle($('splitView')).zoom, String(ZF === 1 ? 1 : ZF), 'tabelul + Gantt nu sunt afectați'); eq(localStorage.getItem('ganttUiScale'), '1.15');
+      key('+', { ctrlKey: true, altKey: true }); eq(uiScale(), 1.3, 'Ctrl+Alt + crește'); key('-', { ctrlKey: true, altKey: true }); eq(uiScale(), 1.15, 'Ctrl+Alt − scade');
+      const noAnim = noTransitions(); document.querySelector('.rb-tab[data-rt="project"]').click(); stepUiScale(1); stepUiScale(1); eq(uiScale(), 1.5);
+      const btn = document.querySelector('.rb-content[data-rc="project"] .rb-dd > .rb-btn'); toggleDD(btn);
+      const m = btn.nextElementSibling.getBoundingClientRect(), b = btn.getBoundingClientRect();
+      ok(m.width > 0 && Math.abs(m.left - b.left) < 3 && Math.abs(m.top - (b.bottom + 4)) < 3, 'meniul stă sub buton la scala 150%: stânga ' + Math.round(m.left - b.left) + ', sus ' + Math.round(m.top - b.bottom));
+      closeDD(); noAnim(); key('0', { ctrlKey: true, altKey: true }); eq(uiMode, 'auto');
+      for (let i = 0; i < 6; i++) stepUiScale(1); eq(uiScale(), 2); stepUiScale(1); eq(uiScale(), 2, 'maxim 200%');
+    } finally { document.querySelector('.rb-tab[data-rt="home"]').click(); uiMode = prev; try { localStorage.setItem('ganttUiScale', prev === 'auto' ? 'auto' : String(prev)); } catch (e) {} applyUiScale(); }
+  });
+
   test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {
     document.querySelectorAll('.modal-overlay').forEach(ov => { const b = ov.firstElementChild; ok(b && b.getAttribute('role') && b.getAttribute('aria-modal') === 'true', 'fără rol: #' + ov.id); });
     eq($('confirmModal').firstElementChild.getAttribute('role'), 'alertdialog');
