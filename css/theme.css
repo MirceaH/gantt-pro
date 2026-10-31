@@ -591,3 +591,17 @@ body.bars-new .g-body.zoom-micro .gb.task .rs{width:3px}
 .sbar .sb-click{cursor:pointer;padding:1px 8px;border-radius:10px;background:var(--accentL)}
 .sbar .sb-click:hover{filter:brightness(.96)}
 .sbar .sb-click b{color:var(--accent)}
+
+/* ===== Layout la orice lățime de fereastră / zoom de pagină ===== */
+/* panoul din stânga: 46% din lățime, între 480 și 600 px (înainte: fix 600 px — la zoom mare strivea graficul) */
+.pane-l{width:clamp(480px,46vw,600px)}
+/* bara de stare: numele proiectului nu se mai reduce la „E…”, iar valorile mai puțin importante dispar întâi */
+.sbar .sb-name{flex:0 0 auto;min-width:90px;max-width:230px}
+.sbar .sb-file,.sbar .save-indicator{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:1250px){.sbar .sb-opt1{display:none}}
+@media (max-width:1050px){.sbar .sb-opt2{display:none}.sbar .save-indicator{display:none}}
+/* coloanele suplimentare (Δ bază, Cost, Status, real) apar DOAR când panoul e extins (butonul din separator) — nu doar fiindcă a rămas loc */
+.pane-l:not(.expanded) :is(.col-var,.col-cost,.col-status,.col-as,.col-af,.col-id,.col-notes){display:none!important}
+/* panou îngust (zoom de pagină mare / fereastră mică): prefixul WBS dispare ca numele activităților să aibă loc */
+.pane-l{container-type:inline-size;container-name:pl}
+@container pl (max-width:540px){.t-row .t-wbs{display:none}}

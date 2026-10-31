@@ -1113,6 +1113,24 @@
     } finally { setContentZoom(1, true); C[2].w = 44; localStorage.removeItem('ganttColW'); }
   });
 
+  test('layout: panoul din stânga mai îngust decât coloanele → coloana „Activitate” se strânge, „După” rămâne vizibilă, antet și rânduri aliniate', () => {
+    newTabWith('Lay', [mk(1, 'Activitate cu un nume destul de lung', 5), mk(2, 'B', 3, null, [F(1)])]); settle();
+    const pl = $('paneL'), old = pl.style.width;
+    try {
+      ['480px', '520px', '600px'].forEach(wd => {
+        pl.style.width = wd; renderAll();
+        const right = pl.getBoundingClientRect().right, ths = [...document.querySelectorAll('#thRow .th')].slice(0, 7), last = ths[6].getBoundingClientRect();
+        ok(last.right <= right + 1 && last.width > 20, 'la ' + wd + ' coloana „După” încape: ' + Math.round(last.right) + ' ≤ ' + Math.round(right));
+        const rowLast = document.querySelector('.t-row .c:nth-child(7)').getBoundingClientRect(); ok(rowLast.right <= right + 1, 'și în rânduri la ' + wd);
+        near(ths[6].getBoundingClientRect().left, rowLast.left, 1.5, 'antetul și rândurile au aceleași coloane la ' + wd);
+        ok(ths[1].getBoundingClientRect().width >= 100, 'coloana Activitate nu dispare: ' + Math.round(ths[1].getBoundingClientRect().width));
+        const wb = document.querySelector('.t-row .t-wbs'); if (wb) eq(getComputedStyle(wb).display === 'none', wd === '480px' || wd === '520px', 'prefixul WBS dispare doar în panou îngust (' + wd + ')');
+        ok(![...document.querySelectorAll('.t-row .c.col-var, .t-row .c.col-cost')].some(e => getComputedStyle(e).display !== 'none'), 'coloanele suplimentare rămân ascunse când panoul nu e extins');
+      });
+    } finally { pl.style.width = old; renderAll(); }
+    pl.style.width = ''; const cs = getComputedStyle(pl); ok(parseFloat(cs.width) >= 480 && parseFloat(cs.width) <= 600, 'lățimea implicită a panoului: ' + cs.width); pl.style.width = old;
+  });
+
   test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {
     document.querySelectorAll('.modal-overlay').forEach(ov => { const b = ov.firstElementChild; ok(b && b.getAttribute('role') && b.getAttribute('aria-modal') === 'true', 'fără rol: #' + ov.id); });
     eq($('confirmModal').firstElementChild.getAttribute('role'), 'alertdialog');

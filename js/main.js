@@ -256,8 +256,8 @@ function renderStatus(){
   const bh=behindCount(), parts=[
     `<span class="sb-name" title="${esc(tabName)}">${esc(tabName)}</span>`,
     it("Activități",n+(filterActive()?` (afișate ${viewRows().length})`:"")),
-    it("Durată",td+" zile"),
-    it("Medie",av+" zile"),
+    it("Durată",td+" zile","sb-opt2"),
+    it("Medie",av+" zile","sb-opt1"),
     `<span class="sb-i"><i>Progres</i><b>${ap}%</b><span class="sb-bar"><span style="width:${ap}%"></span></span></span>`
   ];
   if(showCritical&&cpmInfo.end) parts.push(it("Critice",cpmInfo.count,"bad"), it("Final proiect",fmtDate(pD(cpmInfo.end))));

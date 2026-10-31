@@ -290,9 +290,11 @@ const CX=[
   } catch(e) {}
 })();
 
+// Coloana „Activitate” e elastică: când panoul din stânga e mai îngust decât coloanele, ea se strânge (până la 110 px), iar celelalte rămân vizibile — „După” nu mai dispare
+const NAME_MIN=110, _cmin=(i,c)=>i===1?Math.min(c.w,NAME_MIN):c.w;
 function renderTH(){
   let h="";
-  C.forEach((c,i)=>h+='<div class="th" style="width:'+c.w+'px;min-width:'+c.w+'px">'+c.l+'<span class="col-rs" data-ci="'+i+'"></span></div>');
+  C.forEach((c,i)=>h+='<div class="th" style="width:'+c.w+'px;min-width:'+_cmin(i,c)+'px">'+c.l+'<span class="col-rs" data-ci="'+i+'"></span></div>');
   CX.forEach((c,i)=>h+='<div class="th '+c.cls+'" style="width:'+c.w+'px;min-width:'+c.w+'px">'+c.l+'<span class="col-rs" data-ci="'+(C.length+i)+'"></span></div>');
   $("thRow").innerHTML=h;
 }
@@ -382,7 +384,7 @@ function renderTBody(){
     const marker = isSumm
       ? '<span class="folder-ico">'+(isCol?'📁':'📂')+'</span>'
       : '<span class="tdot"></span>';
-    h += '<div class="c c-name" style="width:'+C[1].w+'px;min-width:'+C[1].w+'px">'
+    h += '<div class="c c-name" style="width:'+C[1].w+'px;min-width:'+_cmin(1,C[1])+'px">'
        + '<span class="ipad" style="width:'+indent+'px"></span>'+ci+marker+(t.notes&&t.notes.trim()?'<span class="note-ico" title="'+esc(t.notes).replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();openTaskInfo('+t.id+')">📝</span>':'')
        + (showWbs&&w[t.id]?'<span class="t-wbs" title="Cod WBS">'+w[t.id]+'</span>':'')
        + '<input value="'+esc(t.nm)+'"'
