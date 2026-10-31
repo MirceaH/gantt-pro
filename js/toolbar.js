@@ -327,6 +327,7 @@ function openTaskInfo(id) {
     .map(x => w[x.id]).filter(Boolean).join('; ');
 
   $('tiBody').innerHTML = `
+    <div class="ti-sec">General</div>
     <div class="ti-row">
       <label>Nume</label>
       <input id="tiName" value="${esc(t.nm)}">
@@ -343,6 +344,7 @@ function openTaskInfo(id) {
         <input value="${t.id}" disabled>
       </div>
     </div>
+    <div class="ti-sec">Plan: date, durată, progres</div>
     <div class="ti-row ti-2col">
       <div>
         <label>Data Start</label>
@@ -363,7 +365,8 @@ function openTaskInfo(id) {
         <input type="number" min="0" max="100" id="tiProg" value="${t.prog}" ${isSumm ? 'disabled' : ''}>
       </div>
     </div>
-    ${(isSumm || t.isMilestone) ? '' : `<div class="ti-row ti-2col">
+    ${(isSumm || t.isMilestone) ? '' : `<div class="ti-sec">Progres real</div>
+    <div class="ti-row ti-2col">
       <div>
         <label>Început real <button type="button" class="ti-mini" onclick="dtSet('tiAs',statusDay())" title="Pune data de status">azi</button></label>
         ${dtField(t.as || '', {id:'tiAs'})}
@@ -374,6 +377,7 @@ function openTaskInfo(id) {
       </div>
       <div class="dep-hint" style="grid-column:1/-1">Se completează singure când progresul trece de 0% / ajunge la 100% (cu data de status). Planul se mută după ele doar când apeși „Actualizează planul" (Proiect › Urmărire).</div>
     </div>`}
+    <div class="ti-sec">Legături</div>
     <div class="ti-row">
       <label>Se face după (WBS[Tip][±zile], separat cu ;)</label>
       <input id="tiDeps" value="${esc(depsList)}" placeholder="ex: 1.1; 2.3FS+2; 3.4SS-1">
@@ -382,6 +386,11 @@ function openTaskInfo(id) {
         Tipuri: FS (implicit) • SS (start-start) • FF (finish-finish) • SF (start-finish). Lag opțional: +2 / -1
       </div>
     </div>
+    <div class="ti-row">
+      <label>Urmează după ea (doar informativ)</label>
+      <input value="${esc(succsList) || '—'}" disabled>
+    </div>
+    <div class="ti-sec">Restricții și termen</div>
     <div class="ti-row ti-2col">
       <div>
         <label>Restricție</label>
@@ -398,6 +407,7 @@ function openTaskInfo(id) {
       <label>Termen limită (deadline) — nu mută nimic, doar avertizează dacă e depășit</label>
       ${dtField(t.deadline || '', {id:'tiDeadline'})}
     </div>
+    <div class="ti-sec" ${isSumm ? 'style="display:none"' : ''}>Resurse și cost</div>
     <div class="ti-row ti-res" ${isSumm ? 'style="display:none"' : ''}>
       <label>Resurse atribuite</label>
       <div id="tiAssign"></div>
@@ -414,10 +424,7 @@ function openTaskInfo(id) {
       </select>
       <div style="font-size:10px;color:var(--muted);margin-top:3px">Durată fixă: la mai multe resurse crește munca. Muncă fixă: la mai multe resurse scade durata. Unități fixe: la altă durată se schimbă munca.</div>
     </div>
-    <div class="ti-row">
-      <label>Urmează după ea (doar informativ)</label>
-      <input value="${esc(succsList) || '—'}" disabled>
-    </div>
+    <div class="ti-sec">Altele</div>
     <div class="ti-row">
       <label>Note</label>
       <textarea id="tiNotes" rows="3" placeholder="Note opționale...">${esc(t.notes || '')}</textarea>

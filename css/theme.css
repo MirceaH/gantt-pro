@@ -411,3 +411,21 @@ body.no-project .tabs-row .vtabs{display:none!important}
 .g-info .gi-v b{font-size:12.5px}
 .g-info .gi-chip{font-size:10.5px;padding:0 7px}
 .g-info .gi-bar{width:70px;height:5px}
+
+/* ===== Design: Task Info pe secțiuni ===== */
+.ti-sec{display:flex;align-items:center;gap:10px;margin:18px 0 10px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.ti-sec::after{content:'';flex:1;height:1px;background:var(--grid)}
+#tiBody > .ti-sec:first-child{margin-top:2px}
+
+/* ===== Design: arbore — butoane de zoom ===== */
+.tree-crumb .tc-step{width:26px;padding:0;justify-content:center;font-size:15px;line-height:1}
+.tree-crumb .tc-pct{min-width:38px;text-align:center}
+
+/* ===== Design: ecranul de bun venit ===== */
+.welcome{background:radial-gradient(900px 420px at 50% 28%,var(--accentL),transparent 70%),var(--bg)}
+.welcome-box{max-width:760px}
+.wl-feats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:34px;text-align:left}
+.wl-feat{padding:12px 14px;border:1px solid var(--grid);border-radius:var(--r-md,10px);background:var(--card)}
+.wl-feat b{display:block;font-size:12.5px;color:var(--text);margin-bottom:3px}
+.wl-feat span{font-size:11.5px;line-height:1.35;color:var(--muted);font-weight:600}
+@media (max-width:820px){.wl-feats{grid-template-columns:repeat(2,1fr)}}

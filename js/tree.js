@@ -60,7 +60,8 @@ function treeCloseAll(){ treeOpen.clear(); _treeHold = true; renderAll(); _treeH
 function setTreeZoom(z){ treeZoom = Math.max(0.4, Math.min(1.6, Math.round(z*100)/100)); renderAll(); }
 function treeFit(){
   const b=$("treeBox"); if(!b) return;
-  setTreeZoom(Math.min((b.clientWidth-30)/_treeDims.w, (b.clientHeight-80)/_treeDims.h));
+  // încadrează, dar nu sub 70%: sub această mărime textul din carduri nu se mai citește (arborele mare se derulează pe verticală)
+  setTreeZoom(Math.max(0.7, Math.min((b.clientWidth-30)/_treeDims.w, (b.clientHeight-80)/_treeDims.h)));
   // Centrare lină (pe dimensiunea finală, nu pe cea din timpul animației)
   const finalW = _treeDims.w * treeZoom + 20;
   b.scrollTo({ left: Math.max(0, (finalW - b.clientWidth) / 2), top: 0, behavior: "smooth" });
@@ -128,7 +129,7 @@ function _treeBar(){
   return `<div class="tree-crumb">${left}<span class="tc-spacer"></span>
     <button class="tc-sec" onclick="treeCloseAll()" title="Închide toate capitolele">⊟ Închide tot</button>
     <button class="tc-sec" onclick="treeOpenAll()" title="Deschide toate capitolele">⊞ Deschide tot</button>
-    <span class="tc-zoom"><span>${Math.round(treeZoom*100)}%</span><button class="tc-sec" onclick="treeFit()" title="Auto-zoom: încadrează și centrează arborele">⤢ Încadrează</button></span></div>`;
+    <span class="tc-zoom"><button class="tc-sec tc-step" onclick="setTreeZoom(treeZoom-0.1)" title="Micșorează" aria-label="Micșorează">−</button><span class="tc-pct">${Math.round(treeZoom*100)}%</span><button class="tc-sec tc-step" onclick="setTreeZoom(treeZoom+0.1)" title="Mărește" aria-label="Mărește">＋</button><button class="tc-sec" onclick="treeFit()" title="Auto-zoom: încadrează și centrează arborele">⤢ Încadrează</button></span></div>`;
 }
 
 function renderTree(){
