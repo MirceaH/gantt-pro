@@ -319,6 +319,9 @@
 
         <div class="rb-group" data-cap="Urmărire">
           <div class="rb-row">
+            <button class="rb-btn rb-btn-big" id="btnEVM" onclick="openEVM()" title="Valoare realizată (EVM): planificat, realizat, indici SPI / CPI și curba S">
+              <svg class="ic"><use href="#i-bars"/></svg><span class="rb-lbl">Valoare realizată</span>
+            </button>
             <div class="rb-dd">
               <button class="rb-btn rb-btn-big" id="btnTrack" onclick="toggleDD(this)" title="Progres real: data de status, început / final real, actualizarea planului">
                 <svg class="ic"><use href="#i-flag"/></svg><span class="rb-lbl">Urmărire</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
@@ -494,6 +497,17 @@
     </div>
     <div class="res-tabs" id="resTabs"></div>
     <div class="res-body" id="resBody"></div>
+  </div>
+</div>
+
+<!-- Valoare realizată (EVM) -->
+<div class="modal-overlay" id="evmModal">
+  <div class="modal-box res-box evm-box">
+    <div class="ti-header">
+      <span class="ti-title">📈 Valoare realizată (EVM) și curba S</span>
+      <button class="modal-close" onclick="closeEVM()" aria-label="Închide">✕</button>
+    </div>
+    <div class="res-body" id="evmBody"></div>
   </div>
 </div>
 
@@ -686,6 +700,7 @@
 <script src="js/cpm.js"></script>
 <script src="js/plan.js"></script>
 <script src="js/resources.js"></script>
+<script src="js/evm.js"></script>
 <script src="js/filters.js"></script>
 <script src="js/xlsx.js"></script>
 <script src="js/sheets.js"></script>

@@ -10,7 +10,7 @@ function saveBaseline() {
   if (!T.length) { toast('⚠️ Proiect gol'); return; }
   const doIt = () => {
     pushHistory();
-    T.forEach(t => { if (!hasK(t.id)) t.bl = { sd: t.sd, dur: t.dur }; else delete t.bl; });
+    T.forEach(t => { if (!hasK(t.id)) t.bl = { sd: t.sd, dur: t.dur, cost: Math.round((costMap[t.id] || 0) * 100) / 100 }; else delete t.bl; });   // costul de bază alimentează valoarea realizată (EVM)
     showBaseline = true; try { localStorage.setItem('ganttBase', '1'); } catch (e) {}
     syncTabData(); renderAll(); _refreshPlanUI();
     toast('📌 Linia de bază salvată — orice schimbare de acum se compară cu ea');

@@ -410,7 +410,14 @@ function _sanitizeTasks() {
       else { const keep = { type }; if (validISO(c.date)) keep.date = c.date; ['ac', 'lv'].forEach(k => { if (c[k]) keep[k] = true; }); if (validISO(c.o)) keep.o = c.o; t.cons = keep; }
     }
     ['deadline', 'as', 'af'].forEach(k => { if (t[k] != null && !validISO(t[k])) delete t[k]; });
-    if (t.bl != null) { if (t.bl && validISO(t.bl.sd) && Number.isFinite(+t.bl.dur) && +t.bl.dur >= 0) t.bl = { sd: t.bl.sd, dur: Math.round(+t.bl.dur) }; else delete t.bl; }
+    if (t.bl != null) {
+      if (t.bl && validISO(t.bl.sd) && Number.isFinite(+t.bl.dur) && +t.bl.dur >= 0) {
+        const nb = { sd: t.bl.sd, dur: Math.round(+t.bl.dur) };
+        if (t.bl.cost !== undefined && t.bl.cost !== null && Number.isFinite(+t.bl.cost) && +t.bl.cost >= 0) nb.cost = +t.bl.cost;
+        t.bl = nb;
+      } else delete t.bl;
+    }
+    if (t.acost !== undefined && !(t.acost !== null && t.acost !== '' && Number.isFinite(+t.acost) && +t.acost >= 0)) delete t.acost; else if (t.acost !== undefined) t.acost = +t.acost;   // cost real (EVM)
     if (t.ttype != null && !['fu', 'fd', 'fw'].includes(t.ttype)) delete t.ttype;
     if (t.sn != null) t.sn = String(t.sn).slice(0, 24);
     if (t.notes != null) t.notes = String(t.notes);
@@ -884,7 +891,7 @@ function loadDemo() {
 
   // 1) Planul inițial → linia de bază
   renderAll();
-  T.forEach(t => { if (!hasK(t.id)) t.bl = { sd: t.sd, dur: t.dur }; });
+  T.forEach(t => { if (!hasK(t.id)) t.bl = { sd: t.sd, dur: t.dur, cost: Math.round((costMap[t.id] || 0) * 100) / 100 }; });
   showBaseline = true; try { localStorage.setItem('ganttBase', '1'); } catch (e) {}
 
   // 2) Ce s-a întâmplat apoi: întârzieri, restricții, termene limită
@@ -902,6 +909,9 @@ function loadDemo() {
   D(4).as = D(4).sd;  D(4).af = fD(endDate(D(4)));                   // la timp (bară verde)
   D(5).as = D(5).sd;                                                 // în desfășurare (bară albastră)
   D(7).as = D(7).sd;
+  D(3).acost = Math.round((costMap[D(3).id] || 0) * 1.12);                         // cost real puțin peste buget (pentru valoarea realizată / EVM)
+  D(4).acost = Math.round((costMap[D(4).id] || 0) * 0.97);
+  D(7).acost = Math.round((costMap[D(7).id] || 0) * 0.5 * 1.15);
   syncTabData(); renderAll(); _refreshPlanUI();
 }
 

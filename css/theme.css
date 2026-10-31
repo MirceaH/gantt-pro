@@ -616,3 +616,35 @@ body.no-project #ganttTools{display:none!important}
 .gb.task.warn:hover::before,.gb.task.warn.dep-source::before{top:-20px;right:-4px}      /* lipit deasupra butonului (butonul: sus -6 px, ~15 px) */
 body.dep-dragging .gb.task.warn::before{top:-22px;right:-4px}                       /* la tragere butoanele sunt mai mari (sus -8 px) */
 body.no-project .rb-quick-group:not(#ganttTools){display:flex!important}
+
+/* ===== Valoare realizată (EVM) ===== */
+.evm-box{max-width:960px}
+.evm-notes{margin:0 0 12px;padding:9px 12px;border-radius:10px;background:var(--accentL);color:var(--text2);font-size:12px;line-height:1.5}
+.evm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.evm-kpi{padding:8px 11px;border:1px solid var(--grid);border-radius:10px;background:var(--card);min-width:0}
+.evm-k{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.evm-v{margin-top:2px;font-size:16px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.evm-h{margin-top:1px;font-size:10.5px;font-weight:600;color:var(--muted);line-height:1.3}
+.evm-kpi.ok .evm-v{color:#2f9e6a}.evm-kpi.warn .evm-v{color:#c98a12}.evm-kpi.bad .evm-v{color:#d94040}
+body.dark .evm-kpi.ok .evm-v{color:#5fd29a}body.dark .evm-kpi.bad .evm-v{color:#ff8a80}
+.evm-legend{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:11.5px;font-weight:700;color:var(--text2);margin:2px 0 6px}
+.evm-legend i{display:inline-block;width:18px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.evm-legend i.dash{background:repeating-linear-gradient(90deg,var(--muted) 0 4px,transparent 4px 8px)}
+.evm-legend .evm-read{margin-left:auto;font-weight:700;color:var(--muted)}
+.evm-chart{border:1px solid var(--grid);border-radius:10px;background:var(--card);padding:6px}
+.evm-chart svg{display:block}
+.evm-chart .g{stroke:var(--grid);stroke-width:1}.evm-chart .t{fill:var(--muted);font:600 10px var(--font)}
+.evm-chart path{fill:none;stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round}
+.evm-chart .pv{stroke:#4f6bed}.evm-chart .ev{stroke:#2f9e6a}.evm-chart .ac{stroke:#e5484d}
+.evm-chart .bac{stroke:var(--muted);stroke-width:1.2;stroke-dasharray:5 4}
+.evm-chart .st{stroke:#e03a3a;stroke-width:1.4;stroke-dasharray:3 3}.evm-chart .stl{fill:#e03a3a;font:800 10px var(--font)}
+.evm-chart .cur{stroke:var(--text2);stroke-width:1;opacity:.5}
+.evm-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.evm-tbl th{padding:6px 8px;text-align:left;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--grid)}
+.evm-tbl td{padding:6px 8px;border-bottom:1px solid var(--grid2);color:var(--text)}
+.evm-tbl th:not(:first-child),.evm-tbl td.n{text-align:right;white-space:nowrap}
+.evm-bar{display:inline-block;width:54px;height:6px;border-radius:3px;background:var(--grid2);overflow:hidden;vertical-align:middle;margin-right:5px}
+.evm-bar i{display:block;height:100%;background:#3fa968;border-radius:3px}
+.evm-ok{color:#2f9e6a;font-weight:800}.evm-warn{color:#c98a12;font-weight:800}.evm-bad{color:#d94040;font-weight:800}
+.evm-foot{margin-top:10px;font-size:11px;color:var(--muted);line-height:1.5}
+@media (max-width:760px){.evm-grid{grid-template-columns:repeat(2,1fr)}}

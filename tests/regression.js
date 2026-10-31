@@ -1164,6 +1164,82 @@
     } finally { document.body.classList.remove('dep-dragging'); noAnim(); nt.remove(); if (barStyle !== keep) toggleBarStyle(); }
   });
 
+  // ---------- EVM: valoare realizată ----------
+  const evmFixture = () => {
+    newTabWith('Evm', [mk(1, 'A', 10, null, [], '2026-10-26', { prog: 25, assign: [{ rid: 1, units: 1000 }] }), mk(2, 'B', 10, null, [F(1)], null, { assign: [{ rid: 1, units: 2000 }] })], null, { list: [{ id: 1, name: 'Fix', type: 'cost' }], next: 2, cur: 'RON' });
+    setMeta({ sdate: '2026-10-30' }); settle();     // vineri, după 5 din cele 10 zile lucrătoare ale lui A
+  };
+  const evmDone = () => { setMeta(null); };
+
+  test('EVM: PV / EV / SPI / SV la data de status, cu cifre verificabile (fără cost real → fără indicatori de cost)', () => {
+    evmFixture();
+    try {
+      const D = computeEVM();
+      eq(D.unit, 'cost'); eq(Math.round(D.bac), 3000, 'BAC = 1000 + 2000'); eq(Math.round(D.pv), 500, 'PV: A e la jumătate (5 din 10 zile), B nu a început');
+      eq(Math.round(D.ev), 250, 'EV = 25% din 1000'); eq(Math.round(D.sv), -250); near(D.spi, 0.5, 0.001, 'SPI = 250 / 500');
+      eq(D.hasActual, false); eq(D.cpi, null, 'CPI nu se inventează fără cost real'); eq(D.eac, null); eq(D.cv, null);
+    } finally { evmDone(); }
+  });
+
+  test('EVM: cu cost real → CV, CPI, EAC, ETC, VAC; activitățile fără cost real se consideră în buget (AC = EV)', () => {
+    evmFixture();
+    try {
+      T.find(t => t.id === 1).acost = 400; settle(); const D = computeEVM();
+      eq(D.hasActual, true); eq(Math.round(D.ac), 400, 'AC = 400 (B are EV 0)'); eq(Math.round(D.cv), -150); near(D.cpi, 0.625, 0.001);
+      eq(Math.round(D.eac), 4800, 'EAC = BAC / CPI = 3000 / 0,625'); eq(Math.round(D.etc), 4400); eq(Math.round(D.vac), -1800);
+      T.find(t => t.id === 2).prog = 50; T.find(t => t.id === 2).acost = 1000; settle(); const E = computeEVM();
+      eq(Math.round(E.ev), 1250, 'EV = 250 + 50% din 2000'); eq(Math.round(E.ac), 1400); eq(E.nActual, 2);
+    } finally { evmDone(); }
+  });
+
+  test('EVM: costul de bază din linia de bază nu se schimbă când se modifică resursele ulterior', () => {
+    evmFixture();
+    try {
+      T.forEach(t => { t.bl = { sd: t.sd, dur: t.dur, cost: costMap[t.id] }; }); settle();
+      T.find(t => t.id === 1).assign = [{ rid: 1, units: 5000 }]; settle();
+      const D = computeEVM(); eq(Math.round(D.bac), 3000, 'BAC rămâne cel salvat în bază, nu 7000'); eq(D.hasBase, true);
+      eq(Math.round(D.pv), 500);
+    } finally { evmDone(); }
+  });
+
+  test('EVM: proiect fără costuri → valori în zile lucrătoare; curba S pornește de la 0 și ajunge la BAC; EV / AC se opresc la data de status', () => {
+    newTabWith('Evm0', [mk(1, 'A', 10, null, [], '2026-10-26', { prog: 50 }), mk(2, 'B', 10, null, [F(1)])]); setMeta({ sdate: '2026-10-30' }); settle();
+    try {
+      const D = computeEVM(); eq(D.unit, 'zile'); near(D.bac, 20, 0.001); near(D.pv, 5, 0.001); near(D.ev, 5, 0.001); near(D.spi, 1, 0.001);
+      const c = D.curve; near(c[0].pv, 0, 0.001); near(c[c.length - 1].pv, 20, 0.01, 'curba PV ajunge la BAC');
+      ok(c.every((p, i) => i === 0 || p.pv >= c[i - 1].pv - 1e-9), 'PV nu scade niciodată');
+      const hist = c.filter(p => p.ev !== null), fut = c.filter(p => p.ev === null); ok(hist.length && fut.length, 'EV există până la data de status și nu după');
+      ok(hist.every(p => p.d <= D.status) && fut.every(p => p.d > D.status));
+      near(hist[hist.length - 1].ev, 5, 0.01, 'la data de status curba EV = EV');
+    } finally { evmDone(); }
+  });
+
+  test('EVM: fereastra se deschide din Proiect › Urmărire, arată indicatorii, graficul și tabelul pe capitole; Esc o închide', () => {
+    evmFixture();
+    try {
+      T.find(t => t.id === 1).acost = 400; settle();
+      ok($('btnEVM'), 'butonul „Valoare realizată”'); openEVM(); ok($('evmModal').classList.contains('open'));
+      eq(document.querySelectorAll('#evmBody .evm-kpi').length, 12, '12 indicatori'); ok($('evmBody').querySelector('path.pv') && $('evmBody').querySelector('path.ev') && $('evmBody').querySelector('path.ac'), 'curbele PV / EV / AC');
+      eq(document.querySelectorAll('#evmBody .evm-tbl tbody tr').length, 2, 'un rând pe capitol / activitate principală');
+      ok($('evmBody').textContent.includes('0,50') && $('evmBody').textContent.includes('0,63'), 'SPI 0,50 și CPI 0,63');
+      const hit = $('evmHit'), r = hit.getBoundingClientRect(); hit.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + 5 }));
+      ok($('evmRead').textContent.includes('PV'), 'valorile apar la mouse: ' + $('evmRead').textContent);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); ok(!$('evmModal').classList.contains('open'), 'Esc închide');
+    } finally { closeEVM(); evmDone(); }
+  });
+
+  test('EVM: „Cost real” din Detalii activitate se salvează / se șterge, iar datele invalide din fișier se curăță', () => {
+    evmFixture();
+    try {
+      openTaskInfo(1); $('tiActualCost').value = '123.5'; $('tiSaveBtn').click(); eq(T.find(t => t.id === 1).acost, 123.5, 'salvat');
+      openTaskInfo(1); eq($('tiActualCost').value, '123.5'); $('tiActualCost').value = ''; $('tiSaveBtn').click(); eq(T.find(t => t.id === 1).acost, undefined, 'gol = șters');
+      openTaskInfo(1); $('tiActualCost').value = '-5'; $('tiSaveBtn').click(); eq(T.find(t => t.id === 1).acost, undefined, 'negativ = respins');
+      setProject([mk(1, 'A', 2, null, [], '2026-10-26', { acost: '-3', bl: { sd: '2026-10-26', dur: 2, cost: -1 } }), mk(2, 'B', 2, null, [], '2026-10-26', { acost: 'abc' }), mk(3, 'C', 2, null, [], '2026-10-26', { acost: '12', bl: { sd: '2026-10-26', dur: 2, cost: '450' } })]);
+      _sanitizeTasks(); const [a, b, c] = T;
+      eq([a.acost, b.acost, c.acost], [undefined, undefined, 12], 'cost real invalid eliminat'); eq(a.bl, { sd: '2026-10-26', dur: 2 }, 'cost de bază negativ eliminat'); eq(c.bl.cost, 450);
+    } finally { evmDone(); }
+  });
+
   test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {
     document.querySelectorAll('.modal-overlay').forEach(ov => { const b = ov.firstElementChild; ok(b && b.getAttribute('role') && b.getAttribute('aria-modal') === 'true', 'fără rol: #' + ov.id); });
     eq($('confirmModal').firstElementChild.getAttribute('role'), 'alertdialog');

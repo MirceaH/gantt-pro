@@ -433,6 +433,10 @@ function openTaskInfo(id) {
       </div>
     </div>
     <div class="ti-row">
+      <label>Cost real (${esc(RES.cur)}) <span class="ti-opt">(opțional — cât s-a cheltuit până acum; alimentează valoarea realizată / EVM)</span></label>
+      <input type="number" min="0" step="any" id="tiActualCost" value="${t.acost !== undefined && t.acost !== null ? t.acost : ''}" placeholder="necompletat = în buget">
+    </div>
+    <div class="ti-row">
       <label>Tip activitate (ce se păstrează când schimbi durata sau resursele)</label>
       <select id="tiType">
         ${Object.keys(TASK_TYPES).map(k => `<option value="${k}" ${(t.ttype || 'fu') === k ? 'selected' : ''}>${TASK_TYPES[k]}</option>`).join('')}
@@ -538,6 +542,8 @@ function saveTaskInfo(id) {
     t.assign = _tiAssign.filter(a => resById(a.rid) && a.units > 0).map(a => ({ rid: a.rid, units: +a.units }));
     if (!t.assign.length) delete t.assign;
     applyTaskType(t, _tiOld.dur, _tiOld.assign);
+    const acEl = $('tiActualCost'), acV = acEl ? parseFloat(acEl.value) : NaN;       // cost real (EVM)
+    if (acEl && acEl.value.trim() !== '' && Number.isFinite(acV) && acV >= 0) t.acost = acV; else delete t.acost;
   }
 
   closeTaskInfo();
