@@ -357,6 +357,11 @@
     <button class="proj-tab-add" onclick="newProject()" title="Proiect nou">＋</button>
   </div>
 
+  <div class="tabs-tools" id="ganttTools">
+    <button class="g-fs-btn" id="btnLegend" onclick="toggleLegend(event)" title="Ce înseamnă liniile, culorile și semnele din Gantt">ⓘ Legendă</button>
+    <button class="g-fs-btn" onclick="toggleGanttFull()" title="Gantt pe tot ecranul (Esc pentru ieșire)">⛶ Tot ecranul</button>
+  </div>
+
   <!-- View tabs (compatibil cu codul existent) -->
   <div class="vtabs" id="vtabs">
     <div class="vtab active" data-v="gantt"><svg class="ic"><use href="#i-gantt"/></svg>Gantt</div>
@@ -381,11 +386,6 @@
       <button class="splitter-btn" id="splitterBtn" onclick="togglePaneL();event.stopPropagation()" title="Extinde / restrânge panel-ul de activități">⇔</button>
     </div>
     <div class="pane-r" id="paneR">
-      <div class="g-toolbar" style="display:flex;align-items:center">
-        <span style="font-size:10px;color:var(--muted);font-weight:700;margin-left:4px">Trage rândurile pt ierarhie | Trage barele pt date | Dublu-click rând = Detalii</span>
-        <button class="g-fs-btn" id="btnLegend" onclick="toggleLegend(event)" title="Ce înseamnă liniile, culorile și semnele din Gantt" style="margin-left:auto;margin-right:6px">ⓘ Legendă</button>
-        <button class="g-fs-btn" onclick="toggleGanttFull()" title="Gantt pe tot ecranul (Esc pentru ieșire)" style="margin-left:0">⛶ Tot ecranul</button>
-      </div>
       <div class="g-head" id="gHead"></div>
       <div class="g-body" id="gBody"></div>
       <div class="g-info" id="gInfo"></div>

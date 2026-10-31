@@ -301,6 +301,7 @@ function setViewMode(v) {
   $("splitView").style.display  = v === "gantt" ? "flex" : "none";
   $("treeLayout").style.display = v === "tree"  ? "flex" : "none";
   $("timelineLayout").style.display = v === "timeline" ? "flex" : "none";
+  const gt = $("ganttTools"); if (gt) gt.style.display = v === "gantt" ? "" : "none";
   if (v !== "tree" && typeof _treePrev !== "undefined") _treePrev = null; // fără animație la revenire
   if (v === "tree") {
     _treePrev = null;
@@ -396,10 +397,10 @@ function toggleLegend(e) {
     <div class="lg-row"><i class="lg-bar crit"></i><span><b>Bară roșie</b> — activitate de pe drumul critic (orice întârziere mută finalul proiectului).</span></div>
     <div class="lg-row"><i class="lg-bl"></i><span><b>Linie subțire sub bară</b> — planul inițial (linia de bază). <b style="color:#d94040">Roșie</b> = activitatea a întârziat față de plan, <b style="color:#2f9e6a">verde</b> = mai devreme, gri = la termen.</span></div>
     <div class="lg-row"><i class="lg-late"></i><span><b>Punct roșu pe bară</b> — activitate întârziată: trebuia să fie gata până azi, dar nu e finalizată.</span></div>
-    <div class="lg-row"><i class="lg-warn"></i><span><b>Contur portocaliu întrerupt</b> — avertisment: restricție neîndeplinită, termen depășit sau resursă supraalocată (detalii în bara de jos).</span></div>
+    <div class="lg-row"><i class="lg-warn"></i><span><b>Semn „!” portocaliu pe bară</b> — avertisment: restricție neîndeplinită, termen depășit sau resursă supraalocată (detalii în bara de jos).</span></div>
     <div class="lg-row"><i class="lg-dl"></i><span><b>Dungă verde cu triunghi</b> — termen limită (deadline); devine roșie dacă e depășit.</span></div>
     <div class="lg-row"><i class="lg-arrow"></i><span><b>Săgeți</b> — dependențe: gri = FS, verde = SS, portocaliu = FF, mov = SF. Selectează o activitate ca să le vezi etichetele.</span></div>
-    <div class="lg-row"><i class="lg-we"></i><span><b>Coloane roșiatice</b> — zile nelucrătoare (weekend sau zile libere din calendar).</span></div>`;
+    <div class="lg-row"><i class="lg-we"></i><span><b>Coloane mai închise</b> — zile nelucrătoare (weekend sau zile libere din calendar).</span></div>`;
   document.body.appendChild(p);
   const b = $("btnLegend"); if (b) { const r = b.getBoundingClientRect(); p.style.top = (r.bottom + 6) + "px"; p.style.right = Math.max(8, innerWidth - r.right) + "px"; }
 }

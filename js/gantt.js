@@ -659,7 +659,7 @@ function hideLive(){ const b=document.getElementById("liveBadge"); if(b) b.remov
 // ===== Bara de informații de sub Gantt =====
 function updateInfoBar(t){
   const el=$("gInfo"); if(!el) return;
-  if(!t){ el.innerHTML='<span style="color:var(--muted)">Treci cu mouse-ul pe o activitate sau selecteaz-o pentru detalii</span>'; return; }
+  if(!t){ el.innerHTML='<span style="color:var(--muted)">Treci cu mouse-ul pe o activitate pentru detalii · Trage rândurile = ierarhie · Trage barele = date · Dublu-click = Detalii</span>'; return; }
   const w=wbs(), p=ps(t), c=cpm[t.id], zi=n=>`${n} ${n===1?"zi":"zile"}`;
   const tile=(lbl,body,cls="")=>`<div class="gi-tile ${cls}"><div class="gi-k">${lbl}</div><div class="gi-v">${body}</div></div>`;
   const link=(id,d)=>`<span class="gi-link" style="--c:${DEP_COLORS[d.type]||DEP_COLORS.FS}">${w[id]||"?"}<i>${esc(depLabel(d))}</i></span>`;
