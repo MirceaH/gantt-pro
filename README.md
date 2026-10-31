@@ -22,7 +22,7 @@ A browser-based project scheduling app inspired by MS Project. It runs entirely 
 
 ## Getting started
 
-Open `index.html` in Chrome or Edge. A demo project ("Industrial Hall Construction") loads on first launch, and your data is saved automatically in the browser.
+Open `index.html` in Chrome or Edge. On first launch a welcome screen lets you start a new project, open a project file or load an example ("Industrial Hall Construction"). Your data is saved automatically in the browser.
 
 To install it as an app, serve it from a web server (for example GitHub Pages) and click "Install" in the address bar.
 
