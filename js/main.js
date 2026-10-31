@@ -123,6 +123,38 @@ function setNotesOf(id, v) {
   syncTabData(); renderAll();
 }
 
+function setShortOf(id, v) {
+  const t = T.find(x => x.id === id); if (!t) return;
+  v = v.trim().slice(0, 24);
+  if (v === (t.sn || "")) return;
+  pushHistory();
+  if (v) t.sn = v; else delete t.sn;
+  syncTabData(); renderAll();
+}
+
+// Început / final real din panou — aceeași logică ca în fereastra „Detalii activitate" (saveTaskInfo)
+function setActualOf(id, which, v) {
+  const t = T.find(x => x.id === id); if (!t || hasK(id) || t.isMilestone) return;
+  const as = which === "as" ? v : (t.as || ""), af = which === "af" ? v : (t.af || "");
+  if (as && af && af < as) { toast("⚠️ Finalul real nu poate fi înaintea începutului real"); renderAll(); return; }
+  pushHistory();
+  const oldProg = t.prog, oldAf = t.af;
+  if (as) t.as = as; else delete t.as;
+  if (af) { t.af = af; if (!t.as) t.as = _minISO(t.sd, af); if (af !== oldAf && t.prog < 100) t.prog = 100; } else delete t.af;
+  const msg = _syncActuals(t, oldProg);
+  syncTabData(); renderAll(); if (msg) toast(msg);
+}
+
+// Tip activitate (unități fixe / durată fixă / muncă fixă), cu aceeași recalculare ca în fereastra de detalii
+function setTypeOf(id, v) {
+  const t = T.find(x => x.id === id); if (!t || hasK(id) || !TASK_TYPES[v]) return;
+  const oldDur = t.dur, oldAssign = JSON.parse(JSON.stringify(t.assign || []));
+  pushHistory();
+  if (v === "fu") delete t.ttype; else t.ttype = v;
+  applyTaskType(t, oldDur, oldAssign);
+  syncTabData(); renderAll();
+}
+
 // Panoul „Detalii Activitate" (vederea Arbore): toate câmpurile, grupate. Ștergerea / desprinderea sunt în meniul click-dreapta.
 function renderSidePanel() {
   if (view !== "tree") return;
@@ -148,17 +180,19 @@ function renderSidePanel() {
     <div class="sp-sec">General</div>
     <div class="sp-group"><label class="sp-lbl">Nume</label>
       <input class="sp-in" value="${esc(t.nm)}" onchange="commitName(${t.id},this.value)" ${key}></div>
+    <div class="sp-group"><label class="sp-lbl">Nume scurt <span class="sp-opt">(opțional — apare în bară când numele complet nu încape)</span></label>
+      <input class="sp-in" value="${esc(t.sn || "")}" placeholder="${esc(_autoShort(t))}" maxlength="24" onchange="setShortOf(${t.id},this.value)" ${key}></div>
     <label class="sp-check"><input type="checkbox" ${t.isMilestone ? "checked" : ""} ${dis} onchange="setMilestoneOf(${t.id},this.checked)"> ♦ Milestone (punct cheie)</label>
 
-    <div class="sp-sec">Planificare</div>
+    <div class="sp-sec">Plan: date, durată, progres</div>
     <div class="sp-2col">
-      <div class="sp-group"><label class="sp-lbl">Start</label>
+      <div class="sp-group"><label class="sp-lbl">Data start</label>
         ${dtField(t.sd, {cls:"sp-in", dis:!!dis, onchange:`upd(${t.id},'sd',this.value)`})}</div>
-      <div class="sp-group"><label class="sp-lbl">Final</label>
+      <div class="sp-group"><label class="sp-lbl">Data final</label>
         ${dtField(fD(p._e), {cls:"sp-in", dis:!!dis, onchange:`upd(${t.id},'ed',this.value)`})}</div>
     </div>
     <div class="sp-2col">
-      <div class="sp-group"><label class="sp-lbl">Durată (zile lucrătoare)</label>
+      <div class="sp-group"><label class="sp-lbl">Durată (zile)</label>
         <input type="number" min="1" class="sp-in" value="${t.dur}" ${dis} onchange="upd(${t.id},'dur',this.value)" ${key}></div>
       <div class="sp-group"><label class="sp-lbl">Progres (%)</label>
         <input type="number" min="0" max="100" step="5" class="sp-in" value="${t.prog}" ${dis} onchange="upd(${t.id},'prog',this.value)" ${key}></div>
@@ -169,11 +203,19 @@ function renderSidePanel() {
       <span class="sp-val" style="background:${bgColors[dp]}">${t.prog}%</span>
     </div>
 
-    <div class="sp-sec">Dependențe</div>
-    <div class="sp-group"><label class="sp-lbl">Se face după (WBS[tip][±zile], separat cu ;)</label>
+    ${(isSumm || t.isMilestone) ? "" : `<div class="sp-sec">Progres real</div>
+    <div class="sp-2col">
+      <div class="sp-group"><label class="sp-lbl">Început real</label>
+        ${dtField(t.as || "", {cls:"sp-in", onchange:`setActualOf(${t.id},'as',this.value)`})}</div>
+      <div class="sp-group"><label class="sp-lbl">Final real</label>
+        ${dtField(t.af || "", {cls:"sp-in", onchange:`setActualOf(${t.id},'af',this.value)`})}</div>
+    </div>`}
+
+    <div class="sp-sec">Legături</div>
+    <div class="sp-group"><label class="sp-lbl">Se face după (WBS[Tip][±zile], separat cu ;)</label>
       <input class="sp-in" value="${esc(depsStr)}" placeholder="ex: 1.1; 2.3SS+2" onchange="updDeps(${t.id},this.value)" ${key}>
       <div class="dep-hint">Scrie numărul rândului după care se face. <b>1.2</b> = începe după ce se termină 1.2. <b>1.2SS+3</b> = începe la 3 zile după ce începe 1.2. Mai multe: separate cu ;</div></div>
-    <div class="sp-info"><span>Urmează</span><b>${esc(succStr)}</b></div>
+    <div class="sp-info"><span>Urmează după ea</span><b>${esc(succStr)}</b></div>
 
     <div class="sp-sec">Restricții și termen</div>
     <div class="sp-group"><label class="sp-lbl">Restricție</label>
@@ -189,6 +231,8 @@ function renderSidePanel() {
     ${taskWarn[t.id] ? `<div class="sp-warn">⚠ ${[taskWarn[t.id].lateText, taskWarn[t.id].cons, taskWarn[t.id].res].filter(Boolean).map(esc).join("<br>⚠ ")}</div>` : ""}
 
     <div class="sp-sec">Resurse și cost</div>
+    ${isSumm ? "" : `<div class="sp-group"><label class="sp-lbl">Tip activitate</label>
+      <select class="sp-in" onchange="setTypeOf(${t.id},this.value)">${Object.keys(TASK_TYPES).map(k => `<option value="${k}" ${(t.ttype || "fu") === k ? "selected" : ""}>${TASK_TYPES[k]}</option>`).join("")}</select></div>`}
     <div class="sp-info"><span>Cost</span><b>${costMap[t.id] ? fmtMoney(costMap[t.id]) : "—"}</b></div>
     ${(t.assign || []).filter(a => resById(a.rid)).map(a => { const r = resById(a.rid); return `<div class="sp-info"><span>${esc(r.name)}</span><b>${r.type === "cost" ? fmtMoney(a.units) : a.units + (r.type === "work" ? "%" : " " + esc(r.unit || ""))}</b></div>`; }).join("")}
     ${isSumm ? "" : `<button class="sp-btn" onclick="openTaskInfo(${t.id})">👥 Atribuie / schimbă resurse…</button>`}
@@ -198,7 +242,7 @@ function renderSidePanel() {
     <div class="sp-info"><span>Capitol părinte</span><b>${parent ? esc((w[parent.id] || "") + " " + parent.nm) : "— (nivel principal)"}</b></div>
     ${isSumm ? `<div class="sp-info"><span>Conține</span><b>${allD(t.id).length} activități</b></div>` : ""}
 
-    <div class="sp-sec">Note</div>
+    <div class="sp-sec">Altele</div>
     <div class="sp-group"><textarea class="sp-in" rows="3" placeholder="Note opționale..." onchange="setNotesOf(${t.id},this.value)">${esc(t.notes || "")}</textarea></div>
   `;
 }

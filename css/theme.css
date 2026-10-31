@@ -460,3 +460,6 @@ body.no-project .tabs-row .tabs-tools{display:none!important}
 .g-info .gi-res{margin:0;padding:0 7px;font-size:11px}
 .g-info .gi-link{padding:0 6px;font-size:11px}
 .g-info .gi-bar{width:100%;height:4px}
+
+/* Panoul „Detalii Activitate": indiciu discret lângă etichetă */
+.sp-lbl .sp-opt{font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted)}

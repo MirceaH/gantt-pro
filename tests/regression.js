@@ -979,6 +979,29 @@
     eq(JSON.stringify([T, cpm]), a, 'index vs fără index');
   });
 
+  test('detalii: panoul din Arbore, fereastra Detalii activitate și bara de informații folosesc aceleași denumiri', () => {
+    newTabWith('Det', [mk(1, 'Cap', 1), mk(2, 'A', 5, 1, [], null, { as: '2026-10-26', sn: 'Aa', notes: 'o notă', deadline: '2026-12-01', cons: { type: 'SNET', date: '2026-10-27' }, ttype: 'fd' }), mk(3, 'B', 3, 1, [F(2)])]); settle();
+    const need = ['Nume', 'Nume scurt', 'Data start', 'Data final', 'Durată (zile)', 'Progres (%)', 'Început real', 'Final real', 'Se face după', 'Restricție', 'Data restricției', 'Termen limită', 'Tip activitate'];
+    sel = 2; setViewMode('tree'); renderSidePanel();
+    const panel = [...document.querySelectorAll('#spBody .sp-lbl')].map(l => l.textContent.trim());
+    openTaskInfo(2); const dlg = [...document.querySelectorAll('#tiBody .ti-row label')].map(l => l.textContent.trim()); closeTaskInfo();
+    need.forEach(n => { ok(panel.some(l => l.startsWith(n)), 'panou: lipsește „' + n + '”'); ok(dlg.some(l => l.startsWith(n)), 'fereastră: lipsește „' + n + '”'); });
+    setViewMode('gantt'); updateInfoBar(T.find(t => t.id === 2)); const info = [...document.querySelectorAll('#gInfo .gi-k')].map(k => k.textContent.trim());
+    ['Data start', 'Data final', 'Durată', 'Progres', 'Început real', 'Restricție', 'Data restricției', 'Termen limită', 'Tip activitate', 'Note', 'Nume scurt', 'Urmează după ea'].forEach(n => ok(info.includes(n), 'bara de informații: lipsește „' + n + '”'));
+    updateInfoBar(T.find(t => t.id === 3)); ok([...document.querySelectorAll('#gInfo .gi-k')].some(k => k.textContent.trim() === 'Se face după'), 'bara de informații: „Se face după” pe activitatea 3');
+  });
+
+  test('detalii: câmpurile adăugate în panou (nume scurt, început / final real, tip activitate) se salvează și se pot anula', () => {
+    newTabWith('Det2', [mk(1, 'A', 5), mk(2, 'B', 3, null, [F(1)])]); settle();
+    const a = T.find(t => t.id === 1);
+    setShortOf(1, 'Ab'); eq(a.sn, 'Ab'); setShortOf(1, ''); eq(a.sn, undefined, 'nume scurt șters');
+    setActualOf(1, 'as', '2026-10-27'); eq(a.as, '2026-10-27');
+    setActualOf(1, 'af', '2026-10-26'); eq(a.af, undefined, 'final real înaintea începutului e respins');
+    setActualOf(1, 'af', '2026-11-02'); eq(a.af, '2026-11-02'); eq(a.prog, 100, 'final real → 100%');
+    setTypeOf(1, 'fw'); eq(a.ttype, 'fw'); setTypeOf(1, 'fu'); eq(a.ttype, undefined, 'unități fixe = implicit'); setTypeOf(1, 'nope'); eq(a.ttype, undefined);
+    undo(); undo(); ok(!T.find(t => t.id === 1).ttype, 'anulare');
+  });
+
   test('securitate: numele proiectului din bara de stare nu poate injecta HTML', () => {
     newTabWith('<img src=x onerror=alert(1)>', [mk(1, 'A', 2)]); settle(); renderStatus();
     ok(!$('sbar').querySelector('img'), 'fără element <img> în bara de stare'); ok($('sbar').textContent.includes('<img src=x'), 'numele apare ca text');

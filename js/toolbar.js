@@ -347,11 +347,11 @@ function openTaskInfo(id) {
     <div class="ti-sec">Plan: date, durată, progres</div>
     <div class="ti-row ti-2col">
       <div>
-        <label>Data Start</label>
+        <label>Data start</label>
         ${dtField(t.sd, {id:'tiStart', dis:isSumm})}
       </div>
       <div>
-        <label>Data Final</label>
+        <label>Data final</label>
         ${dtField(fD(p._e), {id:'tiEnd', dis:isSumm})}
       </div>
     </div>
