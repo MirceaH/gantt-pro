@@ -629,7 +629,7 @@ renderAll();
 if ($("rbViewGantt")) $("rbViewGantt").classList.add("active");
 if (showCritical && $("btnCrit")) $("btnCrit").classList.add("active");
 if (typeof _refreshPlanUI === "function") _refreshPlanUI();
-_refreshSideNamesUI();
+_refreshSideNamesUI(); _refreshWbsUI();
 if (hadData && tabs.length) toast('📂 Proiecte restaurate!');
 
 // PWA: service worker (aplicația merge și offline); doar pe http(s), nu pe file://

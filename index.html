@@ -230,6 +230,9 @@
             <button class="rb-btn rb-btn-big" id="btnBase" onclick="toggleBaseline()" title="Arată / ascunde linia de bază (planificat vs. realizat)">
               <svg class="ic"><use href="#i-ruler"/></svg><span class="rb-lbl">Linia de bază</span>
             </button>
+            <button class="rb-btn rb-btn-big" id="btnWbs" onclick="toggleWbs()" title="Arată / ascunde codul WBS (1.2.3) dinaintea numelor activităților">
+              <svg class="ic"><use href="#i-columns"/></svg><span class="rb-lbl">Cod WBS</span>
+            </button>
             <button class="rb-btn rb-btn-big" id="btnSideNames" onclick="toggleSideNames()" title="Scrie numele fiecărei activități lângă bara ei din Gantt">
               <svg class="ic"><use href="#i-tag"/></svg><span class="rb-lbl">Nume lângă bară</span>
             </button>
@@ -378,7 +381,7 @@
   </div>
 
   <div class="split" id="splitView">
-    <div class="pane-l" id="paneL" style="width:572px">
+    <div class="pane-l" id="paneL" style="width:600px">
       <div class="th-row" id="thRow"></div>
       <div class="t-body" id="tBody"></div>
     </div>

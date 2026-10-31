@@ -1027,6 +1027,17 @@
     openTaskInfo(1); $('tiDur').value = '6'; fire('tiDur', 'input'); $('tiSaveBtn').click(); eq(a.dur, 6, 'durata scrisă în fereastră se salvează');
   });
 
+  test('tabel: prima coloană e ID (nr. rând, ca în MS Project), codul WBS e prefix înaintea numelui și se poate ascunde', () => {
+    newTabWith('Idw', [mk(1, 'Cap', 1), mk(2, 'A', 3, 1), mk(3, 'B', 2, 1, [F(2)]), mk(4, 'Cap2', 1), mk(5, 'C', 2, 4)]); settle();
+    eq(C[0].k, 'id'); eq(document.querySelector('#thRow .th').textContent.trim(), 'ID'); ok(!CX.some(c => c.k === 'id'), 'fără a doua coloană de ID');
+    const ids = () => [...document.querySelectorAll('#tBody .t-row .c-id')].map(e => e.textContent), wbsTxt = () => [...document.querySelectorAll('#tBody .t-row .t-wbs')].map(e => e.textContent);
+    eq(ids(), ['1', '2', '3', '4', '5']); eq(wbsTxt(), ['1', '1.1', '1.2', '2', '2.1']);
+    const nameCell = document.querySelector('#tBody .t-row[data-tid="2"] .c-name'); ok(nameCell.querySelector('.t-wbs').nextElementSibling.tagName === 'INPUT', 'WBS stă imediat înaintea numelui');
+    toggleC(1); eq(ids(), ['1', '4', '5'], 'ID-urile rămân aceleași când un capitol e restrâns'); toggleC(1);
+    toggleWbs(); eq(wbsTxt(), [], 'WBS ascuns'); eq(localStorage.getItem('ganttWbs'), '0'); toggleWbs(); eq(wbsTxt().length, 5); eq(localStorage.getItem('ganttWbs'), '1');
+    ok($('btnWbs') && $('btnWbs').classList.contains('active'), 'butonul „Cod WBS” e apăsat când WBS e vizibil');
+  });
+
   test('securitate: numele proiectului din bara de stare nu poate injecta HTML', () => {
     newTabWith('<img src=x onerror=alert(1)>', [mk(1, 'A', 2)]); settle(); renderStatus();
     ok(!$('sbar').querySelector('img'), 'fără element <img> în bara de stare'); ok($('sbar').textContent.includes('<img src=x'), 'numele apare ca text');

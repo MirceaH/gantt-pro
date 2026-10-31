@@ -361,6 +361,8 @@ function recalcSummaries() {
 
 function flat() { const roots=T.filter(t=>!t.pid), r=[]; (function w(l){l.forEach(t=>{r.push(t); if(!coll.has(t.id))w(kids(t.id))})})(roots); return r; }
 function wbs() { const m={}; (function w(l,p){l.forEach((t,i)=>{const n=p?p+"."+(i+1):String(i+1); m[t.id]=n; w(kids(t.id),n)})})(T.filter(t=>!t.pid),""); return m; }
+// ID = numărul rândului în ordinea schemei (ca în MS Project): rămâne același și când un capitol e restrâns sau când filtrezi
+function rowIds() { const m={}; let n=0; (function w(l){ l.forEach(t=>{ m[t.id]=++n; w(kids(t.id)); }); })(T.filter(t=>!t.pid)); return m; }
 function wbsReverse() { const w=wbs(), r={}; for(const id in w) r[w[id]]=+id; return r; }
 function ps(t) { const s=pD(t.sd), e=endDate(t); return{...t,_s:s,_e:e}; }
 function ab() { if(!T.length) return null; let mn=null, mx=null; T.forEach(t=>{const p=ps(t); if(!mn||p._s<mn)mn=p._s; if(!mx||p._e>mx)mx=p._e; if(t.deadline){const dl=pD(t.deadline); if(dl>mx)mx=dl;} const bs=(typeof blSpan==="function"&&showBaseline)?blSpan(t):null; if(bs){if(bs.s<mn)mn=bs.s; if(bs.e>mx)mx=bs.e;} const ac=(typeof actSpan==="function")?actSpan(t):null; if(ac){if(ac.s<mn)mn=ac.s; if(ac.e>mx)mx=ac.e;}}); return{mn,mx}; }

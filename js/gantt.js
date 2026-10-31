@@ -1,4 +1,13 @@
 // Numele activităților lângă bară (opțional, se păstrează între sesiuni)
+// Codul WBS (1.2.3) ca prefix înaintea numelui, ca în MS Project; se poate ascunde din Vizualizare
+let showWbs = (function(){ try { return localStorage.getItem("ganttWbs") !== "0"; } catch(e) { return true; } })();
+function _refreshWbsUI(){ const b=document.getElementById("btnWbs"); if(b) b.classList.toggle("active", showWbs); }
+function toggleWbs(){
+  showWbs=!showWbs;
+  try { localStorage.setItem("ganttWbs", showWbs?"1":"0"); } catch(e) {}
+  _refreshWbsUI(); renderAll();
+  toast(showWbs?"Codul WBS apare înaintea numelor":"Codul WBS e ascuns");
+}
 let showSideNames = (function(){ try { return localStorage.getItem("ganttSideNames") === "1"; } catch(e) { return false; } })();
 function _refreshSideNamesUI(){ const b=document.getElementById("btnSideNames"); if(b) b.classList.toggle("active", showSideNames); }
 function toggleSideNames(){
@@ -226,8 +235,8 @@ function clearHighlight(){
 }
 
 const C=[
-  {k:"wbs", l:"WBS",       w:40},
-  {k:"nm",  l:"Activitate", w:208},
+  {k:"id",  l:"ID",        w:38},
+  {k:"nm",  l:"Activitate", w:236},
   {k:"dur", l:"Zile",       w:44},
   {k:"sd",  l:"Start",      w:92},
   {k:"ed",  l:"Final",      w:92},
@@ -240,8 +249,7 @@ const CX=[
   {k:"cost",  l:"Cost",    w:92, cls:"col-cost"},
   {k:"status",l:"Status",  w:80, cls:"col-status"},
   {k:"as",    l:"Început real", w:104, cls:"col-as"},
-  {k:"af",    l:"Final real",   w:104, cls:"col-af"},
-  {k:"id",    l:"ID",      w:40, cls:"col-id"}
+  {k:"af",    l:"Final real",   w:104, cls:"col-af"}
 ];
 
 // Lățimi coloane salvate (redimensionate de utilizator)
@@ -308,7 +316,7 @@ function _statusOf(t){
 }
 
 function renderTBody(){
-  const o=viewRows(), w=wbs(), filtered=filterActive();
+  const o=viewRows(), w=wbs(), ids=rowIds(), filtered=filterActive();
   if(!o.length){
     $("tBody").innerHTML = (filtered && T.length)
       ? '<div style="padding:20px;color:var(--muted);text-align:center;font-weight:700">Niciun rând nu se potrivește filtrului.<br><button type="button" class="sp-btn" style="margin-top:10px;width:auto;padding:6px 14px" onclick="clearFilter()">✕ Elimină filtrul</button></div>'
@@ -337,8 +345,8 @@ function renderTBody(){
        + ' onmouseenter="highlightRow('+t.id+')"'
        + ' onmouseleave="clearHighlight()">';
 
-    // WBS
-    h += '<div class="c c-wbs" style="width:'+C[0].w+'px;min-width:'+C[0].w+'px">'+(w[t.id]||"")+'</div>';
+    // ID = numărul rândului (ca în MS Project); codul WBS stă lângă nume
+    h += '<div class="c c-id" style="width:'+C[0].w+'px;min-width:'+C[0].w+'px">'+(ids[t.id]||"")+'</div>';
 
     // Nume — folder icon pt capitole, dot pt task-uri
     const marker = isSumm
@@ -346,6 +354,7 @@ function renderTBody(){
       : '<span class="tdot"></span>';
     h += '<div class="c c-name" style="width:'+C[1].w+'px;min-width:'+C[1].w+'px">'
        + '<span class="ipad" style="width:'+indent+'px"></span>'+ci+marker+(t.notes&&t.notes.trim()?'<span class="note-ico" title="'+esc(t.notes).replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();openTaskInfo('+t.id+')">📝</span>':'')
+       + (showWbs&&w[t.id]?'<span class="t-wbs" title="Cod WBS">'+w[t.id]+'</span>':'')
        + '<input value="'+esc(t.nm)+'"'
        + ' onchange="commitName('+t.id+',this.value)"'
        + ' '+onkeyNm
@@ -411,11 +420,6 @@ function renderTBody(){
        + (realOk ? dtField(t.as||'', {onchange:"updActual("+t.id+",'as',this.value)"}) : '<span style="color:var(--muted)">—</span>') + '</div>';
     h += '<div class="c col-af" style="width:'+CX[4].w+'px;min-width:'+CX[4].w+'px;justify-content:center">'
        + (realOk ? dtField(t.af||'', {onchange:"updActual("+t.id+",'af',this.value)"}) : '<span style="color:var(--muted)">—</span>') + '</div>';
-
-    // ID intern
-    h += '<div class="c col-id" style="width:'+CX[5].w+'px;min-width:'+CX[5].w+'px;justify-content:center;color:var(--muted);font-size:10px;font-weight:700">'
-       + '#'+t.id
-       + '</div>';
 
     h += '</div>';
   });

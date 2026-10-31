@@ -367,7 +367,7 @@ function openTaskInfo(id) {
       <label>Nume scurt <span class="ti-opt">(opțional — apare în bară când numele complet nu încape)</span></label>
       <input id="tiShort" value="${esc(t.sn || '')}" placeholder="${esc(_autoShort(t))}" maxlength="24">
     </div>
-    <div class="ti-meta">WBS <b>${w[t.id] || ''}</b> · ID intern <b>${t.id}</b> · ${kind}</div>`);
+    <div class="ti-meta">WBS <b>${w[t.id] || ''}</b> · ID <b>${rowIds()[t.id] || t.id}</b> · ${kind}</div>`);
 
   const cPlan = card('Plan: date, durată, progres', `
     <div class="ti-row ti-2col">
