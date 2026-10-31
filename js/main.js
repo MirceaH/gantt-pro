@@ -336,7 +336,6 @@ function initSplitter(){
 // ======== VIEW SWITCH (Gantt / Arbore) ========
 function setViewMode(v) {
   view = v;
-  document.querySelectorAll(".vtab").forEach(t => t.classList.toggle("active", t.dataset.v === v));
   // Sincronizare cu butoanele din tab View
   const rbG = $("rbViewGantt"), rbT = $("rbViewTree"), rbL = $("rbViewTimeline");
   if (rbG) rbG.classList.toggle("active", v === "gantt");
@@ -345,7 +344,7 @@ function setViewMode(v) {
   $("splitView").style.display  = v === "gantt" ? "flex" : "none";
   $("treeLayout").style.display = v === "tree"  ? "flex" : "none";
   $("timelineLayout").style.display = v === "timeline" ? "flex" : "none";
-  const gt = $("ganttTools"); if (gt) gt.style.display = v === "gantt" ? "" : "none";
+  const gt = $("ganttTools"); if (gt) gt.style.display = v === "gantt" ? "inline-flex" : "none";
   if (v !== "tree" && typeof _treePrev !== "undefined") _treePrev = null; // fără animație la revenire
   if (v === "tree") {
     _treePrev = null;
@@ -358,12 +357,6 @@ function setViewMode(v) {
   }
   renderAll();
 }
-
-$("vtabs").addEventListener("click", e => {
-  const tab = e.target.closest(".vtab");
-  if (!tab) return;
-  setViewMode(tab.dataset.v);
-});
 
 // ======== RIBBON TAB SWITCHING ========
 $("ribbonTabs").addEventListener("click", e => {

@@ -79,6 +79,10 @@
       <div class="rb-tab" data-rt="project">Proiect</div>
       <div class="rb-tab" data-rt="format" id="rtFormat" style="display:none">Format</div>
       <div class="ribbon-spacer"></div>
+      <span class="rb-quick-group" id="ganttTools">
+        <button class="rb-quick" id="btnLegend" onclick="toggleLegend(event)" title="Legendă: ce înseamnă liniile, culorile și semnele din Gantt" aria-label="Legendă"><svg class="ic"><use href="#i-info"/></svg></button>
+        <button class="rb-quick" onclick="toggleGanttFull()" title="Gantt pe tot ecranul (Esc pentru ieșire)" aria-label="Tot ecranul"><svg class="ic"><use href="#i-fullscreen"/></svg></button>
+      </span>
       <button class="rb-quick" id="btnRibbonCollapse" onclick="toggleRibbon()" title="Ascunde / arată butoanele (dublu-click pe un tab)"><svg class="ic"><use href="#i-chevup"/></svg></button>
       <button class="rb-quick" id="btnDark" onclick="toggleDark()" title="Temă luminoasă / întunecată"><svg class="ic"><use href="#i-moon"/></svg></button>
     </div>
@@ -208,9 +212,9 @@
 
         <div class="rb-group">
           <div class="rb-row rb-seg">
-            <button class="rb-btn" id="rbViewGantt" onclick="setViewMode('gantt')" title="Gantt: tabel + bare"><svg class="ic"><use href="#i-gantt"/></svg></button>
-            <button class="rb-btn" id="rbViewTree" onclick="setViewMode('tree')" title="Arbore: structura proiectului"><svg class="ic"><use href="#i-tree"/></svg></button>
-            <button class="rb-btn" id="rbViewTimeline" onclick="setViewMode('timeline')" title="Cronologie: rezumatul proiectului pe o singură pagină, pentru prezentări"><svg class="ic"><use href="#i-timeline"/></svg></button>
+            <button class="rb-btn" id="rbViewGantt" onclick="setViewMode('gantt')" title="Gantt: tabel + bare"><svg class="ic"><use href="#i-gantt"/></svg><span class="rb-lbl">Gantt</span></button>
+            <button class="rb-btn" id="rbViewTree" onclick="setViewMode('tree')" title="Arbore: structura proiectului"><svg class="ic"><use href="#i-tree"/></svg><span class="rb-lbl">Arbore</span></button>
+            <button class="rb-btn" id="rbViewTimeline" onclick="setViewMode('timeline')" title="Cronologie: rezumatul proiectului pe o singură pagină, pentru prezentări"><svg class="ic"><use href="#i-timeline"/></svg><span class="rb-lbl">Cronologie</span></button>
           </div>
         </div>
 
@@ -235,9 +239,6 @@
             </button>
             <button class="rb-btn rb-btn-big" id="btnSideNames" onclick="toggleSideNames()" title="Scrie numele fiecărei activități lângă bara ei din Gantt">
               <svg class="ic"><use href="#i-tag"/></svg><span class="rb-lbl">Nume lângă bară</span>
-            </button>
-            <button class="rb-btn rb-btn-big" onclick="openResources('load')" title="Încărcarea resurselor în timp și supraalocări">
-              <svg class="ic"><use href="#i-bars"/></svg><span class="rb-lbl">Încărcare</span>
             </button>
           </div>
         </div>
@@ -291,6 +292,9 @@
             </button>
             <button class="rb-btn rb-btn-big" onclick="openResources('budget')" title="Costul proiectului pe capitole și resurse">
               <svg class="ic"><use href="#i-coins"/></svg><span class="rb-lbl">Buget</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="openResources('load')" title="Încărcarea resurselor în timp și supraalocări">
+              <svg class="ic"><use href="#i-bars"/></svg><span class="rb-lbl">Încărcare</span>
             </button>
             <div class="rb-dd">
               <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Planul inițial cu care se compară progresul">
@@ -360,17 +364,6 @@
     <button class="proj-tab-add" onclick="newProject()" title="Proiect nou">＋</button>
   </div>
 
-  <div class="tabs-tools" id="ganttTools">
-    <button class="g-fs-btn" id="btnLegend" onclick="toggleLegend(event)" title="Ce înseamnă liniile, culorile și semnele din Gantt">ⓘ Legendă</button>
-    <button class="g-fs-btn" onclick="toggleGanttFull()" title="Gantt pe tot ecranul (Esc pentru ieșire)">⛶ Tot ecranul</button>
-  </div>
-
-  <!-- View tabs (compatibil cu codul existent) -->
-  <div class="vtabs" id="vtabs">
-    <div class="vtab active" data-v="gantt"><svg class="ic"><use href="#i-gantt"/></svg>Gantt</div>
-    <div class="vtab" data-v="tree"><svg class="ic"><use href="#i-tree"/></svg>Arbore</div>
-    <div class="vtab" data-v="timeline"><svg class="ic"><use href="#i-timeline"/></svg>Cronologie</div>
-  </div>
   </div><!-- /tabs-row -->
 
   <!-- Bara de filtru activ -->

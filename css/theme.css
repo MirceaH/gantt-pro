@@ -520,3 +520,14 @@ body.gantt-full .g-info{display:block!important}
 
 /* Fila „Vizualizare” are multe butoane: padding mai mic ca toate să încapă la 1360 px */
 .rb-content[data-rc="view"] .rb-btn-big{padding:0 8px;gap:5px}
+
+/* ===== Sus: fără pastila Gantt/Arbore/Cronologie în rândul de proiecte — vederile sunt în fila Vizualizare (ca în MS Project) ===== */
+.tabs-row{background:var(--bg)}
+.rb-quick-group{display:inline-flex;align-items:center;gap:2px;margin-right:6px;padding-right:8px;border-right:1px solid var(--grid)}
+body.no-project .rb-quick-group{display:none!important}
+.rb-seg .rb-btn .rb-lbl{font-size:12.5px;font-weight:600}
+.rb-seg .rb-btn{padding:0 11px;gap:6px}
+.rb-seg .rb-btn.active{background:var(--card);color:var(--accent);box-shadow:0 1px 3px rgba(20,28,60,.14)}
+/* Fila Vizualizare: filtrul rapid mai îngust și butoanele de vedere mai strânse, ca toate să încapă la 1360 px */
+.rb-content[data-rc="view"] .rb-input{width:92px}
+.rb-seg .rb-btn{padding:0 9px}

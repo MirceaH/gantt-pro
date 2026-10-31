@@ -822,7 +822,7 @@
   test('cronologie: capitolele principale ca bare, repere și termene, linia Azi; se deschide din fila de vedere', () => {
     tlProject(); setViewMode('timeline');
     eq(view, 'timeline'); eq($('timelineLayout').style.display, 'flex'); eq($('splitView').style.display, 'none'); eq($('treeLayout').style.display, 'none'); ok($('rbViewTimeline').classList.contains('active'), 'butonul din Vizualizare');
-    ok(document.querySelector('.vtab[data-v="timeline"]').classList.contains('active'), 'fila Cronologie activă');
+    ok($('rbViewTimeline').classList.contains('active'), 'butonul Cronologie e activ în fila Vizualizare');
     eq(tlBars().length, 2, 'copiii singurului capitol-rădăcină: Pregătire și Execuție'); eq(document.querySelectorAll('#tlBox .tl-mk.ms').length, 1, 'un reper'); eq(document.querySelectorAll('#tlBox .tl-mk.dl').length, 1, 'un termen limită'); ok(document.querySelector('#tlBox .tl-now'), 'linia Azi');
     ok($('tlBox').querySelector('.tl-head b').textContent === 'Tl' && $('tlBox').textContent.includes('Recepție') && $('tlBox').textContent.includes('Termen: Avize'), 'titlul proiectului și numele reperelor / termenelor');
     const cv = $('tlCanvas').getBoundingClientRect(); tlBars().forEach(b => { const r = b.getBoundingClientRect(); ok(r.left >= cv.left - 1 && r.right <= cv.right + 1, 'bara iese din cronologie: ' + b.title.split('\n')[0]); });
@@ -1044,10 +1044,17 @@
     ok($('sbar').textContent.includes('Activități'), 'etichetele valorilor sunt prezente');
   });
 
-  test('design: proiectele și vederile sunt pe același rând; bara de stare are valori grupate', () => {
-    const r = $('tabsRow'); ok(r && r.contains($('projTabsBar')) && r.contains($('vtabs')), 'tabs-row conține ambele');
-    const a = $('projTabsBar').getBoundingClientRect(), b = $('vtabs').getBoundingClientRect(); if (a.height) ok(Math.abs((a.top + a.height / 2) - (b.top + b.height / 2)) < 20, 'același rând');
-    addNewTab('Dsg'); ok(document.querySelectorAll('#sbar .sb-i').length >= 4, 'valori în bara de stare');
+
+  test('sus: rândul proiectelor are doar proiecte; vederile sunt în fila Vizualizare (etichetate); Legendă / Tot ecranul sus-dreapta, doar în Gantt', () => {
+    ok(!$('vtabs') && !document.querySelector('.vtab'), 'fără pastila Gantt/Arbore/Cronologie în rândul de proiecte');
+    const lbl = k => [...document.querySelectorAll('.rb-content[data-rc="' + k + '"] .rb-lbl')].map(e => e.textContent.trim());
+    ['Gantt', 'Arbore', 'Cronologie'].forEach(l => ok(lbl('view').includes(l), 'Vizualizare: lipsește ' + l));
+    ok(!lbl('view').includes('Încărcare') && lbl('project').includes('Încărcare'), 'Încărcare e în fila Proiect');
+    addNewTab('Top'); ok($('ribbonTabs').contains($('btnLegend')) && $('ribbonTabs').contains($('ganttTools')), 'unelte sus-dreapta');
+    ok(getComputedStyle($('ganttTools')).display !== 'none', 'vizibile în Gantt');
+    $('rbViewTree').click(); eq(view, 'tree'); eq(getComputedStyle($('ganttTools')).display, 'none', 'ascunse în Arbore');
+    $('rbViewTimeline').click(); eq(view, 'timeline'); $('rbViewGantt').click(); eq(view, 'gantt'); ok(getComputedStyle($('ganttTools')).display !== 'none');
+    $('btnLegend').click(); ok($('legendPop'), 'legenda se deschide'); $('btnLegend').click();
   });
 
   test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {
