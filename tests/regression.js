@@ -39,7 +39,7 @@
   // ---------- salvăm starea ----------
   const LS_KEYS = ['ganttSideNames', 'ganttBase', 'ganttCrit', 'ganttDark', 'ganttColW', 'ganttRibbonCollapsed'];
   const env = {
-    tabs: JSON.stringify(tabs), active: activeTabId, next: nextTabId, view,
+    tabs: JSON.stringify(tabs), active: activeTabId, next: nextTabId, view, dark: document.body.classList.contains('dark'),
     showSideNames: typeof showSideNames !== 'undefined' ? showSideNames : null,
     showBaseline: typeof showBaseline !== 'undefined' ? showBaseline : null,
     showCritical: typeof showCritical !== 'undefined' ? showCritical : null,
@@ -65,6 +65,7 @@
     if (env.showCritical !== null) showCritical = env.showCritical;
     LS_KEYS.forEach(k => { try { env.ls[k] === null ? localStorage.removeItem(k) : localStorage.setItem(k, env.ls[k]); } catch (e) {} });
     if (env.filter !== null && typeof FILTER !== 'undefined') { Object.keys(FILTER).forEach(k => delete FILTER[k]); Object.assign(FILTER, JSON.parse(env.filter)); }
+    document.body.classList.remove('pp-open'); document.body.classList.toggle('dark', env.dark);
     isAutoZoom = env.isAutoZoom; zoomLevel = env.zoomLevel;
     if (env.dayW) document.documentElement.style.setProperty('--day-w', env.dayW);
     view = 'gantt'; setViewMode(env.view || 'gantt');
@@ -804,6 +805,60 @@
     withRes([mk(1, 'A', 3)]); openResources('res'); customConfirm('Sigur?', () => {});
     const box = $('confirmModal').querySelector('.modal-box').getBoundingClientRect(), top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
     ok($('confirmModal').contains(top), 'elementul de sus la centrul confirmării aparține confirmării'); closeConfirm(); closeResources();
+  });
+
+  // ============================================================
+  // I) CRONOLOGIE
+  // ============================================================
+  const tlProject = () => {
+    const t0 = fD(aD(new Date(), -3));
+    newTabWith('Tl', [
+      mk(1, 'Castel', 1), mk(2, 'Pregătire și avize', 1, 1), mk(3, 'Releveu', 10, 2, [], t0, { prog: 100 }), mk(4, 'Proiect', 15, 2, [F(3)], t0, { prog: 40 }),
+      mk(5, 'Execuție', 1, 1), mk(6, 'Fundații', 20, 5, [F(4)], t0), mk(7, 'Recepție', 1, 5, [F(6)], t0, { isMilestone: true }), mk(8, 'Avize', 8, 2, [], t0, { deadline: fD(aD(new Date(), 40)) })
+    ]); settle();
+  };
+  const tlBars = () => [...document.querySelectorAll('#tlBox .tl-bar')];
+
+  test('cronologie: capitolele principale ca bare, repere și termene, linia Azi; se deschide din fila de vedere', () => {
+    tlProject(); setViewMode('timeline');
+    eq(view, 'timeline'); eq($('timelineLayout').style.display, 'flex'); eq($('splitView').style.display, 'none'); eq($('treeLayout').style.display, 'none'); ok($('rbViewTimeline').classList.contains('active'), 'butonul din Vizualizare');
+    ok(document.querySelector('.vtab[data-v="timeline"]').classList.contains('active'), 'fila Cronologie activă');
+    eq(tlBars().length, 2, 'copiii singurului capitol-rădăcină: Pregătire și Execuție'); eq(document.querySelectorAll('#tlBox .tl-mk.ms').length, 1, 'un reper'); eq(document.querySelectorAll('#tlBox .tl-mk.dl').length, 1, 'un termen limită'); ok(document.querySelector('#tlBox .tl-now'), 'linia Azi');
+    ok($('tlBox').querySelector('.tl-head b').textContent === 'Tl' && $('tlBox').textContent.includes('Recepție') && $('tlBox').textContent.includes('Termen: Avize'), 'titlul proiectului și numele reperelor / termenelor');
+    const cv = $('tlCanvas').getBoundingClientRect(); tlBars().forEach(b => { const r = b.getBoundingClientRect(); ok(r.left >= cv.left - 1 && r.right <= cv.right + 1, 'bara iese din cronologie: ' + b.title.split('\n')[0]); });
+  });
+
+  test('cronologie: barile care se suprapun merg pe linii diferite, fără să se atingă', () => {
+    const t0 = '2026-11-02'; newTabWith('Tl2', [mk(1, 'A', 20, null, [], t0), mk(2, 'B', 20, null, [], t0), mk(3, 'C', 5, null, [], '2026-12-14'), mk(4, 'Numele acesta este foarte lung ca să nu încapă în bară', 1, null, [], '2026-12-15')]); settle(); setViewMode('timeline');
+    const bars = tlBars().map(b => ({ top: b.offsetTop, l: b.offsetLeft, r: b.offsetLeft + b.offsetWidth }));
+    eq(new Set(bars.map(b => b.top)).size >= 2, true, 'cel puțin două linii'); const byTop = {}; bars.forEach(b => (byTop[b.top] = byTop[b.top] || []).push(b));
+    Object.values(byTop).forEach(l => { l.sort((a, b) => a.l - b.l); for (let i = 1; i < l.length; i++) ok(l[i].l >= l[i - 1].r, 'bare suprapuse pe aceeași linie'); });
+    ok(document.querySelector('#tlBox .tl-out'), 'numele care nu încape în bară apare lângă ea');
+  });
+
+  test('cronologie: proiect fără capitole arată activitățile; proiect gol arată un mesaj', () => {
+    newTabWith('Tl3', [mk(1, 'A', 5), mk(2, 'B', 5, null, [F(1)])]); settle(); setViewMode('timeline'); eq(tlBars().length, 2);
+    addNewTab('Tl4'); setViewMode('timeline'); ok($('tlBox').textContent.includes('Proiect gol'), 'mesaj proiect gol');
+  });
+
+  test('cronologie: click pe bară deschide Gantt-ul la capitol; Gantt-ul rămâne aliniat', () => {
+    tlProject(); setViewMode('timeline'); const id = +tlBars()[1].dataset.id; tlBars()[1].click();
+    eq(view, 'gantt'); eq(sel, id, 'capitolul selectat'); ok(document.querySelector('.g-row.selected'), 'rând selectat în Gantt');
+    if ($('gBody').clientHeight >= 100) { alignPanes(); const rows = [...document.querySelectorAll('.t-row')], g = [...document.querySelectorAll('.g-row')]; eq(rows.length, g.length); rows.forEach((r, i) => near(r.getBoundingClientRect().top, g[i].getBoundingClientRect().top, 1, 'rând ' + i)); }
+    setViewMode('tree'); ok($('treeBox').innerHTML.length > 50, 'arborele merge după cronologie'); setViewMode('gantt');
+  });
+
+  test('cronologie: zoom, filtre și redimensionare nu o strică; tipărirea te întoarce în Gantt', () => {
+    tlProject(); setViewMode('timeline'); const auto = isAutoZoom, zl = zoomLevel; zoom(1); zoom(-1); fitZoom(); eq({ a: isAutoZoom, z: zoomLevel }, { a: auto, z: zl }, 'zoom-ul Gantt nu se schimbă din cronologie');
+    FILTER.type = 'done'; renderAll(); eq(tlBars().length, 2, 'filtrul nu ascunde capitolele din cronologie'); clearFilter(true);
+    const n = tlBars().length; window.dispatchEvent(new Event('resize')); eq(tlBars().length, n, 'la redimensionare se redesenează');
+    openPrintPreview(); eq(view, 'gantt', 'tipărirea trece în Gantt'); eq($('printPreview').style.display, 'flex'); closePrintPreview();
+  });
+
+  test('cronologie: imaginea PNG se generează, cu tema luminoasă, și tema revine', async () => {
+    tlProject(); document.body.classList.add('dark'); setViewMode('timeline');
+    const c = await tlBuildCanvas(); ok(c.width > 200 && c.height > 60, 'canvas ' + c.width + '×' + c.height); ok(document.body.classList.contains('dark'), 'tema întunecată revine'); document.body.classList.remove('dark');
+    const px = c.getContext('2d').getImageData(2, c.height - 3, 1, 1).data; ok(px[0] > 240 && px[1] > 240 && px[2] > 240, 'fundal alb în imagine: ' + px.join(','));
   });
 
   // ============================================================

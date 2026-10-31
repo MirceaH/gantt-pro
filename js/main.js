@@ -242,6 +242,7 @@ function renderAll(){
   renderTBody();
   if(view==="gantt") renderGantt();
   if(view==="tree"){ renderTree(); renderSidePanel(); }
+  if(view==="timeline") renderTimeline();
   renderStatus();
   saveAllTabs();
   updateUndoRedoBtns();
@@ -279,11 +280,13 @@ function setViewMode(v) {
   view = v;
   document.querySelectorAll(".vtab").forEach(t => t.classList.toggle("active", t.dataset.v === v));
   // Sincronizare cu butoanele din tab View
-  const rbG = $("rbViewGantt"), rbT = $("rbViewTree");
+  const rbG = $("rbViewGantt"), rbT = $("rbViewTree"), rbL = $("rbViewTimeline");
   if (rbG) rbG.classList.toggle("active", v === "gantt");
   if (rbT) rbT.classList.toggle("active", v === "tree");
+  if (rbL) rbL.classList.toggle("active", v === "timeline");
   $("splitView").style.display  = v === "gantt" ? "flex" : "none";
   $("treeLayout").style.display = v === "tree"  ? "flex" : "none";
+  $("timelineLayout").style.display = v === "timeline" ? "flex" : "none";
   if (v !== "tree" && typeof _treePrev !== "undefined") _treePrev = null; // fără animație la revenire
   if (v === "tree") {
     _treePrev = null;

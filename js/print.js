@@ -133,6 +133,7 @@ function ppRebuild() {
 function openPrintPreview() {
   if (!tabs.length || !T.length) { toast('⚠️ Proiectul e gol — nu e nimic de tipărit'); return; }
   if ($('printPreview').style.display !== 'none') return;
+  if (view !== 'gantt') setViewMode('gantt');       // se tipărește Gantt-ul (în alte vederi nu are cum să fie măsurat)
   _ppDark = document.body.classList.contains('dark');
   document.body.classList.remove('dark');          // pe hârtie, mereu tema luminoasă
   document.body.classList.add('pp-open');

@@ -60,6 +60,7 @@
     <symbol id="i-tag" viewBox="0 0 24 24"><path d="M4 4h8l8 8-8 8-8-8z"/><circle cx="8.5" cy="8.5" r="1.2"/></symbol>
     <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 8v6l-4-2v-4z"/></symbol>
     <symbol id="i-printer" viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H5a2 2 0 01-2-2v-4a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2h-2"/><path d="M7 14h10v7H7z"/></symbol>
+    <symbol id="i-timeline" viewBox="0 0 24 24"><path d="M3 12h18"/><rect x="4" y="5" width="7" height="4" rx="1"/><rect x="9" y="15" width="10" height="4" rx="1"/></symbol>
     <symbol id="i-chevup" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
     <symbol id="i-chevdown" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
   </defs>
@@ -207,12 +208,9 @@
 
         <div class="rb-group">
           <div class="rb-row rb-seg">
-            <button class="rb-btn rb-btn-big" id="rbViewGantt" onclick="setViewMode('gantt')">
-              <svg class="ic"><use href="#i-gantt"/></svg><span class="rb-lbl">Gantt</span>
-            </button>
-            <button class="rb-btn rb-btn-big" id="rbViewTree" onclick="setViewMode('tree')">
-              <svg class="ic"><use href="#i-tree"/></svg><span class="rb-lbl">Arbore</span>
-            </button>
+            <button class="rb-btn" id="rbViewGantt" onclick="setViewMode('gantt')" title="Gantt: tabel + bare"><svg class="ic"><use href="#i-gantt"/></svg></button>
+            <button class="rb-btn" id="rbViewTree" onclick="setViewMode('tree')" title="Arbore: structura proiectului"><svg class="ic"><use href="#i-tree"/></svg></button>
+            <button class="rb-btn" id="rbViewTimeline" onclick="setViewMode('timeline')" title="Cronologie: rezumatul proiectului pe o singură pagină, pentru prezentări"><svg class="ic"><use href="#i-timeline"/></svg></button>
           </div>
         </div>
 
@@ -362,6 +360,7 @@
   <div class="vtabs" id="vtabs">
     <div class="vtab active" data-v="gantt"><svg class="ic"><use href="#i-gantt"/></svg>Gantt</div>
     <div class="vtab" data-v="tree"><svg class="ic"><use href="#i-tree"/></svg>Arbore</div>
+    <div class="vtab" data-v="timeline"><svg class="ic"><use href="#i-timeline"/></svg>Cronologie</div>
   </div>
 
   <!-- Bara de filtru activ -->
@@ -397,6 +396,11 @@
       <div class="sp-header">✎ Detalii Activitate</div>
       <div class="sp-body" id="spBody"></div>
     </div>
+  </div>
+
+  <div class="timeline-layout" id="timelineLayout" style="display:none">
+    <div class="tl-top"><button type="button" class="modal-btn cancel" onclick="exportTimelinePNG()" title="Salvează cronologia ca imagine pentru prezentări">⬇ Salvează ca imagine (PNG)</button><span>Click pe un capitol sau o activitate = o vezi în Gantt</span></div>
+    <div class="tl-box" id="tlBox"></div>
   </div>
 
 
@@ -677,6 +681,7 @@
 <script src="js/toolbar.js"></script>
 <script src="js/files.js"></script>
 <script src="js/print.js"></script>
+<script src="js/timeline.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

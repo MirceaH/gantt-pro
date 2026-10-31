@@ -580,6 +580,7 @@ function importJSONasTab() {
 // ZOOM
 // ============================================================
 function zoom(dir) {
+  if (view === "timeline") return;
   if (view === "tree") { setTreeZoom(treeZoom + dir * 0.1); return; }
   isAutoZoom = false;
   $("gBody").classList.add("manual-zoom");
@@ -590,6 +591,7 @@ function zoom(dir) {
 }
 
 function fitZoom() {
+  if (view === "timeline") return;
   if (view === "tree") { treeFit(); return; }
   isAutoZoom = true;
   $("gBody").classList.remove("manual-zoom");
