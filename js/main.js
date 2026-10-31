@@ -417,8 +417,9 @@ function toggleDD(btn) {
   if (wasOpen) return;
   const r = btn.getBoundingClientRect();
   menu.classList.add("open");
-  menu.style.left = Math.min(r.left, innerWidth - menu.offsetWidth - 8) + "px";
-  menu.style.top = (r.bottom + 4) + "px";
+  const z = uiScale();   // meniul e „fixed" în interiorul panglicii scalate: coordonatele de ecran se împart la scală
+  menu.style.left = Math.min(r.left, innerWidth - menu.offsetWidth * z - 8) / z + "px";
+  menu.style.top = (r.bottom + 4) / z + "px";
 }
 document.addEventListener("click", e => { if (!e.target.closest(".rb-dd")) closeDD(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeDD(); });
@@ -574,6 +575,36 @@ window.addEventListener("resize",()=>{
   if(isAutoZoom && typeof renderGantt==='function') renderGantt();
 });
 
+// ======== DIMENSIUNEA PANGLICII, A FILELOR ȘI A BARII DE STARE ========
+// Se adaptează singură la fereastră (ecran mare sau pagină micșorată din browser → butoane mai mari) sau o alegi tu:
+// butoanele A− / A+ (sus-dreapta), Ctrl+Alt + / − ; Ctrl+Alt 0 = automat. Se aplică prin CSS zoom pe .ribbon / .tabs-row / .sbar;
+// orice element „fixed" din ele își împarte coordonatele de ecran la uiScale() (vezi toggleDD).
+const UI_LEVELS = [1, 1.15, 1.3, 1.5, 1.75, 2];
+let uiMode = (function () { try { const v = parseFloat(localStorage.getItem("ganttUiScale")); return v >= 0.8 && v <= 2.5 ? v : "auto"; } catch (e) { return "auto"; } })();
+const _autoUi = () => Math.max(1, Math.min(1.8, Math.round(Math.min(innerWidth / 1600, innerHeight / 650) * 20) / 20));
+const uiScale = () => uiMode === "auto" ? _autoUi() : uiMode;
+function applyUiScale() { document.documentElement.style.setProperty("--ui-zoom", String(uiScale())); }
+function stepUiScale(dir) {
+  if (!dir) uiMode = "auto";
+  else {
+    const cur = uiScale(), next = dir > 0 ? UI_LEVELS.find(l => l > cur + 0.001) : [...UI_LEVELS].reverse().find(l => l < cur - 0.001);
+    if (next === undefined) { toast(dir > 0 ? "Dimensiunea maximă a butoanelor" : "Dimensiunea minimă a butoanelor"); return; }
+    uiMode = next;
+  }
+  try { localStorage.setItem("ganttUiScale", uiMode === "auto" ? "auto" : String(uiMode)); } catch (e) {}
+  applyUiScale(); if (typeof alignPanes === "function") alignPanes();
+  toast("🔠 Butoane: " + Math.round(uiScale() * 100) + "%" + (uiMode === "auto" ? " (automat)" : ""));
+}
+window.addEventListener("resize", () => { if (uiMode === "auto") applyUiScale(); });
+document.addEventListener("keydown", e => {
+  if (!(e.ctrlKey && e.altKey) || e.metaKey) return;
+  if (e.target && e.target.closest && e.target.closest("input,textarea,select")) return;
+  const k = e.key; let dir = null;
+  if (k === "+" || k === "=" || k === "Add") dir = 1; else if (k === "-" || k === "_" || k === "Subtract") dir = -1; else if (k === "0") dir = 0;
+  if (dir === null) return;
+  e.preventDefault(); stepUiScale(dir);
+});
+
 // ======== DIMENSIUNE TABEL + GANTT (Ctrl + / − / 0, Ctrl + rotiță) ========
 // Înlocuiește zoom-ul paginii: se mărește / micșorează doar tabelul și graficul; panglica, filele și bara de stare rămân la mărimea normală.
 const _czBlocked = () => !!document.querySelector(".modal-overlay.open") || ($("printPreview") && $("printPreview").style.display === "flex");
@@ -628,6 +659,7 @@ initDark();
 initA11y();
 _refreshBarStyleUI();
 _applyContentZoom();
+applyUiScale();
 initSplitter();
 syncScroll();
 $("splitView").style.display = "flex";
