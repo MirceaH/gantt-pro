@@ -1148,17 +1148,20 @@
     } finally { document.querySelector('.rb-tab[data-rt="home"]').click(); uiMode = prev; try { localStorage.setItem('ganttUiScale', prev === 'auto' ? 'auto' : String(prev)); } catch (e) {} applyUiScale(); }
   });
 
-  test('avertisment „!” pe bară: stă deasupra punctelor de legătură (nu se acoperă cu ele), în ambele stiluri de bare', () => {
+  test('avertisment „!” pe bară: în repaus stă pe colțul de sus-dreapta; cât tragi o legătură (puncte vizibile) urcă deasupra lor; în ambele stiluri', async () => {
     newTabWith('Wr', [mk(1, 'A', 5, null, [], null, { deadline: '2026-10-27' })]); settle(); renderAll();
-    const keep = barStyle;
+    const keep = barStyle, noAnim = noTransitions(), nt = document.createElement('style'); nt.textContent = '.gb.task.warn::before{transition:none!important}'; document.head.appendChild(nt);
     try {
-      ['classic', 'new'].forEach(st => {
+      for (const st of ['classic', 'new']) {
         if (barStyle !== st) toggleBarStyle();
         const bar = document.querySelector('.gb.task[data-bid="1"]'); ok(bar.classList.contains('warn'), 'bara are avertisment (' + st + ')');
-        const b = getComputedStyle(bar, '::before'), top = parseFloat(b.top), h = parseFloat(b.height), dot = getComputedStyle(bar.querySelector('.dep-dot-right')), dotTop = parseFloat(dot.top);
-        ok(top + h <= dotTop + 0.5, 'avertismentul (sus ' + top + ', înălțime ' + h + ') acoperă punctul de legătură (sus ' + dotTop + ') în stilul ' + st);
-      });
-    } finally { if (barStyle !== keep) toggleBarStyle(); }
+        const dotR = bar.querySelector('.dep-dot-right'), pos = () => { const b = getComputedStyle(bar, '::before'); return { top: parseFloat(b.top), h: parseFloat(b.height) }; };
+        let p = pos(); eq(getComputedStyle(dotR).opacity, '0', 'în repaus punctele sunt ascunse (' + st + ')'); eq(p.top, -7, 'în repaus avertismentul stă pe colț (' + st + ')');
+        document.body.classList.add('dep-dragging'); await wait(220); p = pos();
+        eq(getComputedStyle(dotR).opacity, '1', 'la tragere punctele se văd'); ok(p.top + p.h <= parseFloat(getComputedStyle(dotR).top) + 0.5, 'la tragere avertismentul (sus ' + p.top + ') nu acoperă punctul (' + st + ')');
+        document.body.classList.remove('dep-dragging'); await wait(220); eq(pos().top, -7, 'revine pe colț după tragere (' + st + ')');
+      }
+    } finally { document.body.classList.remove('dep-dragging'); noAnim(); nt.remove(); if (barStyle !== keep) toggleBarStyle(); }
   });
 
   test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {
