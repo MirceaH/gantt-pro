@@ -613,5 +613,6 @@ body.no-project #ganttTools{display:none!important}
 /* Avertismentul „!” stă pe colțul de sus-dreapta când bara e în repaus (punctele de legătură sunt ascunse);
    cât timp ții mouse-ul pe bară sau tragi o legătură, apar punctele pe colțuri și avertismentul urcă deasupra lor */
 .gb.task.warn::before{transition:top .12s ease,right .12s ease}
-.gb.task.warn:hover::before,.gb.task.warn.dep-source::before,body.dep-dragging .gb.task.warn::before{top:-23px;right:-4px}
+.gb.task.warn:hover::before,.gb.task.warn.dep-source::before{top:-20px;right:-4px}      /* lipit deasupra butonului (butonul: sus -6 px, ~15 px) */
+body.dep-dragging .gb.task.warn::before{top:-22px;right:-4px}                       /* la tragere butoanele sunt mai mari (sus -8 px) */
 body.no-project .rb-quick-group:not(#ganttTools){display:flex!important}
