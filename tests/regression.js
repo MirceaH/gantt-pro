@@ -1148,6 +1148,18 @@
     } finally { document.querySelector('.rb-tab[data-rt="home"]').click(); uiMode = prev; try { localStorage.setItem('ganttUiScale', prev === 'auto' ? 'auto' : String(prev)); } catch (e) {} applyUiScale(); }
   });
 
+  test('puncte de legătură (dependențe): stau în afara barei, doar se ating de colț — nu acoperă bara, nici la tragerea unei legături', () => {
+    newTabWith('Dots', [mk(1, 'Activitate', 8), mk(2, 'Alta', 6, null, [F(1)])]); settle(); renderAll();
+    const check = what => ['classic', 'new'].forEach(st => {
+      if (barStyle !== st) toggleBarStyle();
+      const bar = document.querySelector('.gb.task[data-bid="1"]'), b = bar.getBoundingClientRect(), l = bar.querySelector('.dep-dot-left').getBoundingClientRect(), r = bar.querySelector('.dep-dot-right').getBoundingClientRect();
+      ok(l.right <= b.left + 3.5 && l.bottom <= b.top + 4.5, what + ' / ' + st + ': punctul din stânga acoperă bara (' + Math.round(l.right - b.left) + ', ' + Math.round(l.bottom - b.top) + ')');
+      ok(r.left >= b.right - 3.5 && r.bottom <= b.top + 4.5, what + ' / ' + st + ': punctul din dreapta acoperă bara (' + Math.round(b.right - r.left) + ', ' + Math.round(r.bottom - b.top) + ')');
+    });
+    const keep = barStyle;
+    try { check('în repaus'); document.body.classList.add('dep-dragging'); check('la tragere'); } finally { document.body.classList.remove('dep-dragging'); if (barStyle !== keep) toggleBarStyle(); }
+  });
+
   test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {
     document.querySelectorAll('.modal-overlay').forEach(ov => { const b = ov.firstElementChild; ok(b && b.getAttribute('role') && b.getAttribute('aria-modal') === 'true', 'fără rol: #' + ov.id); });
     eq($('confirmModal').firstElementChild.getAttribute('role'), 'alertdialog');

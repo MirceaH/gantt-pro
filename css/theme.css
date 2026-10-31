@@ -611,3 +611,11 @@ body.bars-new .g-body.zoom-micro .gb.task .rs{width:3px}
 .rb-quick-txt{width:auto;min-width:28px;padding:0 6px;font-size:12px;font-weight:800;color:var(--text2)}
 body.no-project #ganttTools{display:none!important}
 body.no-project .rb-quick-group:not(#ganttTools){display:flex!important}
+
+/* ===== Punctele de legătură (dependențe): în afara barei, doar se ating de colț — nu mai acoperă bara, numele, mânerele sau capătul săgeții ===== */
+.dep-dot{top:-13px}
+.dep-dot-left{left:-13px}
+.dep-dot-right{right:-13px}
+body.dep-dragging .dep-dot{top:-17px}
+body.dep-dragging .dep-dot-left{left:-17px}
+body.dep-dragging .dep-dot-right{right:-17px}
