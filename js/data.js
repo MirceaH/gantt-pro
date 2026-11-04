@@ -478,6 +478,7 @@ function addNewTab(name, data, nidVal, cal, res, meta) {
   tabs.push(tab);
   switchTab(tab.id);
   saveAllTabs();
+  if (typeof maybeStartTour === 'function') maybeStartTour();   // prima deschidere de proiect → turul ghidat (o singură dată)
   return tab;
 }
 

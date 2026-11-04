@@ -37,7 +37,7 @@
   const newTabWith = (name, tasks, cal, res) => addNewTab(name, JSON.parse(JSON.stringify(tasks)), Math.max(0, ...tasks.map(t => t.id)) + 1, cal, res);
 
   // ---------- salvăm starea ----------
-  const LS_KEYS = ['ganttSideNames', 'ganttBase', 'ganttCrit', 'ganttDark', 'ganttColW', 'ganttRibbonCollapsed'];
+  const LS_KEYS = ['ganttSideNames', 'ganttBase', 'ganttCrit', 'ganttDark', 'ganttColW', 'ganttRibbonCollapsed', 'ganttTourDone'];
   const env = {
     tabs: JSON.stringify(tabs), active: activeTabId, next: nextTabId, view, dark: document.body.classList.contains('dark'),
     showSideNames: typeof showSideNames !== 'undefined' ? showSideNames : null,
@@ -48,6 +48,7 @@
     filter: typeof FILTER !== 'undefined' ? JSON.stringify(FILTER) : null
   };
   LS_KEYS.forEach(k => { try { env.ls[k] = localStorage.getItem(k); } catch (e) {} });
+  localStorage.setItem('ganttTourDone', '1');   // în timpul testelor turul nu pornește singur (se restaurează la final); testele de tur îl pornesc explicit
   const onErr = e => results.errors.push(String(e.message || e));
   window.addEventListener('error', onErr);
   const origToast = window.toast;
@@ -1262,6 +1263,105 @@
       _sanitizeTasks(); const [a, b, c] = T;
       eq([a.acost, b.acost, c.acost], [undefined, undefined, 12], 'cost real invalid eliminat'); eq(a.bl, { sd: '2026-10-26', dur: 2 }, 'cost de bază negativ eliminat'); eq(c.bl.cost, 450);
     } finally { evmDone(); }
+  });
+
+  // ---------- Șabloane de proiect ----------
+  test('șabloane: fiecare se încarcă fără erori, fără cicluri, cu date valide, trece de sanitizare și pornește de la prima zi lucrătoare de la azi', () => {
+    ok(PROJECT_TEMPLATES.length === 3, 'trei șabloane');
+    const start = templateStartDate(); ok(validISO(start) && ![0, 6].includes(pD(start).getDay()), 'start = zi lucrătoare: ' + start); ok(start >= todayStr, 'nu în trecut');
+    PROJECT_TEMPLATES.forEach(tpl => {
+      const built = buildTemplateTasks(tpl, start), nDeps = built.reduce((s, t) => s + t.deps.length, 0), tabsBefore = tabs.length;
+      newFromTemplate(tpl.id);
+      eq(tabs.length, tabsBefore + 1, tpl.id + ': tab nou'); eq(tabs.find(t => t.id === activeTabId).name, tpl.nm);
+      const leaves = T.filter(t => !hasK(t.id)), chapters = T.filter(t => hasK(t.id) && !t.pid), ms = T.filter(t => t.isMilestone);
+      ok(leaves.length >= 10 && leaves.length <= 15, tpl.id + ': ' + leaves.length + ' activități (10–15)'); ok(chapters.length >= 2 && chapters.length <= 3, tpl.id + ': ' + chapters.length + ' capitole');
+      ok(ms.length >= 1 && ms.every(t => t.dur === 1), tpl.id + ': repere'); eq(RES.list.length, 0, 'fără resurse');
+      eq(T.reduce((s, t) => s + t.deps.length, 0), nDeps, tpl.id + ': sanitizarea nu pierde legături'); ok(!_topoDepOrder().hasCycle, tpl.id + ': fără cicluri');
+      ok(T.some(t => t.deps.some(d => d.type === 'SS')) && T.some(t => t.deps.some(d => d.lag > 0)), tpl.id + ': are legături SS și cu decalaj');
+      ok(T.every(t => t.deps.every(d => d.id !== t.id && T.some(x => x.id === d.id) && !isD(d.id, t.id) && !isD(t.id, d.id))), tpl.id + ': legături valide');
+      settle(); ok(T.every(t => validISO(t.sd) && t.dur >= 1 && t.prog === 0), tpl.id + ': date valide');
+      eq(T.map(t => t.sd).sort()[0], start, tpl.id + ': pornește de la ' + start); ok(leaves.every(t => isWork(pD(t.sd))), tpl.id + ': activitățile încep în zile lucrătoare');
+      const before = JSON.stringify(T); _sanitizeTasks(); eq(JSON.stringify(T), before, tpl.id + ': sanitizarea nu mai schimbă nimic');
+      ok(new Set(T.map(t => t.nm)).size === T.length, tpl.id + ': nume unice');
+    });
+  });
+
+  test('șabloane: cardurile din ecranul de bun venit arată numele, descrierea și numărătoarea; click = proiect nou', () => {
+    renderTemplateCards(); const cards = [...document.querySelectorAll('#wlTemplates .wl-tpl-card')]; eq(cards.length, 3);
+    PROJECT_TEMPLATES.forEach((tpl, i) => { const s = templateStats(tpl), tx = cards[i].textContent; ok(tx.includes(tpl.nm) && tx.includes(tpl.desc), 'nume + descriere'); ok(tx.includes(s.tasks + ' activități') && tx.includes(s.chapters + ' capitole') && tx.includes(s.milestones + ' repere'), 'numărătoare: ' + tx); });
+    ok(cards[0].title.length > 20, 'titlu explicativ'); const n = tabs.length; cards[2].click(); eq(tabs.length, n + 1, 'click = proiect nou'); eq(tabs.find(t => t.id === activeTabId).name, PROJECT_TEMPLATES[2].nm);
+  });
+
+  // ---------- Tur ghidat ----------
+  const tourReset = () => { if (_tour) tourClose(); };
+  test('tur: indicatorul „terminat" se salvează și se citește; nu pornește singur cu ?notour sau cu indicatorul pus', async () => {
+    const keep = localStorage.getItem('ganttTourDone');
+    try {
+      tourSetDone(false); eq(tourIsDone(), false); eq(localStorage.getItem('ganttTourDone'), null); tourSetDone(true); eq(tourIsDone(), true); eq(localStorage.getItem('ganttTourDone'), '1');
+      tourSetDone(false); maybeStartTour(); await wait(900); ok(!_tour, 'cu ?notour în adresă nu pornește singur');
+      tourSetDone(true); maybeStartTour(); await wait(900); ok(!_tour, 'cu indicatorul pus nu pornește singur');
+    } finally { tourReset(); if (keep === null) localStorage.removeItem('ganttTourDone'); else localStorage.setItem('ganttTourDone', keep); }
+  });
+
+  test('tur: se pornește și se închide (Următorul / Înapoi / Sari peste / Esc / Gata), cu rol de dialog, focus mutat și readus, 6 pași', async () => {
+    const keep = localStorage.getItem('ganttTourDone'); addNewTab('Tur'); loadDemo(); await wait(50);
+    const homeTab = document.querySelector('.rb-tab[data-rt="home"]'); homeTab.click();
+    try {
+      const opener = $('btnTour'); ok(opener && opener.title.includes('6 pași'), 'butonul Ghid din fila Vizualizare'); tourSetDone(false);
+      startTour(); ok(_tour, 'pornit'); const box = $('tourBox'); eq(box.getAttribute('role'), 'dialog'); eq(box.getAttribute('aria-modal'), 'true'); ok(box.contains(document.activeElement), 'focus în casetă');
+      eq($('tourNo').textContent, 'Pasul 1 din 6'); ok($('tourBack').disabled, 'Înapoi dezactivat la primul pas'); eq($('tourNext').textContent, 'Următorul'); ok($('tourTitle').textContent.length > 3 && $('tourText').textContent.length > 40);
+      for (let i = 2; i <= 6; i++) { $('tourNext').click(); eq($('tourNo').textContent, 'Pasul ' + i + ' din 6'); ok($('tourText').textContent.length > 40, 'text la pasul ' + i); }
+      eq($('tourNext').textContent, 'Gata', 'ultimul pas'); eq(document.querySelector('.rb-tab.active').dataset.rt, 'home', 'fila de panglică revine după pasul 5');
+      $('tourBack').click(); eq($('tourNo').textContent, 'Pasul 5 din 6'); eq(document.querySelector('.rb-tab.active').dataset.rt, 'view', 'pasul 5 arată fila Vizualizare');
+      $('tourNext').click(); $('tourNext').click(); ok(!_tour && !$('tourBox') && !$('tourSpot') && !$('tourShield'), '„Gata" închide și curăță'); eq(tourIsDone(), true, 'indicator salvat');
+      eq(document.querySelector('.rb-tab.active').dataset.rt, 'home', 'fila inițială revine');
+      tourSetDone(false); startTour(); $('tourSkip').click(); ok(!_tour && tourIsDone(), '„Sari peste" închide și marchează terminat');
+      tourSetDone(false); startTour(); $('tourNext').click(); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); ok(!_tour && tourIsDone(), 'Esc închide');
+      tourSetDone(false); document.querySelector('.rb-tab[data-rt="view"]').click(); opener.focus(); ok(document.activeElement === opener, 'butonul Ghid e vizibil în fila Vizualizare'); opener.click(); ok(_tour, 'pornit din butonul Ghid'); tourClose(); ok(document.activeElement === opener, 'focusul revine pe butonul Ghid'); eq(document.querySelector('.rb-tab.active').dataset.rt, 'view'); homeTab.click();
+      startTour(); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); eq($('tourNo').textContent, 'Pasul 2 din 6', 'săgeată dreapta = următorul');
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true })); eq($('tourNo').textContent, 'Pasul 1 din 6', 'săgeată stânga = înapoi');
+    } finally { tourReset(); homeTab.click(); if (keep === null) localStorage.removeItem('ganttTourDone'); else localStorage.setItem('ganttTourDone', keep); }
+  });
+
+  test('tur: cadrul luminat acoperă ținta, caseta rămâne în fereastră și nu acoperă ținta — normal, cu zoom pe tabel + Gantt, cu panglică mărită și în modul întunecat', async () => {
+    const keep = localStorage.getItem('ganttTourDone'), keepZ = ZF, keepUi = uiMode, dark = document.body.classList.contains('dark');
+    addNewTab('Tur2'); loadDemo(); await wait(50); const noAnim = noTransitions(), nt = document.createElement('style'); nt.textContent = '#tourSpot,#tourBox{transition:none!important}'; document.head.appendChild(nt);
+    const run = async label => {
+      startTour();
+      try {
+        for (let i = 0; i < 6; i++) {
+          await wait(30); _tourPlace(); const sp = $('tourSpot').getBoundingClientRect(), bx = $('tourBox').getBoundingClientRect(), s = TOUR_STEPS[i], els = s.target().filter(Boolean), pad = s.pad || 6;
+          ok(els.length, label + ' pas ' + (i + 1) + ': ținta există');
+          const l = Math.min(...els.map(e => e.getBoundingClientRect().left)), t = Math.min(...els.map(e => e.getBoundingClientRect().top)), r = Math.max(...els.map(e => e.getBoundingClientRect().right)), b = Math.max(...els.map(e => e.getBoundingClientRect().bottom));
+          ok(sp.left <= l + 2.5 && sp.top <= t + 2.5 && sp.right >= r - 2.5 && sp.bottom >= b - 2.5, label + ' pas ' + (i + 1) + ': cadrul acoperă ținta (' + [sp.left, sp.top, sp.right, sp.bottom].map(Math.round) + ' vs ' + [l, t, r, b].map(Math.round) + ')');
+          ok(sp.left >= l - pad - 3 && sp.top >= t - pad - 3 || sp.left <= 2 || sp.top <= 2, label + ' pas ' + (i + 1) + ': cadrul nu e mult mai mare decât ținta');
+          ok(bx.left >= 0 && bx.top >= 0 && bx.right <= innerWidth + 0.5 && bx.bottom <= innerHeight + 0.5, label + ' pas ' + (i + 1) + ': caseta e în fereastră');
+          const huge = (r - l) * (b - t) > innerWidth * innerHeight * 0.3;
+          if (!huge) ok(bx.right <= sp.left + 1 || bx.left >= sp.right - 1 || bx.bottom <= sp.top + 1 || bx.top >= sp.bottom - 1, label + ' pas ' + (i + 1) + ': caseta nu acoperă ținta');
+          if (s.dots) ok(getComputedStyle(document.querySelector('.gb.task .dep-dot-right')).opacity === '1', 'pasul cu legături arată punctele de pe colțuri');
+          if (i < 5) $('tourNext').click();
+        }
+      } finally { tourReset(); }
+    };
+    try {
+      await run('normal');
+      setContentZoom(1.25, true); await run('zoom 125%'); setContentZoom(1, true);
+      uiMode = 1.3; applyUiScale(); await run('panglică 130%'); uiMode = keepUi; applyUiScale();
+      document.body.classList.add('dark'); await run('întunecat'); if (!dark) document.body.classList.remove('dark');
+    } finally { tourReset(); setContentZoom(keepZ, true); uiMode = keepUi; applyUiScale(); if (!dark) document.body.classList.remove('dark'); noAnim(); nt.remove(); if (keep === null) localStorage.removeItem('ganttTourDone'); else localStorage.setItem('ganttTourDone', keep); }
+  });
+
+  test('tur: tastele nu ajung la aplicația din spatele turului (Tab, Del, Ctrl+Z, Ctrl+N); vederea și ecranul complet se restaurează', async () => {
+    const keep = localStorage.getItem('ganttTourDone'); addNewTab('Tur3'); loadDemo(); await wait(50);
+    try {
+      sel = T.find(t => !hasK(t.id) && t.pid).id; renderAll(); const snapT = JSON.stringify(T), h = _history.length, n = T.length;
+      startTour(); const fire = (key, o) => { const ev = new KeyboardEvent('keydown', Object.assign({ key, bubbles: true, cancelable: true }, o)); $('tourNext').dispatchEvent(ev); return ev; };
+      ok(fire('Tab').defaultPrevented, 'Tab nu iese din casetă'); eq(JSON.stringify(T), snapT, 'Tab nu a făcut indent'); fire('Delete'); eq(T.length, n, 'Del nu șterge');
+      fire('z', { ctrlKey: true }); eq(_history.length, h, 'Ctrl+Z nu anulează'); const cn = fire('n', { ctrlKey: true }); ok(cn.defaultPrevented && !$('nameModal').classList.contains('open'), 'Ctrl+N nu deschide „Proiect nou”');
+      ok(!fire('F5').defaultPrevented, 'F5 rămâne al browserului'); eq(JSON.stringify(T), snapT, 'proiectul neschimbat'); eq($('tourNo').textContent, 'Pasul 1 din 6'); tourClose();
+      setViewMode('tree'); startTour(); eq(view, 'gantt', 'turul arată Gantt-ul'); tourClose(); eq(view, 'tree', 'vederea revine'); setViewMode('gantt');
+      toggleGanttFull(); ok(document.body.classList.contains('gantt-full')); startTour(); ok(!document.body.classList.contains('gantt-full'), 'turul iese din ecranul complet'); tourClose(); ok(document.body.classList.contains('gantt-full'), 'ecranul complet revine'); toggleGanttFull();
+    } finally { tourReset(); if (document.body.classList.contains('gantt-full')) toggleGanttFull(); if (keep === null) localStorage.removeItem('ganttTourDone'); else localStorage.setItem('ganttTourDone', keep); }
   });
 
   test('accesibilitate: ferestrele au rol de dialog, focusul intră la deschidere și revine la închidere', async () => {

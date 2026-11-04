@@ -525,6 +525,7 @@ function updateEmptyState() {
   const empty = !tabs.length;
   document.body.classList.toggle("no-project", empty);
   if (empty && typeof renderRecents === "function") renderRecents();
+  if (empty && typeof renderTemplateCards === "function") renderTemplateCards();
 }
 
 // ======== SELECȚIE + TASTE ========
@@ -679,6 +680,7 @@ if (showCritical && $("btnCrit")) $("btnCrit").classList.add("active");
 if (typeof _refreshPlanUI === "function") _refreshPlanUI();
 _refreshSideNamesUI(); _refreshWbsUI();
 if (hadData && tabs.length) toast('📂 Proiecte restaurate!');
+if (typeof maybeStartTour === "function") maybeStartTour();   // tur ghidat: o singură dată, la prima deschidere a unui proiect
 
 // PWA: service worker (aplicația merge și offline); doar pe http(s), nu pe file://
 if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {

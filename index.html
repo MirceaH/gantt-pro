@@ -52,6 +52,7 @@
     <symbol id="i-coins" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></symbol>
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2.9-1.2 1.8M12 17v.2"/></symbol>
     <symbol id="i-unlink" viewBox="0 0 24 24"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/><path d="M3 3l18 18"/></symbol>
     <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/></symbol>
     <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
@@ -130,18 +131,18 @@
               <svg class="ic"><use href="#i-printer"/></svg><span class="rb-lbl">Tipărește</span>
             </button>
             <div class="rb-dd">
-              <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Exportă ca imagine, PDF sau pentru MS Project">
+              <button class="rb-btn rb-btn-big" onclick="toggleDD(this)" title="Exportă planul: imagine PNG, PDF, MS Project (XML), Excel, CSV sau copie de siguranță JSON">
                 <svg class="ic"><use href="#i-export"/></svg><span class="rb-lbl">Export</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
               </button>
               <div class="rb-menu">
-                <button onclick="closeDD();exportPNG()"><span>Imagine (PNG)</span></button>
-                <button onclick="closeDD();exportPDF()"><span>PDF (captură de ecran)</span></button>
-                <button onclick="closeDD();exportMSProject()"><span>MS Project (XML)</span></button>
+                <button title="Salvează graficul ca imagine PNG" onclick="closeDD();exportPNG()"><span>Imagine (PNG)</span></button>
+                <button title="Salvează o captură a graficului ca PDF (pentru PDF pe pagini folosește Tipărește)" onclick="closeDD();exportPDF()"><span>PDF (captură de ecran)</span></button>
+                <button title="Fișier .xml care se deschide în Microsoft Project, cu legături și durate" onclick="closeDD();exportMSProject()"><span>MS Project (XML)</span></button>
                 <hr>
-                <button onclick="closeDD();exportXLSX()"><span>Excel (.xlsx)</span></button>
-                <button onclick="closeDD();exportCSV()"><span>CSV (se deschide în Excel)</span></button>
+                <button title="Foaie Excel cu activitățile, datele reale, filtre și foaia de resurse" onclick="closeDD();exportXLSX()"><span>Excel (.xlsx)</span></button>
+                <button title="Fișier CSV pentru Excel (separator ales după setările regionale)" onclick="closeDD();exportCSV()"><span>CSV (se deschide în Excel)</span></button>
                 <hr>
-                <button onclick="closeDD();exportJSON()"><span>Copie de siguranță (JSON)</span></button>
+                <button title="Copie completă a proiectului (JSON); o poți redeschide mai târziu din Import" onclick="closeDD();exportJSON()"><span>Copie de siguranță (JSON)</span></button>
               </div>
             </div>
             <div class="rb-dd keep">
@@ -149,8 +150,8 @@
                 <svg class="ic"><use href="#i-folder"/></svg><span class="rb-lbl">Import</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
               </button>
               <div class="rb-menu">
-                <button onclick="closeDD();importSheet()"><span>Din Excel / CSV…</span></button>
-                <button onclick="closeDD();importJSONasTab()"><span>Din JSON (copie de siguranță)…</span></button>
+                <button title="Citește activități dintr-un fișier Excel sau CSV, într-un proiect nou" onclick="closeDD();importSheet()"><span>Din Excel / CSV…</span></button>
+                <button title="Redeschide o copie de siguranță JSON, într-un proiect nou" onclick="closeDD();importJSONasTab()"><span>Din JSON (copie de siguranță)…</span></button>
               </div>
             </div>
           </div>
@@ -184,11 +185,11 @@
 
         <div class="rb-group" data-cap="Structură">
           <div class="rb-row">
-            <button class="rb-btn" onclick="indentSel()" title="Indent (Tab)"><svg class="ic"><use href="#i-indent"/></svg></button>
-            <button class="rb-btn" onclick="outdentSel()" title="Outdent (Shift+Tab)"><svg class="ic"><use href="#i-outdent"/></svg></button>
-            <button class="rb-btn" onclick="moveSel(-1)" title="Mută sus"><svg class="ic"><use href="#i-up"/></svg></button>
-            <button class="rb-btn" onclick="moveSel(1)" title="Mută jos"><svg class="ic"><use href="#i-down"/></svg></button>
-            <button class="rb-btn rb-btn-danger" onclick="delSel()" title="Șterge (Del)"><svg class="ic"><use href="#i-trash"/></svg></button>
+            <button class="rb-btn" onclick="indentSel()" title="Indent: mută activitatea selectată un nivel în interior, în capitolul de deasupra (Tab sau →)"><svg class="ic"><use href="#i-indent"/></svg></button>
+            <button class="rb-btn" onclick="outdentSel()" title="Outdent: scoate activitatea selectată dintr-un capitol, cu un nivel mai sus (Shift+Tab sau ←)"><svg class="ic"><use href="#i-outdent"/></svg></button>
+            <button class="rb-btn" onclick="moveSel(-1)" title="Mută activitatea selectată cu un rând mai sus (Alt+↑)"><svg class="ic"><use href="#i-up"/></svg></button>
+            <button class="rb-btn" onclick="moveSel(1)" title="Mută activitatea selectată cu un rând mai jos (Alt+↓)"><svg class="ic"><use href="#i-down"/></svg></button>
+            <button class="rb-btn rb-btn-danger" onclick="delSel()" title="Șterge activitatea selectată; la un capitol șterge și activitățile din el (Del)"><svg class="ic"><use href="#i-trash"/></svg></button>
           </div>
         </div>
 
@@ -205,7 +206,7 @@
             <button class="rb-btn" id="btnUndo" onclick="undo()" title="Anulează (Ctrl+Z)" style="opacity:.4"><svg class="ic"><use href="#i-undo"/></svg></button>
             <button class="rb-btn" id="btnRedo" onclick="redo()" title="Refă (Ctrl+Y)" style="opacity:.4"><svg class="ic"><use href="#i-redo"/></svg></button>
             <button class="rb-btn" onclick="openFind()" title="Caută (Ctrl+F)"><svg class="ic"><use href="#i-search"/></svg></button>
-            <button class="rb-btn" onclick="gotoSelected()" title="Du-te la selecție"><svg class="ic"><use href="#i-target"/></svg></button>
+            <button class="rb-btn" onclick="gotoSelected()" title="Derulează tabelul și graficul la activitatea selectată"><svg class="ic"><use href="#i-target"/></svg></button>
           </div>
         </div>
 
@@ -216,7 +217,7 @@
 
         <div class="rb-group" data-cap="Vedere">
           <div class="rb-row rb-seg">
-            <button class="rb-btn" id="rbViewGantt" onclick="setViewMode('gantt')" title="Gantt: tabel + bare"><svg class="ic"><use href="#i-gantt"/></svg><span class="rb-lbl">Gantt</span></button>
+            <button class="rb-btn" id="rbViewGantt" onclick="setViewMode('gantt')" title="Gantt: tabelul de activități și barele pe axa timpului (vederea principală)"><svg class="ic"><use href="#i-gantt"/></svg><span class="rb-lbl">Gantt</span></button>
             <button class="rb-btn" id="rbViewTree" onclick="setViewMode('tree')" title="Arbore: structura proiectului"><svg class="ic"><use href="#i-tree"/></svg><span class="rb-lbl">Arbore</span></button>
             <button class="rb-btn" id="rbViewTimeline" onclick="setViewMode('timeline')" title="Cronologie: rezumatul proiectului pe o singură pagină, pentru prezentări"><svg class="ic"><use href="#i-timeline"/></svg><span class="rb-lbl">Cronologie</span></button>
           </div>
@@ -226,7 +227,7 @@
           <div class="rb-row">
             <button class="rb-btn" onclick="expandAll()" title="Deschide toate capitolele"><svg class="ic"><use href="#i-expand"/></svg></button>
             <button class="rb-btn" onclick="collapseAll()" title="Închide toate capitolele"><svg class="ic"><use href="#i-collapse"/></svg></button>
-            <button class="rb-btn" id="btnSummaryOnly" onclick="toggleSummaryOnly()" title="Doar capitole"><svg class="ic"><use href="#i-layers"/></svg></button>
+            <button class="rb-btn" id="btnSummaryOnly" onclick="toggleSummaryOnly()" title="Arată doar capitolele (ascunde activitățile): o privire de ansamblu asupra proiectului"><svg class="ic"><use href="#i-layers"/></svg></button>
           </div>
         </div>
 
@@ -247,6 +248,9 @@
             <button class="rb-btn" id="btnBarStyle" onclick="toggleBarStyle()" title="Stil bare: Nou / Clasic" aria-label="Stil bare">
               <svg class="ic"><use href="#i-sparkle"/></svg>
             </button>
+            <button class="rb-btn" id="btnTour" onclick="startTour()" title="Ghid: turul aplicației în 6 pași (panglică, tabel, Gantt, legături, drum critic, salvare)" aria-label="Ghid">
+              <svg class="ic"><use href="#i-help"/></svg>
+            </button>
           </div>
         </div>
 
@@ -257,18 +261,18 @@
                 <svg class="ic"><use href="#i-filter"/></svg><span class="rb-lbl" id="btnFilterLbl">Filtru</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
               </button>
               <div class="rb-menu" id="filterMenu">
-                <button data-f="all" onclick="closeDD();setFilter('all')"><span>Toate activitățile</span></button>
+                <button title="Arată din nou toate activitățile" data-f="all" onclick="closeDD();setFilter('all')"><span>Toate activitățile</span></button>
                 <hr>
-                <button data-f="crit" onclick="closeDD();setFilter('crit')"><span>Drum critic</span></button>
-                <button data-f="late" onclick="closeDD();setFilter('late')"><span>Întârziate</span></button>
-                <button data-f="open" onclick="closeDD();setFilter('open')"><span>Nefinalizate</span></button>
-                <button data-f="wip" onclick="closeDD();setFilter('wip')"><span>În lucru</span></button>
-                <button data-f="todo" onclick="closeDD();setFilter('todo')"><span>Nepornite</span></button>
-                <button data-f="done" onclick="closeDD();setFilter('done')"><span>Finalizate</span></button>
-                <button data-f="ms" onclick="closeDD();setFilter('ms')"><span>Repere</span></button>
-                <button data-f="warn" onclick="closeDD();setFilter('warn')"><span>Cu avertismente</span></button>
+                <button title="Doar activitățile de pe drumul critic (fără rezervă)" data-f="crit" onclick="closeDD();setFilter('crit')"><span>Drum critic</span></button>
+                <button title="Activitățile care trebuiau terminate până la data de status, dar nu sunt gata" data-f="late" onclick="closeDD();setFilter('late')"><span>Întârziate</span></button>
+                <button title="Activitățile care nu sunt finalizate (progres sub 100%)" data-f="open" onclick="closeDD();setFilter('open')"><span>Nefinalizate</span></button>
+                <button title="Activitățile începute, dar nefinalizate" data-f="wip" onclick="closeDD();setFilter('wip')"><span>În lucru</span></button>
+                <button title="Activitățile care nu au început (progres 0%)" data-f="todo" onclick="closeDD();setFilter('todo')"><span>Nepornite</span></button>
+                <button title="Activitățile finalizate (100%)" data-f="done" onclick="closeDD();setFilter('done')"><span>Finalizate</span></button>
+                <button title="Doar reperele (puncte cheie)" data-f="ms" onclick="closeDD();setFilter('ms')"><span>Repere</span></button>
+                <button title="Activitățile cu avertismente: restricție neîndeplinită, termen depășit, resursă supraalocată" data-f="warn" onclick="closeDD();setFilter('warn')"><span>Cu avertismente</span></button>
                 <hr>
-                <button onclick="closeDD();openFilterModal()"><span>După resursă, interval de date, nume…</span></button>
+                <button title="Filtrează după resursă, interval de date sau nume" onclick="closeDD();openFilterModal()"><span>După resursă, interval de date, nume…</span></button>
               </div>
             </div>
             <input id="flText" class="rb-input" placeholder="Filtrează după nume…" oninput="setFilterTextDebounced(this.value)" autocomplete="off">
@@ -277,11 +281,11 @@
 
         <div class="rb-group" data-cap="Zoom">
           <div class="rb-row">
-            <button class="rb-btn" onclick="zoom(-1)" title="Zoom out"><svg class="ic"><use href="#i-minus"/></svg></button>
-            <span class="rb-zoom-lbl" id="zoomLbl" onclick="fitZoom()" title="Click pt Auto-Încadrare">Auto</span>
-            <button class="rb-btn" onclick="zoom(1)" title="Zoom in"><svg class="ic"><use href="#i-plus"/></svg></button>
-            <button class="rb-btn" onclick="scrollToToday()" title="Sari la azi"><svg class="ic"><use href="#i-pin"/></svg></button>
-            <button class="rb-btn" id="btnTogglePaneL" onclick="togglePaneL()" title="Extinde / restrânge tabelul din stânga"><svg class="ic"><use href="#i-columns"/></svg></button>
+            <button class="rb-btn" onclick="zoom(-1)" title="Micșorează graficul: mai multe zile pe ecran, mai puține detalii"><svg class="ic"><use href="#i-minus"/></svg></button>
+            <span class="rb-zoom-lbl" id="zoomLbl" onclick="fitZoom()" title="Click: încadrează tot proiectul în fereastră (zoom automat)">Auto</span>
+            <button class="rb-btn" onclick="zoom(1)" title="Mărește graficul: mai puține zile pe ecran, mai multe detalii"><svg class="ic"><use href="#i-plus"/></svg></button>
+            <button class="rb-btn" onclick="scrollToToday()" title="Derulează graficul la data de azi"><svg class="ic"><use href="#i-pin"/></svg></button>
+            <button class="rb-btn" id="btnTogglePaneL" onclick="togglePaneL()" title="Extinde / restrânge tabelul din stânga (extins arată coloane în plus: Δ bază, Cost, Status, datele reale)"><svg class="ic"><use href="#i-columns"/></svg></button>
           </div>
         </div>
       </div>
@@ -308,10 +312,10 @@
                 <svg class="ic"><use href="#i-ruler"/></svg><span class="rb-lbl">Linia de bază</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
               </button>
               <div class="rb-menu">
-                <button onclick="closeDD();saveBaseline()"><span>Salvează planul curent ca bază</span></button>
-                <button onclick="closeDD();toggleBaseline()"><span>Arată / ascunde linia de bază</span></button>
+                <button title="Păstrează planul de acum ca plan inițial; întârzierile se măsoară față de el" onclick="closeDD();saveBaseline()"><span>Salvează planul curent ca bază</span></button>
+                <button title="Arată sau ascunde barele subțiri ale planului inițial din Gantt" onclick="closeDD();toggleBaseline()"><span>Arată / ascunde linia de bază</span></button>
                 <hr>
-                <button class="danger" onclick="closeDD();clearBaseline()"><span>Șterge linia de bază</span></button>
+                <button title="Șterge planul inițial salvat" class="danger" onclick="closeDD();clearBaseline()"><span>Șterge linia de bază</span></button>
               </div>
             </div>
           </div>
@@ -327,10 +331,10 @@
                 <svg class="ic"><use href="#i-flag"/></svg><span class="rb-lbl">Urmărire</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
               </button>
               <div class="rb-menu">
-                <button onclick="closeDD();openStatusDate()"><span>Data de status…</span></button>
-                <button onclick="closeDD();applyActuals()"><span>Actualizează planul cu datele reale…</span></button>
+                <button title="Alege data la care se face evaluarea progresului (implicit: azi)" onclick="closeDD();openStatusDate()"><span>Data de status…</span></button>
+                <button title="Mută activitățile la datele reale (început / final real) și prelungește pe cele rămase în urmă" onclick="closeDD();applyActuals()"><span>Actualizează planul cu datele reale…</span></button>
                 <hr>
-                <button onclick="closeDD();clearActualPins()"><span>Elimină fixările din datele reale</span></button>
+                <button title="Elimină restricțiile create de „Actualizează planul”, fără să le atingă pe cele puse de tine" onclick="closeDD();clearActualPins()"><span>Elimină fixările din datele reale</span></button>
               </div>
             </div>
           </div>
@@ -422,6 +426,10 @@
         <button class="wl-btn primary" onclick="newProject()"><svg class="ic"><use href="#i-plus"/></svg>Proiect nou</button>
         <button class="wl-btn" onclick="fileOpen()"><svg class="ic"><use href="#i-folder"/></svg>Deschide un proiect</button>
         <button class="wl-btn" onclick="openExample()"><svg class="ic"><use href="#i-sparkle"/></svg>Deschide un exemplu</button>
+      </div>
+      <div class="wl-tpl">
+        <div class="wl-rtitle">Începe dintr-un șablon</div>
+        <div class="wl-tpl-grid" id="wlTemplates"></div>
       </div>
       <div class="wl-recent" id="wlRecent"></div>
       <div class="wl-feats">
@@ -711,6 +719,8 @@
 <script src="js/files.js"></script>
 <script src="js/print.js"></script>
 <script src="js/timeline.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/tour.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
