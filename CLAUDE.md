@@ -174,3 +174,12 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 - Modelul: valoarea unei activități = `t.bl.cost` (costul din momentul salvării liniei de bază) sau, dacă lipsește, costul curent din resurse (`costMap`); fără costuri în proiect se folosește durata (zile lucrătoare). PV = liniar în zile lucrătoare pe intervalul liniei de bază; EV = valoare × `t.prog`; AC = `t.acost` (cost real introdus în Detalii activitate › Resurse și cost) sau, dacă lipsește, EV.
 - Indicatorii de COST (CV, CPI, EAC, ETC, VAC) apar doar dacă măcar o activitate are `t.acost` (altfel CPI ar fi mereu 1). Istoricul EV / AC din curba S e o estimare liniară.
 - Câmpuri noi pe activitate: `acost` (număr ≥ 0) și `bl.cost`; ambele sunt validate în `_sanitizeTasks`.
+
+## Flux de lucru
+
+- După orice modificare de cod în `js/`, `index.html`, `sw.js` sau `tests/`, rulează agentul `reviewer` (`.claude/agents/reviewer.md`) pe modificare, **înainte de commit**.
+- Verifică fiecare constatare direct în cod: corectează ce e real și ignoră ce e fals pozitiv.
+- Rulează apoi `tests/regression.js` (headless, prin `tests/runner.html`) și adaugă teste pentru orice funcție nouă.
+- La modificări mici (doar text, culori, CSS) reviewer-ul nu e obligatoriu.
+- Commit-ul se face doar după ce testele trec.
+- Nu folosi `git add -A`: adaugă în commit doar fișierele modificate de tine (`git add <fișier>`). Folderul `Claude outputs/` (fișiere descărcate din chat) e în `.gitignore`.
