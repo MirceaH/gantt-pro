@@ -1214,6 +1214,30 @@
     } finally { evmDone(); }
   });
 
+  test('EVM (revizie): costul real nu se amestecă cu valorile în zile; o bază salvată înainte de resurse nu îngheață bugetul la 0', () => {
+    newTabWith('Evm1', [mk(1, 'A', 10, null, [], '2026-10-26', { prog: 50, acost: 500 }), mk(2, 'B', 10, null, [F(1)])]); setMeta({ sdate: '2026-10-30' }); settle();
+    try {
+      let D = computeEVM(); eq(D.unit, 'zile'); eq(D.hasActual, false, 'fără costuri în proiect, costul real nu intră în calcul'); eq(D.ignoredActual, true);
+      near(D.ac, D.ev, 0.001, 'AC = EV, nu 500 de bani amestecați cu zile'); eq(D.cpi, null);
+      renderEVM(); ok($('evmBody').textContent.includes('ignorat'), 'fereastra anunță că costul real e ignorat');
+      T.forEach(t => { t.bl = { sd: t.sd, dur: t.dur, cost: 0 }; });                       // bază salvată înainte să existe resurse
+      setRes({ list: [{ id: 1, name: 'Fix', type: 'cost' }], next: 2, cur: 'RON' });
+      T.find(t => t.id === 1).assign = [{ rid: 1, units: 1000 }]; T.find(t => t.id === 2).assign = [{ rid: 1, units: 2000 }]; settle();
+      D = computeEVM(); eq(D.unit, 'cost', 'resursele adăugate după bază sunt luate în calcul'); eq(Math.round(D.bac), 3000, 'BAC din costurile curente, nu 0'); eq(D.hasActual, true);
+    } finally { evmDone(); }
+  });
+
+  test('EVM (revizie): data de status înainte de proiect sau activitate cu progres care începe după ea — graficul rămâne coerent', () => {
+    evmFixture();
+    try {
+      setMeta({ sdate: '2026-09-01' }); settle(); let D = computeEVM();
+      ok(+D.first <= +D.status, 'graficul începe la data de status sau înainte'); ok(D.curve.some(p => p.ev !== null), 'există puncte EV'); near(D.pv, 0, 0.001, 'PV = 0 înainte de proiect');
+      renderEVM(); const st = $('evmBody').querySelector('line.st'); ok(st && parseFloat(st.getAttribute('x1')) >= _EG.L, 'linia „Status” nu iese peste axa Y');
+      setMeta({ sdate: '2026-10-30' }); T.find(t => t.id === 2).prog = 40; settle(); D = computeEVM();       // B începe după data de status, dar are progres
+      const h = D.curve.filter(p => p.ev !== null); near(h[h.length - 1].ev, D.ev, 0.01, 'la data de status curba EV = EV din indicatori');
+    } finally { evmDone(); }
+  });
+
   test('EVM: fereastra se deschide din Proiect › Urmărire, arată indicatorii, graficul și tabelul pe capitole; Esc o închide', () => {
     evmFixture();
     try {

@@ -14,9 +14,10 @@
 const _evmLeaves = () => T.filter(t => !hasK(t.id) && !t.isMilestone);
 
 // Valoarea de bază a unei activități (în bani sau, fără costuri, în zile lucrătoare)
-function _evmValue(t, useCost) {
+// useBase = linia de bază conține costuri; o bază salvată înainte să existe resurse (toate costurile 0) NU îngheață bugetul la 0
+function _evmValue(t, useCost, useBase) {
   if (!useCost) return Math.max(1, t.dur);
-  if (t.bl && Number.isFinite(+t.bl.cost)) return +t.bl.cost;
+  if (useBase && t.bl && Number.isFinite(+t.bl.cost)) return +t.bl.cost;
   return costMap[t.id] || 0;
 }
 
@@ -29,18 +30,24 @@ function _evmWorkIndex(origin, last) {
 
 function computeEVM() {
   const leaves = _evmLeaves(), S = pD(statusDay());
-  const hasBase = hasBaseline(), anyCost = leaves.some(t => _evmValue(t, true) > 0);
+  const hasBase = hasBaseline();
+  const useBase = leaves.some(t => t.bl && Number.isFinite(+t.bl.cost) && +t.bl.cost > 0);
+  const anyCost = leaves.some(t => _evmValue(t, true, useBase) > 0);
   const useCost = anyCost, unit = useCost ? 'cost' : 'zile';
-  const hasActual = leaves.some(t => Number.isFinite(+t.acost) && t.acost !== null && t.acost !== '');
+  const hasCostEntry = t => t.acost !== undefined && t.acost !== null && t.acost !== '' && Number.isFinite(+t.acost);
+  // costul real e în bani: fără costuri în proiect (valori în zile) nu se amestecă cu ele — se ignoră și se anunță
+  const ignoredActual = !useCost && leaves.some(hasCostEntry);
+  const hasActual = useCost && leaves.some(hasCostEntry);
 
   // intervale pentru fiecare activitate
   const info = leaves.map(t => {
     const bs = t.bl ? pD(t.bl.sd) : pD(t.sd), bdur = Math.max(1, t.bl ? t.bl.dur : t.dur);
-    const v = _evmValue(t, useCost), evT = v * (t.prog || 0) / 100;
-    const s0 = t.as ? pD(t.as) : pD(t.sd);
+    const v = _evmValue(t, useCost, useBase), evT = v * (t.prog || 0) / 100;
+    let s0 = t.as ? pD(t.as) : pD(t.sd);
+    if (evT > 0 && s0 > S) s0 = S;                     // are progres, deci a început cel târziu la data de status (date inconsistente)
     let e0 = t.af ? pD(t.af) : S; if (e0 < s0) e0 = s0;
-    const acT = (t.acost !== undefined && t.acost !== null && Number.isFinite(+t.acost)) ? +t.acost : evT;
-    return { t, bs, bdur, v, evT, acT, s0, e0 };
+    const acT = (useCost && hasCostEntry(t)) ? +t.acost : evT;
+    return { t, bs, bdur, v, evT, acT, s0, e0, hasAc: useCost && hasCostEntry(t) };
   });
   if (!info.length) return { empty: true, unit, hasBase, hasActual, status: S };
 
@@ -49,13 +56,14 @@ function computeEVM() {
     if (x.bs < first) first = x.bs; if (x.s0 < first) first = x.s0;
     const be = endDate({ sd: fD(x.bs), dur: x.bdur }); if (be > last) last = be; if (x.e0 > last) last = x.e0;
   });
+  if (S < first) first = S;       // data de status înainte de proiect: graficul o include (altfel linia „Status" ar ieși din grafic)
   first = aD(first, -1);          // curba S pornește de la 0, în ziua dinaintea primei activități
   const wi = _evmWorkIndex(first, aD(last, 2));
   const planFrac = (x, D) => clamp((wi(aD(D, 1)) - wi(x.bs)) / x.bdur, 0, 1);
   const doneFrac = (x, D) => D < x.s0 ? 0 : (D >= x.e0 ? 1 : (dD(x.s0, D) + 1) / (dD(x.s0, x.e0) + 1));
 
   let bac = 0, pv = 0, ev = 0, ac = 0, nActual = 0;
-  info.forEach(x => { bac += x.v; pv += x.v * planFrac(x, S); ev += x.evT; ac += x.acT; if (x.t.acost !== undefined && x.t.acost !== null && Number.isFinite(+x.t.acost)) nActual++; });
+  info.forEach(x => { bac += x.v; pv += x.v * planFrac(x, S); ev += x.evT; ac += x.acT; if (x.hasAc) nActual++; });
 
   const sv = ev - pv, spi = pv > 0 ? ev / pv : null;
   const cv = hasActual ? ev - ac : null, cpi = hasActual && ac > 0 ? ev / ac : null;
@@ -84,7 +92,7 @@ function computeEVM() {
   });
   const rows = [...groups.values()].map(g => ({ ...g, spi: g.pv > 0 ? g.ev / g.pv : null, pct: g.bac > 0 ? g.ev / g.bac : 0 }));
 
-  return { unit, hasBase, hasActual, nActual, nLeaves: info.length, status: S, first, last, bac, pv, ev, ac, sv, spi, cv, cpi, eac, etc, vac, curve, rows };
+  return { unit, hasBase, hasActual, ignoredActual, nActual, nLeaves: info.length, status: S, first, last, bac, pv, ev, ac, sv, spi, cv, cpi, eac, etc, vac, curve, rows };
 }
 
 // ---------------- fereastra ----------------
@@ -109,7 +117,8 @@ function renderEVM() {
   notes.push(`Calculat la <b>data de status ${fmtDate(D.status)}</b>${hasCustomStatus() ? '' : ' (azi)'} — o schimbi din Proiect › Urmărire.`);
   notes.push(D.hasBase ? 'Planificatul (PV) urmează <b>linia de bază</b> salvată.' : '<b>Nu ai linie de bază</b>: PV se calculează după planul curent (Proiect › Linia de bază › Salvează), deci SV rămâne aproape de 0 până îl salvezi.');
   if (u !== 'cost') notes.push('Proiectul nu are costuri: valorile sunt în <b>zile lucrătoare</b>. Atribuie resurse (Proiect › Resurse) ca să vezi sume.');
-  if (!D.hasActual) notes.push('Indicatorii de <b>cost</b> (CV, CPI, EAC…) apar după ce introduci <b>costul real</b> la cel puțin o activitate — altfel CPI ar fi mereu 1.');
+  if (D.ignoredActual) notes.push('<b>Costul real introdus e ignorat</b>: proiectul nu are costuri (valorile sunt în zile), iar costul real e în bani. Atribuie resurse sau costuri fixe ca să-l poți folosi.');
+  if (!D.hasActual && !D.ignoredActual) notes.push('Indicatorii de <b>cost</b> (CV, CPI, EAC…) apar după ce introduci <b>costul real</b> la cel puțin o activitate — altfel CPI ar fi mereu 1.');
   else if (D.nActual < D.nLeaves) notes.push(`Costul real e introdus la ${D.nActual} din ${D.nLeaves} activități; celelalte sunt considerate în buget (AC = EV).`);
   const rows = D.rows.map(r => `<tr><td>${esc(r.nm)}</td><td class="n">${_evmFmt(u, r.bac)}</td><td class="n">${_evmFmt(u, r.pv)}</td><td class="n">${_evmFmt(u, r.ev)}</td><td class="n"><span class="evm-bar"><i style="width:${Math.min(100, Math.round(r.pct * 100))}%"></i></span> ${Math.round(r.pct * 100)}%</td><td class="n evm-${_evmCls(r.spi)}">${_evmIdx(r.spi)}</td></tr>`).join('');
   box.innerHTML = `
