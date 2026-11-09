@@ -3,7 +3,7 @@
 Aplicație web **vanilla HTML/CSS/JS** (fără build system, fără framework) pentru planificare proiect — Gantt interactiv inspirat MS Project / WBS Schedule Pro.
 
 ## Rulare
-Static site. Server local: `python -m http.server 8000` (config în `.claude/launch.json`).
+Static site. Server local: `python -m http.server 8000`. Pe calculatorul acesta nu există Python / Node: folosește `.claude/serve.ps1` (`powershell -NoProfile -ExecutionPolicy Bypass -File .claude/serve.ps1`), pornit și de `preview_start` prin `.claude/launch.json` (ambele sunt ignorate de git).
 
 ## Arhitectură
 
@@ -61,7 +61,7 @@ SF: succ.start = pred.start + lag - succ.dur + 1
 - Combinație (`fromSide`, `toSide`) → tipul dep (vezi `DEP_TYPE_FROM_SIDES` în `deps.js`)
 - La drag: badge plutitor cu tipul colorat lângă cursor, highlight pe jumătatea activă a target-ului
 
-**Prog-handle** = mâner vertical alb pe **mijlocul orizontal** al barei, `z-index:25` (deasupra dep-dot). Vizibil subtil pe bar-hover, prominent pe handle-hover.
+**Prog-handle** (`.prog-handle[data-ph]`, desenat în `renderGantt`, tras în `attachBars`) = mâner vertical alb la **capătul părții umplute** (la % progres), `z-index:25` (deasupra dep-dot). La 0% / 100% e tras 12 px spre interior (`_phLeft`), ca să nu acopere mânerele de redimensionare; nu se desenează pe capitole, repere, bare sub `PH_MIN_W` (30 px) sau la zoom foarte mic (`zoom-micro`). Vizibil subtil pe bar-hover, prominent pe handle-hover.
 
 **Procent %** = text transparent cu stroke negru 4-direcții, la capătul fill-ului. **Nu are fundal** → numele task-ului rămâne vizibil dedesubt.
 
@@ -133,7 +133,7 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 - `alignPanes()` (gantt.js): egalează înălțimea antetului din stânga cu zona de deasupra primului rând din dreapta (bară de unelte + luni + zile) și spațiul de jos, ca rândul din tabel și bara din Gantt să fie MEREU pe aceeași linie orizontală. Se apelează la finalul `renderAll()` și la redimensionare (ResizeObserver). Nu fixa înălțimi de antet în CSS.
 - „Nume lângă bară": `showSideNames` / `toggleSideNames()` (buton în Vizualizare), numele ca element `.bar-side` în rândul Gantt.
 
-## Funcții MS Project adăugate (ramura ms-features)
+## Funcții MS Project adăugate
 
 - **Teste de regresie:** `tests/regression.js` (în pagina aplicației, deschisă la ~1360×800): în consolă `eval(await (await fetch('tests/regression.js')).text())` → `{total, passed, failed, errors}`. Rulează-l după ORICE modificare; adaugă teste pentru orice funcție nouă. Fixturile din `tests/fixtures/` sunt fișiere Excel reale (salvate de Excel).
   - În browserul de test, la schimbarea fișierelor: dezînregistrează service worker-ul, șterge cache-urile, `fetch(f,{cache:'reload'})` pentru fiecare fișier (și citește corpul), apoi reîncarcă; altfel rulează cod vechi.
@@ -167,8 +167,7 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 - **Dimensiune tabel + Gantt:** Ctrl +/−/0 și Ctrl+rotiță (peste tabel / grafic) setează `ZF` (0.6–2.0, pași în `CZ_LEVELS`) prin CSS `zoom` doar pe `#splitView`; panglica / filele / bara de stare nu se scalează; salvat în `ganttContentZoom`; indicator „Dimensiune" în bara de stare (click = 100%). **Regulă:** orice calcul care transformă mișcarea mouse-ului (clientX / clientY, px de ecran) în zile sau px din Gantt trebuie împărțit la `ZF` (vezi tragerea barelor, redimensionarea coloanelor, separatorul, `_cursorToInner`, `alignPanes`); `getBoundingClientRect` e în px de ecran, iar `offsetWidth` / `scrollLeft` în px locali.
 - **Layout la zoom de pagină / ferestre înguste:** panoul din stânga are `width:clamp(480px,46vw,600px)` (fără lățime inline; separatorul o poate seta); coloana „Activitate” e elastică (`NAME_MIN`, `_cmin`) ca „După” să nu mai fie tăiată; coloanele suplimentare (`col-var` etc.) se văd DOAR cu panoul extins; prefixul WBS dispare sub 540 px (container query); bara de stare ascunde „Medie” / „Durată” pe ferestre înguste. Pentru verificări vizuale: `msedge --headless=new --window-size=<css w>,<css h> --force-device-scale-factor=<zoom>` (lățimea ferestrei e în px CSS).
 - **Atenție la editări automate:** nu rescrie fișiere cu `perl -0pi` când înlocuirea conține caractere non-ASCII (strică diacriticele); folosește uneltele de editare. Panglica, filele și bara de stare NU se scalează cu Ctrl +/− (doar tabelul + Gantt-ul); mărimea lor are scala proprie (rândul de mai sus).
-- **Mărimea panglicii / filelor / barei de stare:** `--ui-zoom` (CSS zoom pe `.ribbon`, `.tabs-row`, `.sbar`); automat = `min(lățime/1600, înălțime/650)` între 1 și 1.8 (deci crește singură pe ecrane mari sau când micșorezi pagina din browser); manual cu A− / A+ (sus-dreapta) sau Ctrl+Alt +/−/0, salvat în `ganttUiScale`. Elementele `position:fixed` din panglică (ex. `.rb-menu`) trebuie să-și împartă coordonatele de ecran la `uiScale()` (vezi `toggleDD`). **Atenție la editări automate:** nu rescrie fișiere cu `perl -0pi` + caractere non-ASCII în înlocuire (strică diacriticele); folosește uneltele de editare.
-
+- **Mărimea panglicii / filelor / barei de stare:** `--ui-zoom` (CSS zoom pe `.ribbon`, `.tabs-row`, `.sbar`); automat = `min(lățime/1600, înălțime/650)` între 1 și 1.8 (deci crește singură pe ecrane mari sau când micșorezi pagina din browser); manual cu A− / A+ (sus-dreapta) sau Ctrl+Alt +/−/0, salvat în `ganttUiScale`. Elementele `position:fixed` din panglică (ex. `.rb-menu`) trebuie să-și împartă coordonatele de ecran la `uiScale()` (vezi `toggleDD`).
 ## Valoare realizată (EVM) — `js/evm.js`
 - Fereastra „Valoare realizată (EVM) și curba S": Proiect › Urmărire › „Valoare realizată". `computeEVM()` calculează la data de status (`statusDay()`): BAC, PV, EV, AC, SV, SPI, CV, CPI, EAC, ETC, VAC, curba S și tabelul pe capitole.
 - Modelul: valoarea unei activități = `t.bl.cost` (costul din momentul salvării liniei de bază) sau, dacă lipsește, costul curent din resurse (`costMap`); fără costuri în proiect se folosește durata (zile lucrătoare). PV = liniar în zile lucrătoare pe intervalul liniei de bază; EV = valoare × `t.prog`; AC = `t.acost` (cost real introdus în Detalii activitate › Resurse și cost) sau, dacă lipsește, EV.

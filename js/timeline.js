@@ -62,7 +62,7 @@ function renderTimeline() {
   marks.sort((a, b) => a.d - b.d);
   const rows = [], msTop = barsTop + laneCount * TL.LANE_H + 26;
   const mhtml = marks.map(m => {
-    const l = x(m.d) + (m.kind === 'ms' ? 0 : 0), w = _tlTextW(m.label, '600 11px ' + getComputedStyle(document.body).fontFamily) + 22;
+    const l = x(m.d), w = _tlTextW(m.label, '600 11px ' + getComputedStyle(document.body).fontFamily) + 22;
     let r = rows.findIndex(end => end + 6 <= l - 6);
     if (r < 0) { r = rows.length; rows.push(0); }
     rows[r] = l + w;

@@ -424,6 +424,23 @@
     ok(byId(1).sd !== '2026-10-26', 'bara s-a mutat'); eq(_history.length, 1, 'mutarea intră în istoric'); undo(); eq(byId(1).sd, '2026-10-26', 'undo readuce bara');
   });
 
+  test('progres real: mânerul de pe bară schimbă progresul (din 5 în 5%, Shift = 1%), intră în istoric și completează datele reale; lipsește pe capitole, repere, bare înguste și la zoom foarte mic', () => {
+    newTabWith('Mp', [mk(1, 'Cap', 1), mk(2, 'A', 10, 1, [], '2026-10-26'), mk(3, 'M', 1, 1, [], '2026-10-26', { isMilestone: true }), mk(4, 'Scurt', 1, 1, [], '2026-10-26')]); settle(); _history = []; _future = [];
+    const handle = id => document.querySelector('.gb[data-bid="' + id + '"] .prog-handle'), fire = (el, type, x, y, o) => el.dispatchEvent(new MouseEvent(type, Object.assign({ bubbles: true, clientX: x, clientY: y, button: 0 }, o || {})));
+    ok(handle(2), 'activitatea are mânerul'); ok(!handle(1), 'capitolul nu'); ok(!handle(3), 'reperul nu'); eq(handle(2).dataset.ph, '2'); ok(/clamp\(12px, ?0%/.test(handle(2).style.left),'la 0% mânerul e tras spre interior: ' + handle(2).style.left);
+    const drag = (frac, o) => { const h = handle(2), br = h.closest('.gb').getBoundingClientRect(), x = br.left + br.width * frac, y = br.top + 8; fire(h, 'mousedown', br.left + 5, y); fire(document, 'mousemove', x, y, o); fire(document, 'mouseup', x, y, o); };
+    drag(0.62); eq(byId(2).prog, 60, 'snap la 5%'); eq(byId(2).as, statusDay(), 'început real completat'); ok(!byId(2).af); eq(_history.length, 1, 'intră în istoric');
+    drag(0.574, { shiftKey: true }); eq(byId(2).prog, 57, 'Shift = 1%'); eq(_history.length, 2);
+    drag(0.574, { shiftKey: true }); eq(_history.length, 2, 'aceeași valoare nu umple istoricul');
+    drag(1.2); eq(byId(2).prog, 100, 'peste capăt = 100%'); ok(byId(2).af, 'final real la 100%'); eq(_history.length, 3);
+    undo(); eq(byId(2).prog, 57, 'undo'); undo(); eq(byId(2).prog, 60);
+    isAutoZoom = false;
+    try {
+      document.documentElement.style.setProperty('--day-w', '20px'); renderAll(); ok(handle(2), 'bara de 10 zile (200 px) îl are'); ok(!handle(4), 'bara de 1 zi (20 px) e prea îngustă');
+      document.documentElement.style.setProperty('--day-w', '2px'); renderAll(); ok(!handle(2), 'la zoom foarte mic (pilulă) nu apare');
+    } finally { fitZoom(); }
+  });
+
   // ============================================================
   // D) FILTRE
   // ============================================================
@@ -761,7 +778,7 @@
     eq(byId(2).sd, '2026-11-02'); ok($('resBody').textContent.includes('1 activitate mutată'), 'rezumat: ' + $('resBody').textContent.slice(0, 200)); ok($('resBody').textContent.includes('Anulează nivelarea (1)'));
     clearLeveling(); confirmYes(); eq(byId(2).sd, '2026-10-26', 'anularea readuce data'); ok(!byId(2).cons, 'fără restricție'); ok(overCount() > 0, 'iar supraalocat');
     undo(); eq(byId(2).sd, '2026-11-02', 'undo readuce nivelarea'); undo(); eq(byId(2).sd, '2026-10-26'); closeResources();
-    levelResources(); ok(!$('confirmModal').classList.contains('open') || true); closeConfirm();
+    levelResources(); ok($('confirmModal').classList.contains('open'), 'după anulări e iar supraalocat: cere din nou confirmare'); closeConfirm();
   });
 
   test('nivelare: 80 de proiecte aleatorii — legături respectate, fără supraalocare rezolvabilă rămasă, stabilă', () => {

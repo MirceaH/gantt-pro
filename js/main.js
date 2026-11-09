@@ -21,34 +21,6 @@ function initDark() {
 }
 
 
-// ======== MENIU PROIECT ========
-// (Vechiul meniu Proiect a fost înlocuit cu ribbon Project tab — păstrăm stub-uri)
-function toggleProiectMenu(e) {
-  if (e) e.stopPropagation();
-  const menu = $("proiectMenu");
-  if (!menu) return;
-  menu.classList.toggle("open");
-}
-
-function closeProiectMenu() {
-  const menu = $("proiectMenu");
-  if (menu) menu.classList.remove("open");
-}
-
-document.addEventListener("click", e => {
-  // Stub: meniul Proiect nu mai există în UI nou (Project e tab în ribbon)
-  // Lăsăm doar pentru cazul când localStorage are urme vechi
-  const menu = $("proiectMenu");
-  if (!menu) return;
-  const nameModal = $("nameModal");
-  const taskInfo = $("taskInfoModal");
-  const confirmM = $("confirmModal");
-  if ((nameModal && nameModal.classList.contains("open")) ||
-      (taskInfo && taskInfo.classList.contains("open")) ||
-      (confirmM && confirmM.classList.contains("open"))) return;
-  if (menu.classList.contains("open") && !menu.contains(e.target)) closeProiectMenu();
-});
-
 // ======== EXPORT PNG ========
 async function exportPNG() {
   if (typeof html2canvas === 'undefined') { toast('❌ Librărie lipsă!'); return; }
@@ -57,7 +29,7 @@ async function exportPNG() {
     const canvas = await html2canvas(document.querySelector('.app'), {
       scale: 2, useCORS: true,
       backgroundColor: document.body.classList.contains('dark') ? '#1a1a2e' : '#f7f6f3',
-      ignoreElements: el => ['toast','ctx','tip','proiectMenu','findBar','taskInfoModal','nameModal','confirmModal'].includes(el.id)
+      ignoreElements: el => ['toast','ctx','tip','findBar','taskInfoModal','nameModal','confirmModal'].includes(el.id)
     });
     const link = document.createElement('a');
     link.download = 'gantt-' + fD(new Date()) + '.png';
@@ -75,7 +47,7 @@ async function exportPDF() {
     const canvas = await html2canvas(document.querySelector('.app'), {
       scale: 2, useCORS: true,
       backgroundColor: document.body.classList.contains('dark') ? '#1a1a2e' : '#f7f6f3',
-      ignoreElements: el => ['toast','ctx','tip','proiectMenu','findBar','taskInfoModal','nameModal','confirmModal'].includes(el.id)
+      ignoreElements: el => ['toast','ctx','tip','findBar','taskInfoModal','nameModal','confirmModal'].includes(el.id)
     });
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
@@ -550,7 +522,7 @@ document.addEventListener("keydown",e=>{
   if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT"||e.target.tagName==="TEXTAREA") return;
   if(document.querySelector(".modal-overlay.open") || document.body.classList.contains("pp-open")) return;
   if((e.ctrlKey||e.metaKey)&&e.key==="n"){ e.preventDefault(); newProject(); return; }
-  if(e.key==="Escape"){ closeProiectMenu(); if(!document.body.classList.contains("gantt-full")) deselectAll(); return; }
+  if(e.key==="Escape"){ if(!document.body.classList.contains("gantt-full")) deselectAll(); return; }
   if(e.key==="Delete"&&sel) delSel();
   if(e.key==="Tab"&&sel){e.preventDefault();if(e.shiftKey)outdentSel();else indentSel(); return;}
   if(view!=="gantt" || e.ctrlKey || e.metaKey || e.target.tagName==="BUTTON") return;

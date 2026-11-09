@@ -13,7 +13,7 @@ const TOUR_STEPS = [
     text: 'Fiecare rând e o activitate: scrii direct numele, durata și datele. Dublu-click pe un rând deschide toate detaliile. Capitolele (cu săgeată) grupează activitățile, iar rândurile se pot trage ca să schimbi ordinea sau nivelul.',
     target: () => [document.getElementById('paneL')] },
   { title: 'Graficul Gantt',
-    text: 'Fiecare activitate e o bară pe axa timpului. Trage bara ca s-o muți în timp, trage de margini ca să-i schimbi durata, trage mânerul alb din mijloc ca să marchezi progresul. Ctrl + / − mărește sau micșorează tabelul și graficul.',
+    text: 'Fiecare activitate e o bară pe axa timpului. Trage bara ca s-o muți în timp, trage de margini ca să-i schimbi durata, trage mânerul alb de la capătul părții umplute ca să marchezi progresul. Ctrl + / − mărește sau micșorează tabelul și graficul.',
     target: () => [document.getElementById('paneR')] },
   { title: 'Cum legi două activități', dots: true,
     text: 'Treci cu mouse-ul pe o bară: apar două puncte pe colțuri (albastru = începutul, portocaliu = sfârșitul). Trage de pe unul pe altă bară ca să creezi o legătură; tipul (FS, SS, FF, SF) depinde de colțurile alese. Activitățile legate se mută singure.',

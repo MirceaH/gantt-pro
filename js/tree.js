@@ -1,44 +1,3 @@
-let linkSrc = null, hoverTarget = null;
-
-function startLink(e, id) {
-  e.preventDefault(); e.stopPropagation(); linkSrc = id; hideTip();
-  const handle = e.target, line = $("tempLink");
-  line.setAttribute("x1", handle.getAttribute("cx")); line.setAttribute("y1", handle.getAttribute("cy"));
-  line.setAttribute("x2", handle.getAttribute("cx")); line.setAttribute("y2", handle.getAttribute("cy"));
-  line.style.display = "block";
-}
-
-function trackLine(e) {
-  if(!linkSrc) return;
-  const svg = document.querySelector('.tree-svg'); if(!svg) return;
-  const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
-  const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
-  $("tempLink").setAttribute("x2", loc.x); $("tempLink").setAttribute("y2", loc.y);
-}
-
-function setHoverTarget(id) { 
-  if (linkSrc && linkSrc !== id) { hoverTarget = id; const g = document.getElementById('node-' + id); if(g) g.classList.add('drop-target'); } 
-}
-
-function clearHoverTarget(id) { 
-  if (hoverTarget === id) { hoverTarget = null; const g = document.getElementById('node-' + id); if(g) g.classList.remove('drop-target'); } 
-}
-
-document.addEventListener('mouseup', (e) => {
-  if (linkSrc) {
-    if (hoverTarget && hoverTarget !== linkSrc) {
-      if (isD(linkSrc, hoverTarget)) toast("Eroare: Nu poți face o buclă!");
-      else {
-        const tgt = T.find(t => t.id === hoverTarget);
-        if(tgt) { tgt.pid = linkSrc; toast("Săgeată creată!"); sel = hoverTarget; renderAll(); }
-      }
-    }
-    if($("tempLink")) $("tempLink").style.display = "none";
-    linkSrc = null; hoverTarget = null;
-    document.querySelectorAll('.t-node.drop-target').forEach(el => el.classList.remove('drop-target'));
-  }
-});
-
 // ===== Stare arbore =====
 let treeFocus = null;          // capitolul focalizat (null = tot proiectul)
 const treeOpen = new Set();    // capitole deschise (implicit sunt închise, în afară de rădăcină)
@@ -165,7 +124,7 @@ function renderTree(){
 
   let svg=`<svg class="tree-svg" style="width:${Math.round(totalW*sc)}px;height:${Math.round(totalH*sc)}px;display:block;margin:${mt}px auto 0" viewBox="0 0 ${totalW} ${totalH}">
     <defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.10"/></filter></defs>
-    <line id="tempLink" x1="0" y1="0" x2="0" y2="0" stroke="var(--coral)" stroke-width="3" stroke-dasharray="6" style="display:none;pointer-events:none"/>`;
+`;
 
   // Conexiuni ortogonale subțiri, fără săgeți
   an.forEach(n => {
@@ -190,7 +149,7 @@ function renderTree(){
     const sub = n.isCol ? `${n.cnt} ${n.cnt===1?'activitate':'activități'}${critTxt} · ${dateStr}`
               : (n.ms ? `♦ reper · ${dateStr}` : `${n.du} ${n.du===1?'zi':'zile'} · ${dateStr}`);
 
-    svg+=`<g id="node-${n.id}" class="t-node${isSel}${n.crit?" crit":""}" onclick="selTask(${n.id})" ondblclick="treeDbl(${n.id})" oncontextmenu="showCtx(event,${n.id})" onmouseenter="setHoverTarget(${n.id});treeTip(event,${n.id})" onmouseleave="clearHoverTarget(${n.id});hideTip()">`;
+    svg+=`<g id="node-${n.id}" class="t-node${isSel}${n.crit?" crit":""}" onclick="selTask(${n.id})" ondblclick="treeDbl(${n.id})" oncontextmenu="showCtx(event,${n.id})" onmouseenter="treeTip(event,${n.id})" onmouseleave="hideTip()">`;
     svg+=`<rect class="nc" x="${n.x}" y="${n.y}" width="${rW}" height="${rH}" rx="10" filter="url(#shadow)"/>`;
     svg+=`<path d="M${n.x+10},${n.y} H${n.x+4} Q${n.x},${n.y} ${n.x},${n.y+10} V${n.y+rH-10} Q${n.x},${n.y+rH} ${n.x+4},${n.y+rH} H${n.x+10} Z" fill="${cFg}" pointer-events="none" opacity=".95"/>`;
     svg+=`<rect x="${n.x}" y="${n.y}" width="6" height="${rH}" fill="${cFg}" rx="3" pointer-events="none"/>`;
@@ -214,7 +173,7 @@ function renderTree(){
   const box=$("treeBox"); if(!box) return;
   let pan=null;
   box.addEventListener("mousedown", e=>{
-    if(e.button!==0 || e.target.closest(".t-node,.link-handle,.focus-btn,.tree-crumb")) return;
+    if(e.button!==0 || e.target.closest(".t-node,.tree-crumb")) return;
     pan={x:e.clientX,y:e.clientY,l:box.scrollLeft,t:box.scrollTop}; box.classList.add("panning");
   });
   document.addEventListener("mousemove", e=>{ if(!pan) return; box.scrollLeft=pan.l-(e.clientX-pan.x); box.scrollTop=pan.t-(e.clientY-pan.y); });

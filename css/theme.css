@@ -42,7 +42,6 @@ body.dark .ribbon{background:var(--card);border-bottom-color:var(--grid)}
 .ribbon-body,body.dark .ribbon-body{height:46px;background:var(--card);border-bottom:none}
 .rb-content{padding:5px 8px;align-items:center}
 .rb-group{padding:0 8px;min-height:0;justify-content:center;border-right:1px solid var(--grid)}
-.rb-group-lbl{display:none}
 .rb-row{gap:2px;padding:0;align-items:center}
 
 .rb-btn{height:32px;min-width:32px;padding:0 9px;gap:7px;border-radius:var(--r-sm);border:1px solid transparent;background:transparent;color:var(--text2);font-size:12.5px;font-weight:600;transition:background .12s,color .12s}
@@ -74,13 +73,6 @@ body.dark .rb-menu{background:var(--card);border-color:var(--grid)}
 .proj-tab:hover{background:var(--grid2);color:var(--text)}
 .proj-tab.active{background:var(--card);border-color:var(--grid);border-bottom-color:var(--card);color:var(--text);margin-bottom:-1px;padding-bottom:6px}
 .proj-tab-add{border-radius:var(--r-sm);width:24px;height:24px}
-.vtabs{background:var(--card);border-bottom:1px solid var(--grid);min-height:32px;padding:0 10px}
-.vtab{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px}
-.vtab .ic{width:15px;height:15px}
-.vtab:hover{color:var(--text)}
-.vtab.active{color:var(--accent);border-bottom-color:var(--accent)}
-body.dark .vtabs{background:var(--card);border-bottom-color:var(--grid)}
-body.dark .vtab{color:var(--muted)}body.dark .vtab.active{color:var(--accent)}
 
 /* ---------- Bara de stare ---------- */
 .sbar{background:var(--accent-bar);padding:4px 14px;font-size:11.5px;color:rgba(255,255,255,.85);font-weight:600;gap:18px;border-top:none}
@@ -89,8 +81,7 @@ body.dark .vtab{color:var(--muted)}body.dark .vtab.active{color:var(--accent)}
 .split,.pane-l,.pane-r{background:var(--card)}
 .th-row{background:var(--grid2);border-bottom:1px solid var(--grid)}
 .th-row .th{font-size:10.5px;letter-spacing:.6px;border-right:1px solid var(--grid)}
-body.dark .th-row,body.dark .g-toolbar,body.dark .g-head{background:var(--grid2)}
-.g-toolbar{background:var(--card);border-bottom:1px solid var(--grid)}
+body.dark .th-row,body.dark .g-head{background:var(--grid2)}
 .g-info{background:var(--card)}
 .splitter{background:var(--grid)}
 body.dark .splitter{background:var(--grid)}
@@ -378,11 +369,7 @@ body.dark{--col-line:#4a5270;--col-line2:#343b52}
 /* ===== Design: mai puțin cadru sus — proiectele și vederile pe un singur rând ===== */
 .tabs-row{display:flex;align-items:flex-end;flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--grid)}
 .tabs-row .proj-tabs-bar{flex:1 1 auto;min-width:0;border-bottom:none;overflow-x:auto;overflow-y:hidden}
-.tabs-row .vtabs{flex:0 0 auto;align-self:center;display:inline-flex;gap:2px;min-height:0;margin:3px 12px 3px 6px;padding:2px;background:var(--grid2);border:none;border-radius:var(--r-md,10px)}
-.tabs-row .vtab{border:none;margin:0;padding:4px 12px;border-radius:8px;font-size:12px;cursor:pointer}
-.tabs-row .vtab.active{background:var(--card);color:var(--accent);box-shadow:0 1px 3px rgba(20,28,60,.14)}
 body.gantt-full .tabs-row{display:none!important}
-body.no-project .tabs-row .vtabs{display:none!important}
 
 /* ===== Design: bara de stare luminoasă, aliniată cu cardurile de informații ===== */
 .sbar{background:var(--card);color:var(--muted);border-top:1px solid var(--grid);padding:5px 14px;gap:18px;align-items:center;font-size:11.5px;font-weight:600}
@@ -412,10 +399,6 @@ body.no-project .tabs-row .vtabs{display:none!important}
 .g-info .gi-chip{font-size:10.5px;padding:0 7px}
 .g-info .gi-bar{width:70px;height:5px}
 
-/* ===== Design: Task Info pe secțiuni ===== */
-.ti-sec{display:flex;align-items:center;gap:10px;margin:18px 0 10px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
-.ti-sec::after{content:'';flex:1;height:1px;background:var(--grid)}
-#tiBody > .ti-sec:first-child{margin-top:2px}
 
 /* ===== Design: arbore — butoane de zoom ===== */
 .tree-crumb .tc-step{width:26px;padding:0;justify-content:center;font-size:15px;line-height:1}
@@ -426,9 +409,6 @@ body.no-project .tabs-row .vtabs{display:none!important}
 .welcome-box{max-width:760px}
 
 /* ===== Design: antet de tabel mai scund — butoanele Gantt-ului stau în rândul de file, nu deasupra lunilor ===== */
-.tabs-row .tabs-tools{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;align-self:center;margin:0 4px 0 6px}
-.tabs-row .tabs-tools .g-fs-btn{margin:0;padding:3px 10px}
-body.no-project .tabs-row .tabs-tools{display:none!important}
 .th-row .th{padding:4px 8px}
 /* Legendă: semnul de avertisment e acum o insignă, nu un contur */
 .lg-row i.lg-warn{border:none!important;border-radius:50%;flex:0 0 14px;width:14px!important;height:14px!important;margin:1px 11px 0;background:#e0a030;position:relative}
@@ -596,7 +576,7 @@ body.bars-new .g-body.zoom-micro .gb.task .rs{width:3px}
 @media (max-width:1250px){.sbar .sb-opt1{display:none}}
 @media (max-width:1050px){.sbar .sb-opt2{display:none}.sbar .save-indicator{display:none}}
 /* coloanele suplimentare (Δ bază, Cost, Status, real) apar DOAR când panoul e extins (butonul din separator) — nu doar fiindcă a rămas loc */
-.pane-l:not(.expanded) :is(.col-var,.col-cost,.col-status,.col-as,.col-af,.col-id,.col-notes){display:none!important}
+.pane-l:not(.expanded) :is(.col-var,.col-cost,.col-status,.col-as,.col-af){display:none!important}
 /* panou îngust (zoom de pagină mare / fereastră mică): prefixul WBS dispare ca numele activităților să aibă loc */
 .pane-l{container-type:inline-size;container-name:pl}
 @container pl (max-width:540px){.t-row .t-wbs{display:none}}
@@ -678,3 +658,7 @@ body.tour-dots .gb .dep-dot{opacity:1!important}
 .rb-content[data-rc="view"] .rb-group{padding:0 6px}
 .rb-content[data-rc="view"] .rb-input{width:70px}
 .rb-seg .rb-btn{padding:0 8px}
+
+/* ===== Mânerul de progres de pe bară (stilul Nou: semnul ia culoarea textului barei, ca să se vadă și pe bara pală) ===== */
+body.bars-new .gb.task .prog-handle::after,body.bars-new .gb.task .prog-handle:hover::after{background:var(--b-fg)}
+body.bars-new .gb.task .prog-handle:hover::after{box-shadow:0 0 0 2px color-mix(in srgb,var(--b-fg) 30%,transparent)}

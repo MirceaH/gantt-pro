@@ -586,6 +586,7 @@ function renderGantt(){
       if(!showSideNames && !sideAuto && lbl!==t.nm) bi+=`<span class="bn-hov">${esc(t.nm)}</span>`;   // numele complet, la hover / selecție
       if(showPct) bi+=`<span class="bp-pct">${t.prog}%</span>`;
       bi+=`<div class="rs rs-l" data-rl="${t.id}"></div><div class="rs rs-r" data-rr="${t.id}"></div>`;
+      if(!micro && w>=PH_MIN_W) bi+=`<div class="prog-handle" data-ph="${t.id}" style="left:${_phLeft(t.prog)}" title="Trage ca să schimbi progresul (din 5 în 5%; Shift = din 1 în 1%)"></div>`;
     } else {
       const pctSumm=t.prog>0?`<span class="summ-pct">${t.prog}%</span>`:"";
       bi+=`<span class="bn-summ dp${dp}">${esc(t.nm)}${pctSumm}</span>`;
@@ -797,7 +798,7 @@ function attachBars(cs,td,dw){
         // Snap la multipli de 5% (implicit); Shift = control precis 1%
         const step = ev.shiftKey ? 1 : 5;
         pct = clamp(Math.round(raw/step)*step, 0, 100);
-        h.style.left=pct+"%";
+        h.style.left=_phLeft(pct);
         if(fillBar) fillBar.style.width=pct+"%";
         if(pctEl) pctEl.textContent = pct + "%";
       };
@@ -871,6 +872,11 @@ function attachBars(cs,td,dw){
     });
   });
 }
+
+// Mânerul de progres stă la capătul părții umplute; la 0% și 100% e tras 12 px spre interior, ca să nu acopere mânerele de redimensionare
+// și punctele de legătură de pe margini. Pe bare mai înguste de PH_MIN_W nu se desenează (progresul se schimbă din tabel / Detalii).
+const PH_MIN_W=30;
+const _phLeft=p=>"clamp(12px,"+p+"%,calc(100% - 12px))";
 
 // Marcaj de termen limită (deadline): dungă verde la finalul zilei-limită; roșie dacă e depășit
 function _dlMark(t, cs, dw){
