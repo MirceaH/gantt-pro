@@ -10,7 +10,7 @@ const TOUR_STEPS = [
     text: 'Aici sunt toate comenzile, grupate pe file: Fișier (salvare, export, tipărire), Acasă (adaugă și mută activități), Vizualizare (vederi, filtre, zoom) și Proiect (calendar, resurse, buget, urmărire). Treci cu mouse-ul peste un buton ca să vezi ce face.',
     target: () => [document.querySelector('.ribbon')] },
   { title: 'Tabelul de activități',
-    text: 'Fiecare rând e o activitate: scrii direct numele, durata și datele. Dublu-click pe un rând deschide toate detaliile. Capitolele (cu săgeată) grupează activitățile, iar rândurile se pot trage ca să schimbi ordinea sau nivelul.',
+    text: 'Fiecare rând e o activitate: scrii direct numele, durata și datele. Dublu-click pe numărul rândului (coloana ID) deschide toate detaliile. Capitolele (cu săgeată) grupează activitățile, iar rândurile se pot trage ca să schimbi ordinea sau nivelul.',
     target: () => [document.getElementById('paneL')] },
   { title: 'Graficul Gantt',
     text: 'Fiecare activitate e o bară pe axa timpului. Trage bara ca s-o muți în timp, trage de margini ca să-i schimbi durata, trage mânerul alb de la capătul părții umplute ca să marchezi progresul. Ctrl + / − mărește sau micșorează tabelul și graficul.',

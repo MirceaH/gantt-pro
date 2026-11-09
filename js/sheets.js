@@ -203,6 +203,7 @@ function importRowsAsTab(rows, name) {
   syncTabData(); renderAll();
   const msg = ['📥 Importat „' + name + '”: ' + p.tasks.length + ' activități'];
   if (linked) msg.push(linked + ' legături'); if (p.defaults) msg.push(p.defaults + ' fără durată → 1 zi'); if (ignored) msg.push(ignored + ' legături nerecunoscute');
+  if (linked && p.hasStart) msg.push('datele de start se recalculează după legături; calendarul, resursele și restricțiile nu se importă');
   toast(msg.join(' · '));
   return { tab, parsed: p, linked, ignored };
 }

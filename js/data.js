@@ -80,7 +80,7 @@ const MN = d => ["Ian","Feb","Mar","Apr","Mai","Iun","Iul","Aug","Sep","Oct","No
 const todayStr = fD(new Date());
 const fmtDate = d => `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
 
-function toast(m) { const t=$("toast"); t.textContent=m; t.classList.add("v"); clearTimeout(toast._); toast._=setTimeout(()=>t.classList.remove("v"),2500); }
+function toast(m) { const t=$("toast"); t.textContent=m; t.classList.add("v"); clearTimeout(toast._); toast._=setTimeout(()=>t.classList.remove("v"),clamp(m.length*55,2500,9000)); }   // mesajele lungi rămân mai mult pe ecran
 // Index temporar (id → activitate, părinte → copii) folosit doar cât durează recalcularea (vezi recomputeAll):
 // în acest interval structura lui T nu se schimbă, iar căutările devin O(1) în loc de O(n).
 let _ix = null;

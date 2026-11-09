@@ -454,7 +454,7 @@
     <div class="modal-ico">📁</div>
     <div class="modal-msg">Numele proiectului</div>
     <input class="modal-input" id="nameModalInput" placeholder="Proiect nou" autocomplete="off"
-      onkeydown="if(event.key==='Enter')document.getElementById('nameModalOk').click()">
+      onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('nameModalOk').click()}">
     <div class="modal-actions">
       <button class="modal-btn cancel" onclick="closeNameModal()">Anulează</button>
       <button class="modal-btn primary" id="nameModalOk">Salvează</button>

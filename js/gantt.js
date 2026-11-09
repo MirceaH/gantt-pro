@@ -549,7 +549,7 @@ function renderGantt(){
   });
 
   const ti=dD(cs,pD(todayStr)), aziFlag=(ti>=0&&ti<td)?`<div class="today-flag-h" style="left:${Math.max(16,ti*dw+dw/2)}px">Azi</div>`:"";
-  const si=stDay?dD(cs,pD(stDay)):-1, statusFlag=(si>=0&&si<td)?`<div class="today-flag-h status" style="left:${Math.max(24,si*dw+dw/2)}px" title="Data de status: ${fmtDate(pD(stDay))}">Status ${_dm(pD(stDay))}</div>`:"";
+  const si=stDay?dD(cs,pD(stDay)):-1, statusFlag=(si>=0&&si<td)?`<div class="today-flag-h status${ti>=0&&Math.abs(si-ti)*dw<70?" up":""}" style="left:${Math.max(24,si*dw+dw/2)}px" title="Data de status: ${fmtDate(pD(stDay))}">Status ${_dm(pD(stDay))}</div>`:"";
   $("gHead").innerHTML=`<div style="width:${tw}px;position:relative"><div class="g-head-row">${hm}</div><div class="g-head-row">${hd}</div>${aziFlag}${statusFlag}</div>`;
 
   let grid="";
@@ -702,7 +702,7 @@ function hideLive(){ const b=document.getElementById("liveBadge"); if(b) b.remov
 // ===== Bara de informații de sub Gantt =====
 function updateInfoBar(t){
   const el=$("gInfo"); if(!el) return;
-  if(!t){ el.innerHTML='<span style="color:var(--muted)">Treci cu mouse-ul pe o activitate pentru detalii · Trage rândurile = ierarhie · Trage barele = date · Dublu-click = Detalii</span>'; return; }
+  if(!t){ el.innerHTML='<span style="color:var(--muted)">Treci cu mouse-ul pe o activitate pentru detalii · Trage rândurile = ierarhie · Trage barele = date · Dublu-click pe ID = Detalii</span>'; return; }
   const w=wbs(), p=ps(t), c=cpm[t.id], zi=n=>`${n} ${n===1?"zi":"zile"}`;
   const tile=(lbl,body,cls="")=>`<div class="gi-tile ${cls}"><div class="gi-k">${lbl}</div><div class="gi-v">${body}</div></div>`;
   const link=(id,d)=>`<span class="gi-link" style="--c:${DEP_COLORS[d.type]||DEP_COLORS.FS}">${w[id]||"?"}<i>${esc(depLabel(d))}</i></span>`;

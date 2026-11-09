@@ -336,12 +336,28 @@ $("ribbonTabs").addEventListener("click", e => {
   const tab = e.target.closest(".rb-tab");
   if (!tab) return;
   const which = tab.dataset.rt;
-  document.querySelectorAll(".rb-tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".rb-tab").forEach(t => { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); });
   document.querySelectorAll(".rb-content").forEach(c => c.classList.remove("active"));
-  tab.classList.add("active");
+  tab.classList.add("active"); tab.setAttribute("aria-selected", "true");
   const content = document.querySelector('.rb-content[data-rc="' + which + '"]');
   if (content) content.classList.add("active");
 });
+
+// Filele panglicii: rol de filă, pot primi focus (Tab), se activează cu Enter / Space, iar săgețile stânga / dreapta trec la fila vecină.
+// Tastele se opresc aici (stopPropagation), altfel ar ajunge la comenzile din tabel (Enter = editează numele, ← / → = indent).
+function initRibbonA11y() {
+  const bar = $("ribbonTabs"); bar.setAttribute("role", "tablist");
+  bar.querySelectorAll(".rb-tab").forEach(t => { t.setAttribute("role", "tab"); t.tabIndex = 0; t.setAttribute("aria-selected", t.classList.contains("active") ? "true" : "false"); });
+  bar.addEventListener("keydown", e => {
+    const tab = e.target.closest && e.target.closest(".rb-tab"); if (!tab || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); tab.click(); return; }
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault(); e.stopPropagation();
+      const tabs = [...bar.querySelectorAll(".rb-tab")].filter(t => t.offsetParent !== null), i = tabs.indexOf(tab), n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+      if (n) { n.focus(); n.click(); }
+    }
+  });
+}
 
 // Tab Format e vizibil doar dacă e selectat ceva
 function updateFormatTabVisibility() {
@@ -404,7 +420,7 @@ function toggleLegend(e) {
   p = document.createElement("div");
   p.id = "legendPop"; p.className = "legend-pop";
   p.innerHTML = `<div class="lg-title">Legendă Gantt <button onclick="toggleLegend()">✕</button></div>
-    <div class="lg-row"><i class="lg-tip">✋</i><span><b>Cum folosești</b> — trage rândurile = ierarhie · trage barele = date · dublu-click pe rând sau pe bară = <b>Detalii activitate</b>. Detaliile apar și într-o bară jos când pui Gantt-ul pe tot ecranul.</span></div>
+    <div class="lg-row"><i class="lg-tip">✋</i><span><b>Cum folosești</b> — trage rândurile = ierarhie · trage barele = date · dublu-click pe numărul rândului (ID) = <b>Detalii activitate</b>, dublu-click pe bară = redenumire. Detaliile apar și într-o bară jos când pui Gantt-ul pe tot ecranul.</span></div>
     <div class="lg-row"><i class="lg-st"></i><span><b>Culoarea barei</b> (stilul „Nou”) — <b style="color:#8a98c8">pal</b> = nepornită, <b style="color:#3f58d8">albastru</b> = în lucru (partea închisă = progresul), <b style="color:#2f9566">verde</b> = finalizată, <b style="color:#cc4543">roșu</b> = pe drumul critic. Numele care nu încape în bară apare lângă ea.</span></div>
     <div class="lg-row"><i class="lg-today"></i><span><b>Linie roșie verticală</b> — ziua de azi.</span></div>
     <div class="lg-row"><i class="lg-bar crit"></i><span><b>Bară roșie</b> — activitate de pe drumul critic (orice întârziere mută finalul proiectului).</span></div>
@@ -630,6 +646,7 @@ function initA11y() {
 // ======== BOOT ========
 initDark();
 initA11y();
+initRibbonA11y();
 _refreshBarStyleUI();
 _applyContentZoom();
 applyUiScale();

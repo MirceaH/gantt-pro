@@ -127,9 +127,9 @@ function actualText(t) {
 function _syncActuals(t, oldProg) {
   if (!_isLeafTask(t)) return '';
   const sd = statusDay(), msg = [];
-  if (t.prog > 0 && oldProg <= 0 && !t.as) { t.as = sd; msg.push('Început real: ' + fmtDate(pD(sd))); }
-  if (t.prog >= 100 && oldProg < 100) {
-    if (!t.as) t.as = _minISO(t.sd, sd);
+  if (t.prog > 0 && t.prog < 100 && oldProg <= 0 && !t.as) { t.as = sd; msg.push('Început real: ' + fmtDate(pD(sd))); }
+  if (t.prog >= 100 && oldProg < 100) {   // salt direct la 100%: începutul real e cel planificat (ca la „Finalizat"), nu data de status — altfel „Actualizează planul" ar muta munca gata în viitor
+    if (!t.as) { t.as = _minISO(t.sd, sd); msg.push('Început real: ' + fmtDate(pD(t.as))); }
     if (!t.af) { t.af = _maxISO(sd, t.as); msg.push('Final real: ' + fmtDate(pD(t.af))); }
   }
   if (oldProg >= 100 && t.prog < 100 && t.af) { delete t.af; msg.push('final real șters'); }

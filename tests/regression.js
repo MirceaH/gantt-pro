@@ -1390,6 +1390,53 @@
     document.querySelectorAll('.modal-close').forEach(b => ok(b.getAttribute('aria-label'), 'buton de închidere fără etichetă'));
   });
 
+  // ---------- corecturi după parcurgerea ca utilizator nou ----------
+  test('dialog nume: Enter în câmp își anulează acțiunea implicită (altfel focusul readus pe „Proiect nou" redeschide dialogul) și creează proiectul o singură dată', () => {
+    const n = tabs.length; newProject(); const inp = $('nameModalInput'); inp.value = 'Test Enter';
+    const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }); inp.dispatchEvent(ev);
+    ok(ev.defaultPrevented, 'Enter are default anulat'); eq(tabs.length, n + 1, 'un singur proiect nou'); ok(!$('nameModal').classList.contains('open'), 'dialogul e închis');
+  });
+
+  test('steagul „Status" stă pe rândul zilelor (nu acoperă eticheta lunii); aproape de „Azi" urcă pe rândul lunilor', () => {
+    newTabWith('Sf', [mk(1, 'A', 60, null, [], fD(aD(new Date(), -3)))]); META.sdate = fD(aD(new Date(), 40)); renderAll();
+    try {
+      let f = document.querySelector('.today-flag-h.status'); ok(f, 'steag Status'); const mo = document.querySelector('#gHead .g-head-row').getBoundingClientRect();
+      ok(!f.classList.contains('up') && f.getBoundingClientRect().top >= mo.bottom - 1, 'steagul e sub rândul lunilor: ' + Math.round(f.getBoundingClientRect().top) + ' ≥ ' + Math.round(mo.bottom));
+      META.sdate = fD(aD(new Date(), 2)); renderAll(); f = document.querySelector('.today-flag-h.status'); ok(f && f.classList.contains('up'), 'aproape de Azi urcă (nu se suprapune cu steagul Azi)');
+    } finally { META.sdate = null; renderAll(); }
+  });
+
+  test('dialog „Activitate nouă": câmpul de dată și cel de durată sunt aliniate; fereastra Resurse are aceeași mărime pe toate filele', () => {
+    newTabWith('Al2', [mk(1, 'A', 3, null, [], '2026-10-26', { assign: [{ rid: 1, units: 100 }] })], null, { cur: 'RON', next: 2, list: [{ id: 1, name: 'E', type: 'work', rate: 10, max: 100 }] }); settle();
+    openAddTask(false); const a = document.querySelector('#atBody .dtx-t').getBoundingClientRect(), b = $('atDur').getBoundingClientRect(); near(a.top, b.top, 1.5, 'același sus'); near(a.height, b.height, 2, 'aceeași înălțime'); closeAddTask();
+    openResources('res'); const box = () => $('resModal').querySelector('.res-box').getBoundingClientRect(), r0 = box();
+    ['load', 'usage', 'budget', 'res'].forEach(t => { resTab(t); const r = box(); near(r.width, r0.width, 1, 'lățime la ' + t); near(r.height, r0.height, 1, 'înălțime la ' + t); near(r.top, r0.top, 1, 'poziție la ' + t); }); closeResources();
+  });
+
+  test('progres: salt direct 0 → 100% păstrează începutul planificat (nu data de status) și „Actualizează planul" nu mută munca gata în viitor', () => {
+    newTabWith('Sj', [mk(1, 'A', 5, null, [], '2026-10-26'), mk(2, 'B', 3, null, [F(1)])]); META.sdate = '2026-12-14'; settle();
+    try {
+      upd(1, 'prog', '100'); eq(byId(1).as, '2026-10-26', 'început real = cel planificat'); eq(byId(1).af, '2026-12-14', 'final real = data de status');
+      upd(2, 'prog', '40'); eq(byId(2).as, '2026-12-14', 'progres parțial: începutul rămâne data de status');
+      applyActuals(); confirmYes(); eq(byId(1).sd, '2026-10-26', 'activitatea gata nu e mutată în viitor');
+    } finally { META.sdate = null; }
+  });
+
+  test('import Excel: când fișierul are date de start și legături, utilizatorul e avertizat că datele se recalculează și ce nu se importă', () => {
+    importRowsAsTab([['Activitate', 'Durată', 'Start', 'Se face după'], ['A', 3, '26.10.2026', ''], ['B', 2, '27.10.2026', '1']], 'Nt');
+    const m = toasts.slice(-1)[0]; ok(m.includes('recalculează') && m.includes('calendarul'), 'mesaj: ' + m);
+    importRowsAsTab([['Activitate', 'Durată'], ['A', 3], ['B', 2]], 'Nt2'); ok(!toasts.slice(-1)[0].includes('recalculează'), 'fără avertisment când nu sunt legături');
+  });
+
+  test('panglică: filele au rol și focus, se activează cu Enter / Space / săgeți fără să atingă tabelul', () => {
+    newTabWith('Ra', [mk(1, 'A', 2), mk(2, 'B', 2)]); sel = 2; renderAll();
+    const vis = [...document.querySelectorAll('.rb-tab')].filter(t => t.offsetParent !== null); ok(vis.length >= 4 && vis.every(t => t.getAttribute('role') === 'tab' && t.tabIndex === 0), 'role / tabindex'); eq($('ribbonTabs').getAttribute('role'), 'tablist');
+    const k = (el, key) => { const ev = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }); el.dispatchEvent(ev); return ev; }, act = () => document.querySelector('.rb-tab.active');
+    const view = document.querySelector('.rb-tab[data-rt="view"]'); k(view, 'Enter'); eq(act().dataset.rt, 'view'); eq(view.getAttribute('aria-selected'), 'true'); eq(document.querySelector('.rb-tab[data-rt="home"]').getAttribute('aria-selected'), 'false');
+    const pid = byId(2).pid; k(view, 'ArrowRight'); eq(act().dataset.rt, 'project'); eq(byId(2).pid, pid, '→ nu face indent când focusul e pe filă'); k(act(), 'ArrowLeft'); eq(act().dataset.rt, 'view'); k(act(), ' '); eq(act().dataset.rt, 'view');
+    document.querySelector('.rb-tab[data-rt="home"]').click(); sel = null;
+  });
+
   // ---------- extensie pentru funcții viitoare ----------
   const extra = window.__regressionExtra;
   if (typeof extra === 'function') extra({ test, ok, eq, near, skip, wait, F, mk, settle, snap, setProject, confirmYes, key, newTabWith, noTransitions, toasts });

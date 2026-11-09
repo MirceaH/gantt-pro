@@ -224,7 +224,8 @@ body.dark .t-row.summ:hover,body.dark .t-row.summ.hovered{background:#2a3262!imp
 .act-bar.wip{background:#4a8fd4}
 .g-grid .vl.status{background:rgba(139,92,246,.75)!important;width:2px!important;z-index:2}
 .hc.dy.status{box-shadow:inset 0 -2px 0 #8b5cf6}
-.today-flag-h.status{background:#8b5cf6;bottom:auto;top:2px;font-size:9px}
+.today-flag-h.status{background:#8b5cf6;font-size:9px}
+.today-flag-h.status.up{bottom:auto;top:2px}   /* aproape de „Azi": urcă pe rândul lunilor, ca să nu se suprapună cu steagul Azi */
 .ti-mini{font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;border-radius:9px;border:1px solid var(--grid);background:var(--grid2);color:var(--text2);cursor:pointer;font-family:var(--font)}
 .ti-mini:hover{background:var(--accentL);color:var(--accent)}
 
@@ -662,3 +663,12 @@ body.tour-dots .gb .dep-dot{opacity:1!important}
 /* ===== Mânerul de progres de pe bară (stilul Nou: semnul ia culoarea textului barei, ca să se vadă și pe bara pală) ===== */
 body.bars-new .gb.task .prog-handle::after,body.bars-new .gb.task .prog-handle:hover::after{background:var(--b-fg)}
 body.bars-new .gb.task .prog-handle:hover::after{box-shadow:0 0 0 2px color-mix(in srgb,var(--b-fg) 30%,transparent)}
+
+/* Câmpul de dată din dialoguri / panouri: înălțime naturală (height:100% îl întindea pe toată celula și îl cobora față de câmpul vecin) */
+.ti-row .dtx,.sp-group .dtx{height:auto}
+
+/* Fereastra „Resurse și buget": aceeași mărime pe toate filele (altfel se mută butoanele filelor sub cursor) */
+#resModal .res-box{width:min(94vw,1100px);max-width:none;height:min(86vh,720px);max-height:none}
+
+/* Filele panglicii pot primi focus de la tastatură: contur vizibil */
+.rb-tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
