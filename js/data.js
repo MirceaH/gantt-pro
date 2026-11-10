@@ -67,6 +67,14 @@ function updateUndoRedoBtns() {
 // ============================================================
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 
+// Link către un document (planșă, contract, deviz): doar adrese web http(s); „www.x.ro" primește https://. Întoarce adresa curată sau ''.
+function safeLink(s) {
+  let v = String(s == null ? '' : s).trim();
+  if (!v || v.length > 500) return '';
+  if (/^www\./i.test(v)) v = 'https://' + v;
+  try { const u = new URL(v); return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : ''; } catch (e) { return ''; }
+}
+
 // Durată scrisă cu unitate (ca în MS Project): „5" / „5z" = zile lucrătoare, „2s" / „2 săpt" / „2w" = săptămâni (zilele lucrătoare
 // dintr-o săptămână a calendarului proiectului), „1l" / „1 lună" / „1mo" = luni (20 zile lucrătoare), „16h" / „16 ore" = ore (8 h / zi, rotunjit în sus).
 // Întoarce zile lucrătoare întregi (≥ 1) sau null dacă textul nu e o durată.
@@ -494,6 +502,8 @@ function _sanitizeTasks() {
     if (t.acost !== undefined && !(t.acost !== null && t.acost !== '' && Number.isFinite(+t.acost) && +t.acost >= 0)) delete t.acost; else if (t.acost !== undefined) t.acost = +t.acost;   // cost real (EVM)
     if (t.ttype != null && !['fu', 'fd', 'fw'].includes(t.ttype)) delete t.ttype;
     if (t.cal != null && !(Number.isInteger(+t.cal) && +t.cal > 0)) delete t.cal; else if (t.cal != null) t.cal = +t.cal;   // calendarul activității (CAL.cals); unul inexistent = al proiectului (calOf)
+    if (t.link != null) { const l = safeLink(t.link); if (l) t.link = l; else delete t.link; }      // link către document: doar http(s)
+    if (t.color != null && !(typeof BAR_COLORS !== 'undefined' && Object.prototype.hasOwnProperty.call(BAR_COLORS, t.color))) delete t.color;   // culoarea barei: doar cheile cunoscute (intră în nume de clasă)
     if (t.sn != null) t.sn = String(t.sn).slice(0, 24);
     if (t.notes != null) t.notes = String(t.notes);
     if (t.isMilestone != null) t.isMilestone = !!t.isMilestone;

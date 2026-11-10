@@ -1055,3 +1055,25 @@ body.dark .g-info .gi-res.over{background:#3a1a22;color:#ff9a9a}
   body.rep-print .rep-print-title{font-size:15px;font-weight:900;padding:0 14px}
   body.rep-print .rep-table tr{break-inside:avoid}
 }
+
+/* Culoarea aleasă pe bară (Format › Culoare bară): stilul Clasic (gradient) și stilul Nou (variabile) */
+.gb.task.bc-blue{--bc1:#6f8ff7;--bc2:#4a6fe0;--bc3:#3550c0}
+.gb.task.bc-green{--bc1:#5cc08f;--bc2:#3aa271;--bc3:#2b7f58}
+.gb.task.bc-orange{--bc1:#f4ad60;--bc2:#e08a2e;--bc3:#b86c1d}
+.gb.task.bc-purple{--bc1:#a98ae6;--bc2:#8865d1;--bc3:#6a47b0}
+.gb.task.bc-teal{--bc1:#4cc4c4;--bc2:#25a2a2;--bc3:#1b7f7f}
+.gb.task.bc-pink{--bc1:#ee8fb8;--bc2:#d9659a;--bc3:#b5497b}
+.gb.task.bc-gray{--bc1:#a9b1c2;--bc2:#8590a6;--bc3:#666f84}
+.gb.task[class*=" bc-"]{background:linear-gradient(135deg,var(--bc1),var(--bc2))!important;box-shadow:0 4px 12px color-mix(in srgb,var(--bc2) 35%,transparent)}
+body.bars-new .gb.task[class*=" bc-"]{--b-bg:var(--bc2)!important;--b-fill:var(--bc3)!important;--b-brd:var(--bc3)!important;--b-fg:#fff!important;background:var(--bc2)!important;box-shadow:none}
+.rb-swatches{gap:3px}
+.rb-swatches .rb-sw{min-width:20px;width:20px;height:20px;padding:0;border-radius:50%;border:2px solid var(--card);box-shadow:0 0 0 1px var(--grid)}
+.rb-swatches .rb-sw.bc-blue{background:#6f8ff7}.rb-swatches .rb-sw.bc-green{background:#5cc08f}.rb-swatches .rb-sw.bc-orange{background:#f4ad60}
+.rb-swatches .rb-sw.bc-purple{background:#a98ae6}.rb-swatches .rb-sw.bc-teal{background:#4cc4c4}.rb-swatches .rb-sw.bc-pink{background:#ee8fb8}.rb-swatches .rb-sw.bc-gray{background:#a9b1c2}
+.rb-swatches .rb-sw.sw-none{background:transparent;font-size:12px;color:var(--muted)}
+.rb-swatches .rb-sw:hover{box-shadow:0 0 0 2px var(--accent)}
+/* Rezerva totală desenată după bară (cu drumul critic pornit) */
+.gb-slack{position:absolute;top:25px;height:2px;background:repeating-linear-gradient(90deg,var(--muted) 0 4px,transparent 4px 7px);opacity:.75;pointer-events:auto;z-index:1}
+body.bars-new .gb-slack{top:25px}   /* sub nivelul barei și al numelui de lângă ea */
+/* Linkul unei activități (🔗 lângă nume) */
+.link-ico{text-decoration:none;font-size:11px;margin-right:2px;cursor:pointer;flex-shrink:0}

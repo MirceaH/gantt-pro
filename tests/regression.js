@@ -1799,6 +1799,25 @@
     closeReports(); META.sdate = null;
   });
 
+  test('Gantt: culoare aleasă pe bară, rezerva desenată cu drumul critic pornit, link către document (doar http/https)', () => {
+    const was = showCritical;
+    newTabWith('CB', [mk(1, 'A', 5), mk(2, 'B', 2), mk(3, 'C', 3, null, [F(1)], null, { color: 'evil" onclick="x', link: 'javascript:alert(1)' }), mk(4, 'D', 1, null, [], null, { link: 'www.exemplu.ro/plansa A.pdf' })]); settle();
+    ok(!byId(3).color && !byId(3).link, 'culoare / link nesigure scoase la încărcare'); eq(byId(4).link, 'https://www.exemplu.ro/plansa%20A.pdf');
+    eq(['https://x.ro', 'http://a.b/c?d=1', 'ftp://x', 'javascript:alert(1)', 'data:text/html,x', 'nu e link', ''].map(safeLink), ['https://x.ro/', 'http://a.b/c?d=1', '', '', '', '', '']);
+    showCritical = false; sel = 2; clearMulti(); setBarColorSel('green'); eq(byId(2).color, 'green'); ok(document.querySelector('.gb[data-bid="2"]').classList.contains('bc-green'), 'clasa pe bară');
+    undo(); ok(!byId(2).color, 'culoarea se anulează'); redo(); sel = 2; setBarColorSel(''); ok(!byId(2).color, 'culoarea obișnuită');
+    const lk = document.querySelector('.t-row[data-tid="4"] a.link-ico'); ok(lk && lk.getAttribute('href') === byId(4).link && lk.rel.includes('noopener'), 'iconița 🔗 cu linkul');
+    ok(!document.querySelector('.gb-slack'), 'fără drum critic: fără rezervă desenată');
+    showCritical = true; renderAll(); const sb = document.querySelector('.g-row[data-gid="2"] .gb-slack'); ok(sb && parseFloat(sb.style.width) > 0, 'rezerva lui B desenată'); ok(!document.querySelector('.g-row[data-gid="1"] .gb-slack'), 'A e critică: fără rezervă');
+    openTaskInfo(2); $('tiLink').value = 'https://exemplu.ro/contract'; $('tiSaveBtn').click(); eq(byId(2).link, 'https://exemplu.ro/contract');
+    openTaskInfo(2); $('tiLink').value = 'javascript:void(0)'; $('tiSaveBtn').click(); ok(!byId(2).link, 'un link nesigur nu se salvează');
+    const p = _parseMSProjectXML(_buildMSProjectXML('CB')); eq(p.tasks.find(t => t.nm === 'D').link, byId(4).link, 'linkul trece prin MS Project XML');
+    byId(1).color = 'blue'; renderAll(); const ba = document.querySelector('.gb[data-bid="1"]'); ok(ba.classList.contains('crit') && !ba.classList.contains('bc-blue'), 'cu drumul critic pornit, bara critică rămâne roșie');
+    byId(1).color = 'toString'; _sanitizeTasks(); ok(!byId(1).color, '„toString” nu e o culoare');
+    pushHistory(); T.push(mk(7, 'R', 1, null, [], null, { isMilestone: true })); renderAll(); sel = 7; clearMulti(); setBarColorSel('green'); ok(!byId(7).color, 'reperul nu primește culoare');
+    showCritical = was; renderAll();
+  });
+
   // ---------- extensie pentru funcții viitoare ----------
   const extra = window.__regressionExtra;
   if (typeof extra === 'function') extra({ test, ok, eq, near, skip, wait, F, mk, settle, snap, setProject, confirmYes, key, newTabWith, noTransitions, toasts });

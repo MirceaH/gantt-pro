@@ -216,3 +216,8 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 ## Lotul 3 — rapoarte (`js/reports.js`, Proiect › Urmărire › Rapoarte)
 - Fereastra `repModal` cu 4 file (`_repTab`): **Prezentare** (`_repOverview`: indicatori, repere următoare, întârziate, capitole), **Flux de numerar** (`cashFlow()` → luni cu plan / bază / real + cumulat; costul fiecărei activități împărțit egal pe zilele ei lucrătoare, în calendarul ei; grafic SVG + `exportCashCSV`), **Următoarele săptămâni** (`upcomingTasks(weeks)` de la data de status, pe săptămâni de luni până duminică, plus restanțele), **Comparare** (`compareProjects(src)`: `'bl'` = linia de bază sau id-ul altui proiect deschis; potrivire după id, apoi după nume; tipuri add / del / start / fin / dur / prog / nm).
 - Rapoartele nu schimbă datele; tot textul utilizatorului trece prin `esc()`. Tipărirea (`printReport`) pune `body.rep-print` (CSS `@media print` arată doar fereastra, temă luminoasă) și îl scoate la `afterprint`.
+
+## Lotul 4 — vederi și Gantt
+- **Culoarea barei:** `t.color` ∈ `BAR_COLORS` (gantt.js, obiect fără prototip; cheia intră în clasa `bc-*`), din Format › Culoare bară (`setBarColorSel`); barele critice rămân roșii cu drumul critic pornit; capitolele și reperele nu primesc culoare. CSS: `--bc1/2/3` pentru stilul Clasic și Nou.
+- **Rezerva desenată:** `_slackBar` — o linie punctată după bară până la finalul târziu, doar cu „Drum critic” pornit (ca „Slack” din MS Project).
+- **Link pe activitate:** `t.link` (doar http / https, `safeLink`, validat în `_sanitizeTasks`), Detalii › Link, iconița 🔗 lângă nume (`rel="noopener noreferrer"`); în MS Project XML: `Hyperlink` + `HyperlinkAddress` (verificat în MS Project).

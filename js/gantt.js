@@ -391,6 +391,16 @@ function colVal(k,t){
 
 // Coloana „Activitate” e elastică: când panoul din stânga e mai îngust decât coloanele, ea se strânge (până la 110 px), iar celelalte rămân vizibile — „După” nu mai dispare
 const NAME_MIN=110, _cmin=(i,c)=>i===1?Math.min(c.w,NAME_MIN):c.w;
+// Culoarea aleasă pentru bara unei activități (fila Format › Culoare). Cheile sunt fixe (intră ca nume de clasă), culorile în CSS (.bc-*).
+const BAR_COLORS = Object.freeze(Object.assign(Object.create(null), { blue: 'Albastru', green: 'Verde', orange: 'Portocaliu', purple: 'Mov', teal: 'Turcoaz', pink: 'Roz', gray: 'Gri' }));   // fără prototip: „toString” / „constructor” nu sunt culori
+// Rezerva totală desenată după bară (ca „Slack" din MS Project), cât e pornit drumul critic: până la finalul târziu
+function _slackBar(t, cs, dw) {
+  if (!showCritical || hasK(t.id) || !cpm[t.id] || !(cpm[t.id].float > 0)) return '';
+  const e = endDate(t), lf = withCal(calOf(t), () => addWorkDays(e, cpm[t.id].float));
+  const l = (dD(cs, e) + 1) * dw, w = dD(e, lf) * dw;
+  return w > 0 ? '<div class="gb-slack" style="left:' + l + 'px;width:' + w + 'px" title="Rezervă: ' + _zile(cpm[t.id].float) + ' (poate întârzia până la ' + fmtDate(lf) + ' fără să mute finalul proiectului)"></div>' : '';
+}
+
 // Titlul unui grup (Filtru › Grupează după): același număr de celule ca rândurile, cu subtotaluri; click = deschide / închide grupul
 function _grpTableRow(g){
   const cell=(c,i,html,just)=>'<div class="c'+(c.cls?' '+c.cls:'')+'" style="width:'+c.w+'px;min-width:'+(i===1?_cmin(i,c):c.w)+'px;justify-content:'+(just||'center')+'">'+html+'</div>';
@@ -509,7 +519,7 @@ function renderTBody(){
       ? '<span class="folder-ico">'+(isCol?'📁':'📂')+'</span>'
       : '<span class="tdot"></span>';
     h += '<div class="c c-name" style="width:'+C[1].w+'px;min-width:'+_cmin(1,C[1])+'px">'
-       + '<span class="ipad" style="width:'+indent+'px"></span>'+ci+marker+(t.notes&&t.notes.trim()?'<span class="note-ico" title="'+esc(t.notes).replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();openTaskInfo('+t.id+')">📝</span>':'')
+       + '<span class="ipad" style="width:'+indent+'px"></span>'+ci+marker+(t.notes&&t.notes.trim()?'<span class="note-ico" title="'+esc(t.notes).replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();openTaskInfo('+t.id+')">📝</span>':'')+(t.link?'<a class="link-ico" draggable="false" href="'+esc(t.link)+'" target="_blank" rel="noopener noreferrer" title="Deschide: '+esc(t.link)+'" onclick="event.stopPropagation()">🔗</a>':'')
        + (showWbs&&w[t.id]?'<span class="t-wbs" title="Cod WBS">'+w[t.id]+'</span>':'')
        + '<input value="'+esc(t.nm)+'"'
        + ' onchange="commitName('+t.id+',this.value)"'
@@ -725,7 +735,7 @@ function renderGantt(){
         +' oncontextmenu="showCtx(event,'+t.id+')"'
         +' onmouseenter="highlightRow('+t.id+')"'
         +' onmouseleave="clearHighlight()">'
-        +'<div class="gb '+bc+' dp'+dp+ac+(NB&&!isSumm&&!isMs?(t.prog>=100?' st-done':(t.prog>0?' st-wip':' st-todo')):'')+(!isSumm&&isCrit(t.id)?' crit':'')+(taskWarn[t.id]?' warn':'')+(isBehind(t)?' late-task':'')+'" data-bid="'+t.id+'" style="'+styleStr+'">'+bi+'</div>'+_blBar(t,cs,dw)+_actBar(t,cs,dw)+_dlMark(t,cs,dw)+((showSideNames||sideAuto)&&!isSumm&&!isMs?'<span class="bar-side" style="left:'+(l+w+8)+'px">'+esc(t.nm)+'</span>':'')+'</div>';
+        +'<div class="gb '+bc+' dp'+dp+ac+(NB&&!isSumm&&!isMs?(t.prog>=100?' st-done':(t.prog>0?' st-wip':' st-todo')):'')+(!isSumm&&isCrit(t.id)?' crit':(!isSumm&&!isMs&&BAR_COLORS[t.color]?' bc-'+t.color:''))+(taskWarn[t.id]?' warn':'')+(isBehind(t)?' late-task':'')+'" data-bid="'+t.id+'" style="'+styleStr+'">'+bi+'</div>'+_blBar(t,cs,dw)+_actBar(t,cs,dw)+_dlMark(t,cs,dw)+_slackBar(t,cs,dw)+((showSideNames||sideAuto)&&!isSumm&&!isMs?'<span class="bar-side" style="left:'+(l+w+8)+'px">'+esc(t.nm)+'</span>':'')+'</div>';
   });
 
   // ===== DEPENDENCY ARROWS (Orthogonal / Manhattan routing) =====

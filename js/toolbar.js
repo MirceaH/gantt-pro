@@ -312,6 +312,17 @@ function toggleSummaryOnly() {
 // ============================================================
 // UNLINK — șterge toate dependențele task-ului selectat
 // ============================================================
+// Culoarea barei pe activitățile selectate (fila Format › Culoare); '' = culoarea obișnuită (după stare / nivel)
+function setBarColorSel(k) {
+  const list = selIds().map(id => T.find(x => x.id === id)).filter(t => t && !hasK(t.id) && !t.isMilestone);
+  if (!list.length) { toast('⚠️ Selectează una sau mai multe activități (nu capitole sau repere)'); return; }
+  if (k && !BAR_COLORS[k]) return;
+  pushHistory();
+  list.forEach(t => { if (k) t.color = k; else delete t.color; });
+  syncTabData(); renderAll();
+  toast(k ? '🎨 Culoare: ' + BAR_COLORS[k] + (list.length > 1 ? ' (' + list.length + ' activități)' : '') + (showCritical ? ' · cu drumul critic pornit, cele critice rămân roșii' : '') : '🎨 Culoarea obișnuită');
+}
+
 // „Leagă activitățile" (Ctrl+F2, ca în MS Project): rândurile selectate, în ordinea din tabel, se leagă în lanț FS
 function linkSelected() {
   const ids = selIds();
@@ -447,6 +458,10 @@ function openTaskInfo(id) {
     <div class="ti-row">
       <label>Note</label>
       <textarea id="tiNotes" rows="3" placeholder="Note opționale...">${esc(t.notes || '')}</textarea>
+    </div>
+    <div class="ti-row">
+      <label>Link <span class="ti-opt">(planșă, contract, deviz — adresă web; se deschide din 🔗 lângă nume)</span></label>
+      <input id="tiLink" type="url" autocomplete="off" maxlength="500" placeholder="https://…" value="${esc(t.link || '')}">
     </div>`);
 
   const cLinks = card('Legături', `
@@ -575,6 +590,8 @@ function saveTaskInfo(id) {
   const notes = $('tiNotes').value.trim();
   if (notes) t.notes = notes;
   else delete t.notes;
+  const lkIn = $('tiLink') ? $('tiLink').value.trim() : '', lk = safeLink(lkIn);   // link către document: doar http(s)
+  if (lk) t.link = lk; else { delete t.link; if (lkIn) toast('⚠️ Linkul nu e o adresă web (http / https) — nu l-am salvat'); }
 
   // Restricție + termen limită
   if (!hasK(t.id)) {
@@ -730,6 +747,7 @@ function _parseMSProjectXML(text) {
     const tt = ttRev[val(x, 'Type')]; if (tt && tt !== 'fu') t.ttype = tt;
     const tc = calMap[val(x, 'CalendarUID')]; if (tc) t.cal = tc;                 // calendarul activității (alt calendar de bază)
     const notes = val(x, 'Notes'); if (notes) t.notes = notes.slice(0, 5000);
+    { const lk = safeLink(val(x, 'HyperlinkAddress')); if (lk) t.link = lk; }      // linkul (Hyperlink) al activității
     const dl = day(val(x, 'Deadline')); if (dl) t.deadline = dl;
     const ct = consRev[val(x, 'ConstraintType')], cd = day(val(x, 'ConstraintDate'));
     if (ct === 'ALAP') t.cons = { type: 'ALAP' }; else if (ct && cd) t.cons = { type: ct, date: cd };
@@ -875,7 +893,7 @@ function _buildMSProjectXML(projectName) {
       <WBS>${X(w[t.id] || '')}</WBS><OutlineNumber>${X(w[t.id] || '')}</OutlineNumber><OutlineLevel>${dep(t.id) + 1}</OutlineLevel><Priority>500</Priority>
       <Start>${start}</Start><Finish>${finish}</Finish><Duration>${_msDur(isMs ? 0 : t.dur)}</Duration><DurationFormat>7</DurationFormat>
       <Milestone>${isMs ? 1 : 0}</Milestone><Summary>${isSumm ? 1 : 0}</Summary><Manual>0</Manual><EffortDriven>0</EffortDriven>
-      <PercentComplete>${t.prog || 0}</PercentComplete>${cons}${t.deadline ? `<Deadline>${_msFin(t.deadline)}</Deadline>` : ''}${aS ? `<ActualStart>${_msXmlDate(aS)}</ActualStart>` : ''}${aF ? `<ActualFinish>${_msFin(aF)}</ActualFinish>` : ''}${t.notes ? `<Notes>${X(t.notes)}</Notes>` : ''}${bl}${links}
+      <PercentComplete>${t.prog || 0}</PercentComplete>${cons}${t.deadline ? `<Deadline>${_msFin(t.deadline)}</Deadline>` : ''}${aS ? `<ActualStart>${_msXmlDate(aS)}</ActualStart>` : ''}${aF ? `<ActualFinish>${_msFin(aF)}</ActualFinish>` : ''}${t.notes ? `<Notes>${X(t.notes)}</Notes>` : ''}${t.link ? `<Hyperlink>${X(t.link)}</Hyperlink><HyperlinkAddress>${X(t.link)}</HyperlinkAddress>` : ''}${bl}${links}
     </Task>`;
       walk(kids(t.id));
     });
