@@ -1566,6 +1566,8 @@
     undo(); eq([byId(2).pid, byId(3).pid], [1, 1], 'un singur pas'); undo(); eq([byId(2).pid, byId(3).pid], [null, null]);
     sel = 2; msel = new Set([1, 2]); const h = _history.length; indentSel(); eq(byId(1).pid, null, 'primul rând nu are deasupra un frate'); eq(byId(2).pid, 1);
     eq(_history.length, h + 1);
+    newTabWith('IN2', [mk(1, 'A', 2), mk(2, 'Cap', 1), mk(3, 'X', 2, 2)]); settle(); sel = 3; msel = new Set([2, 3]); indentSel(); eq([byId(2).pid, byId(3).pid], [1, 2], 'capitol + copilul lui: se mută capitolul');
+    sel = 3; msel = new Set([2, 3]); outdentSel(); eq([byId(2).pid, byId(3).pid], [null, 2], 'capitolul scos, cu copilul lui'); const h2 = _history.length, f2 = _future.length; outdentSel(); eq([_history.length, _future.length], [h2, f2], 'nimic de mutat: istoricul rămâne exact cum era');
   });
 
   test('ștergere: mai multe rânduri selectate cer confirmare și pleacă împreună (cu activitățile capitolelor)', () => {
@@ -1639,7 +1641,7 @@
     eq(T.map(t => [t.nm, t.sd, hasK(t.id) ? 0 : t.dur, t.pid, (t.deps || []).map(d => [d.id, d.type, d.lag]), t.cons || null, t.deadline || null, t.prog]), before);
     eq(byId(2).notes, 'notă\nrândul 2'); eq(byId(2).assign, [{ rid: 1, units: 150 }, { rid: 2, units: 12 }]); eq(byId(2).as, '2026-11-02', 'început real dedus din progres');
     eq(byId(3).bl.sd, byId(3).sd, 'linia de bază'); ok(byId(2).bl.cost > 0, 'costul de bază');
-    eq(CAL, { days: [0, 1, 1, 1, 1, 1, 1], hol: ['2026-11-30'] }); eq(RES.cur, 'EUR'); eq(RES.list[0].name, 'Echipă <b>'); eq(RES.list[0].max, 200); eq(RES.list[0].rate, 60);
+    eq(CAL, { days: [0, 1, 1, 1, 1, 1, 1], hol: ['2026-11-30'], cals: [] }); eq(RES.cur, 'EUR'); eq(RES.list[0].name, 'Echipă <b>'); eq(RES.list[0].max, 200); eq(RES.list[0].rate, 60);
     let err = ''; try { _parseMSProjectXML('<Project><Tasks>'); } catch (e) { err = e.message; } ok(/XML valid/.test(err), 'XML stricat: ' + err);
     err = ''; try { _parseMSProjectXML('<?xml version="1.0"?><Workbook/>'); } catch (e) { err = e.message; } ok(/MS Project/.test(err), 'alt fel de XML: ' + err);
     const pct = _parseMSProjectXML('<Project><Tasks><Task><UID>1</UID><Name>X</Name><OutlineLevel>1</OutlineLevel><Start>2026-11-02T08:00:00</Start><Duration>PT16H0M0S</Duration></Task><Task><UID>2</UID><Name>Y</Name><OutlineLevel>1</OutlineLevel><Start>2026-11-04T08:00:00</Start><Duration>PT8H0M0S</Duration><PredecessorLink><PredecessorUID>1</PredecessorUID><Type>1</Type><LinkLag>500</LinkLag><LagFormat>19</LagFormat></PredecessorLink><PredecessorLink><PredecessorUID>99</PredecessorUID></PredecessorLink></Task></Tasks></Project>');
@@ -1680,6 +1682,34 @@
     $('colMenu').querySelector('button[data-col="rem"]').click(); eq(CX.map(c => c.k), ['ls', 'tf', 'ff', 'notes', 'rem'], 'bifă nouă = coloană la coadă'); ok($('colMenu'), 'meniul rămâne deschis');
     toggleCol('tf'); eq(CX.map(c => c.k), ['ls', 'ff', 'notes', 'rem']); toggleCol('__def'); eq(CX.map(c => c.k), CX_DEFAULT); closeColMenu(); ok(!$('colMenu'));
     setCols(prevCols); if ($('paneL').classList.contains('expanded') !== prevExp) togglePaneL(); renderAll();
+  });
+
+  test('grupare: titluri de grup cu subtotaluri în tabel și în Gantt (aceleași rânduri), grupuri închise, structura blocată, se oprește la schimbarea proiectului', () => {
+    const res = { cur: 'RON', next: 3, list: [{ id: 1, name: 'Ion', type: 'work', rate: 10, max: 100 }, { id: 2, name: 'Ana', type: 'work', rate: 20, max: 100 }] };
+    const a = newTabWith('GR', [mk(1, 'Cap 1', 1), mk(2, 'A', 2, 1, [], '2026-11-02', { prog: 100, assign: [{ rid: 1, units: 100 }] }), mk(3, 'B', 3, 1, [F(2)], null, { prog: 50, assign: [{ rid: 2, units: 100 }, { rid: 1, units: 100 }] }), mk(4, 'Cap 2', 1), mk(5, 'C', 4, 4, [], '2026-12-01'), mk(6, 'M', 1, 4, [F(5)], null, { isMilestone: true })], null, res); settle();
+    META.sdate = '2026-11-05'; renderAll();
+    setGroup('status'); ok(groupActive());
+    const L = viewList(); eq(L.filter(x => x._grp).map(g => g.nm), ['În lucru', 'Nepornite', 'Finalizate']);
+    eq(viewRows().map(t => t.id), [3, 5, 6, 2], 'doar activitățile, în ordinea grupurilor'); ok(!viewRows().some(t => hasK(t.id)), 'fără capitole');
+    const fin = L.find(g => g._grp && g.nm === 'Finalizate'); eq([fin.n, fin.prog, fin.sd], [1, 100, '2026-11-02']);
+    const rowsT = document.querySelectorAll('#tBody .t-row'), rowsG = document.querySelectorAll('#gBody .g-row');
+    eq(rowsT.length, L.length, 'tabel: grupuri + activități'); eq(rowsG.length, rowsT.length, 'Gantt: aceleași rânduri'); eq(document.querySelectorAll('#tBody .t-row.grp-row').length, 3);
+    ok(/În lucru/.test(rowsT[0].textContent) && /\(1\)/.test(rowsT[0].textContent), 'titlul cu numărul de rânduri');
+    toggleGroupRow('todo'); eq(viewRows().map(t => t.id), [3, 2], 'grupul închis își ascunde rândurile'); eq(document.querySelectorAll('#tBody .t-row').length, 5); toggleGroupRow('todo');
+    const p0 = byId(3).pid; sel = 3; indentSel(); eq(byId(3).pid, p0, 'structura blocată'); ok(toasts.some(m => /Oprește gruparea/.test(m)));
+    setGroup('res'); eq(viewList().filter(x => x._grp).map(g => g.nm), ['Ana, Ion', 'Ion', 'Fără resurse']);
+    setGroup('chap'); eq(viewList().filter(x => x._grp).map(g => [g.nm, g.n]), [['Cap 1', 2], ['Cap 2', 2]]);
+    setGroup('month'); eq(viewList().filter(x => x._grp).map(g => g.nm), ['noiembrie 2026', 'decembrie 2026']);
+    setGroup('ms'); eq(viewList().filter(x => x._grp).map(g => g.nm), ['Repere', 'Activități']);
+    setGroup('crit'); ok(viewList()[0]._grp && viewList()[0].nm === 'Pe drumul critic');
+    FILTER.text = 'b'; renderAll(); eq(viewRows().map(t => t.id), [3], 'gruparea se combină cu filtrul'); FILTER.text = '';
+    newTabWith('GR2', [mk(1, 'Z', 1)]); ok(!groupActive(), 'proiect nou: gruparea se oprește'); switchTab(a.id);
+    setGroup('status'); stopFilterForEdit(); ok(!groupActive(), 'adăugarea oprește gruparea');
+    const evilNm = 'Cap <b>"x' + "'";
+    newTabWith('GR3', [mk(1, evilNm, 1), mk(2, 'A', 2, 1)]); settle(); setGroup('chap');
+    const gr = document.querySelector('#tBody .t-row.grp-row'); ok(!gr.querySelector('b'), 'eticheta scăpată'); eq(gr.dataset.grp, 'c:1'); ok(gr.textContent.includes(evilNm));
+    sel = 2; toggleGroupRow('c:1'); eq(sel, null, 'închiderea grupului scoate din selecție rândurile ascunse'); toggleGroupRow('c:1');
+    META.sdate = null; setGroup(null); eq(document.querySelectorAll('#tBody .t-row.grp-row').length, 0);
   });
 
   // ---------- extensie pentru funcții viitoare ----------

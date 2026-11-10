@@ -39,7 +39,7 @@ function _ppCapture(o) {
   const live = { auto: isAutoZoom, zl: zoomLevel, dw: document.documentElement.style.getPropertyValue('--day-w'), side: showSideNames, sel: sel };
   try {
     isAutoZoom = false; showSideNames = o.names; sel = null;
-    const rows = viewRows(), n = rows.length;
+    const rows = viewList(), n = rows.length;            // cu grupare: și titlurile grupurilor (Gantt-ul capturat le are)
     const bb = ab(), cs = aD(bb.mn, -3), ce = aD(bb.mx, 5), td = dD(cs, ce) + 1;
     const setDw = dw => { document.documentElement.style.setProperty('--day-w', dw + 'px'); zoomLevel = Math.round(dw / 30 * 100); };
     // 1) la o lățime de probă măsurăm antetul și „coada" (loc pentru nume lungi la capătul graficului)
@@ -59,7 +59,7 @@ function _ppCapture(o) {
     return {
       rows, n, hh, gW, k, dw,
       headHTML: $('gHead').innerHTML,
-      bodyHTML: $('gBody').innerHTML.replace(/ id="depSvg"/g, ''),
+      bodyHTML: $('gBody').innerHTML.replace(/ id="depSvg"/g, '').replace(/ onclick="toggleGroupRow[^"]*"/g, ''),   // în previzualizare, titlurile de grup nu se mai apasă
       tiny: $('gBody').classList.contains('zoom-tiny')
     };
   } finally {
@@ -70,6 +70,12 @@ function _ppCapture(o) {
 }
 
 function _ppRow(t, w) {
+  if (t._grp) return '<div class="pp-row summ grp">' + '<div class="pc pc-wbs" style="width:' + PP_COLS[0][1] + 'px"></div>'
+    + '<div class="pc pc-nm" style="width:' + PP_COLS[1][1] + 'px;padding-left:4px">' + esc(t.nm) + ' (' + t.n + ')</div>'
+    + '<div class="pc pc-n" style="width:' + PP_COLS[2][1] + 'px">' + t.dur + '</div>'
+    + '<div class="pc pc-d" style="width:' + PP_COLS[3][1] + 'px">' + _ppShort(pD(t.sd)) + '</div>'
+    + '<div class="pc pc-d" style="width:' + PP_COLS[4][1] + 'px">' + _ppShort(endDate(t)) + '</div>'
+    + '<div class="pc pc-n" style="width:' + PP_COLS[5][1] + 'px">' + (t.prog ? t.prog + '%' : '') + '</div></div>';
   const isSumm = hasK(t.id), isMs = !!t.isMilestone && !isSumm, d = dep(t.id);
   return '<div class="pp-row' + (isSumm ? ' summ' : '') + '" data-tid="' + t.id + '">'
     + '<div class="pc pc-wbs" style="width:' + PP_COLS[0][1] + 'px">' + (w[t.id] || '') + '</div>'
@@ -89,6 +95,7 @@ function _ppBuild(o, d) {
   const sub = ['Tipărit ' + fmtDate(now) + ' ' + _ppTime(now)];
   if (hasCustomStatus()) sub.push('data de status ' + fmtDate(pD(META.sdate)));
   if (filterActive()) sub.push('filtru: ' + describeFilter());
+  if (groupActive()) sub.push('grupat după: ' + GROUP_LABELS[GROUP.by].toLowerCase());
   const th = PP_COLS.map(c => '<div class="pc ' + c[2] + '" style="width:' + c[1] + 'px">' + c[0] + '</div>').join('');
   let html = '';
   for (let p = 0; p < pages; p++) {
@@ -126,7 +133,7 @@ function ppRebuild() {
   if (!tabs.length || !T.length) return null;
   _ppSaveOpts();
   const o = _ppOptions();
-  if (!viewRows().length) { $('ppPages').innerHTML = '<div style="color:#fff;font-weight:700;padding:30px">Niciun rând de tipărit (filtrul nu arată nimic).</div>'; $('ppInfo').textContent = ''; return null; }
+  if (!viewList().length) { $('ppPages').innerHTML = '<div style="color:#fff;font-weight:700;padding:30px">Niciun rând de tipărit (filtrul nu arată nimic).</div>'; $('ppInfo').textContent = ''; return null; }
   return _ppBuild(o, _ppCapture(o));
 }
 

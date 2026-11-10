@@ -838,18 +838,21 @@ function updDeps(id, wbsStr) {
 const selRoots = () => { const ids=selIds(); return ids.filter(id=>!ids.some(o=>o!==id&&isD(id,o))); };
 // Indent / outdent pe mai multe rânduri: un singur pas de anulare; rândurile se mută pe rând, de sus în jos (ca în MS Project)
 function _multiStruct(one, msg) {
-  const roots=selRoots(); if(roots.length<2) return false;
+  if(selIds().length<2) return false;
+  const roots=selRoots();                             // ex. capitol + copilul lui → se mută capitolul (cu tot ce conține)
   if(structLocked()) return true;
+  const h0=_history.length, f0=_future.slice(), opened=new Set();
   pushHistory();
   let n=0;
-  const ok=_tryHierarchyChange(()=>{ roots.forEach(id=>{ if(one(T.find(x=>x.id===id))) n++; }); });
-  if(!ok||!n){ _history.pop(); updateUndoRedoBtns(); renderAll(); if(ok) toast('ℹ️ Rândurile selectate nu se pot muta așa'); return true; }
-  syncTabData(); renderAll(); toast(msg+' ('+n+' rânduri)');
+  const ok=_tryHierarchyChange(()=>{ roots.forEach(id=>{ if(one(T.find(x=>x.id===id), opened)) n++; }); });
+  if(!ok||!n){ if(_history.length>h0) _history.pop(); _future=f0; updateUndoRedoBtns(); renderAll(); if(ok) toast('ℹ️ Rândurile selectate nu se pot muta așa'); return true; }
+  opened.forEach(id=>coll.delete(id));                // capitolele care primesc rânduri se deschid (doar dacă mutarea a reușit)
+  syncTabData(); renderAll(); toast(msg+' ('+n+(n===1?' rând)':' rânduri)'));
   return true;
 }
 function indentSel() {
   if(!sel) return;
-  if(_multiStruct(t=>{ const sibs=t.pid?kids(t.pid):T.filter(x=>!x.pid), i=sibs.findIndex(s=>s.id===t.id); if(i<=0) return false; t.pid=sibs[i-1].id; coll.delete(t.pid); return true; }, 'Subcapitol')) return;
+  if(_multiStruct((t,opened)=>{ const sibs=t.pid?kids(t.pid):T.filter(x=>!x.pid), i=sibs.findIndex(s=>s.id===t.id); if(i<=0) return false; t.pid=sibs[i-1].id; opened.add(t.pid); return true; }, 'Subcapitol')) return;
   if(structLocked()) return;
   const t=T.find(x=>x.id===sel); if(!t) return;
   const sibs=t.pid?kids(t.pid):T.filter(x=>!x.pid);

@@ -4,18 +4,63 @@
 // Durata unei activități (dur) = număr de ZILE LUCRĂTOARE.
 // CAL.days[getDay()] = 1 dacă se lucrează (0 = duminică ... 6 = sâmbătă).
 // CAL.hol = ["YYYY-MM-DD", ...] zile libere (sărbători, concedii).
-const CAL_DEFAULT = () => ({ days: [0,1,1,1,1,1,0], hol: [] });
+// CAL.cals = alte calendare (ca „Change Working Time" › Create New Calendar din MS Project), ex. „7 din 7" pentru betonări:
+//   [{ id, nm, days:[7], hol:[ISO], inh }] — inh = respectă și zilele libere ale proiectului. O activitate îl folosește prin t.cal = id.
+// Resursele de tip muncă pot avea zile de concediu (r.off = [ISO]); activitățile la care lucrează le sar (ca în MS Project,
+// unde activitatea se programează după calendarul resursei).
+const CAL_DEFAULT = () => ({ days: [0,1,1,1,1,1,0], hol: [], cals: [] });
 let CAL = CAL_DEFAULT();
 let _holSet = new Set();
+const MAX_CALS = 20, MAX_HOL = 5000;
 
+function _cleanDays(a, def) { const d = Array.isArray(a) && a.length === 7 ? a.map(x => x ? 1 : 0) : def; return d.some(Boolean) ? d : def; }
+function _cleanHol(a) { return Array.isArray(a) ? [...new Set(a.filter(validISO))].sort().slice(0, MAX_HOL) : []; }   // doar date valide (intră și în atribute HTML)
 function setCal(c) {
-  const days = c && Array.isArray(c.days) && c.days.length === 7 ? c.days.map(x => x ? 1 : 0) : CAL_DEFAULT().days;
-  const hol = c && Array.isArray(c.hol) ? [...new Set(c.hol.filter(validISO))].sort() : [];   // doar date valide (intră și în atribute HTML)
-  CAL = { days: days.some(Boolean) ? days : CAL_DEFAULT().days, hol };
+  const days = _cleanDays(c && c.days, CAL_DEFAULT().days), hol = _cleanHol(c && c.hol), seen = new Set(), cals = [];
+  (c && Array.isArray(c.cals) ? c.cals : []).forEach(x => {
+    if (!x || typeof x !== 'object' || cals.length >= MAX_CALS) return;
+    let id = Number.isInteger(+x.id) && +x.id > 0 ? +x.id : 0;
+    if (!id || seen.has(id)) id = Math.max(0, ...seen) + 1;
+    seen.add(id);
+    cals.push({ id, nm: (typeof plainText === 'function' ? plainText(x.nm, 40) : String(x.nm || '').slice(0, 40)) || 'Calendar ' + id, days: _cleanDays(x.days, [1,1,1,1,1,1,1]), hol: _cleanHol(x.hol), inh: x.inh !== false });
+  });
+  CAL = { days, hol, cals };
   _holSet = new Set(CAL.hol);
+  _PROJ = { days: CAL.days, hs: _holSet };
+  _CUR = _PROJ; _calCache.clear();
 }
 
-const isWork = d => !!CAL.days[d.getDay()] && !_holSet.has(fD(d));
+// Calendarul „curent" pentru calcule: al proiectului, sau al unei activități cât timp rulează withCal(c, fn)
+let _PROJ = { days: CAL.days, hs: _holSet }, _CUR = _PROJ;
+const _calCache = new Map();
+function withCal(c, fn) {
+  if (!c || c === _CUR) return fn();
+  const prev = _CUR; _CUR = c;
+  try { return fn(); } finally { _CUR = prev; }
+}
+// Calendarul după care se programează activitatea t: al ei (t.cal) sau al proiectului, minus concediile resurselor de muncă atribuite
+function calOf(t) {
+  if (!t) return _PROJ;
+  const base = t.cal ? CAL.cals.find(c => c.id === t.cal) : null;
+  let offIds = '';
+  if (t.assign && t.assign.length && typeof resById === 'function') for (const a of t.assign) { const r = resById(a.rid); if (r && r.type === 'work' && r.off && r.off.length) offIds += r.id + ','; }
+  if (!base && !offIds) return _PROJ;
+  const key = (base ? base.id : 0) + '|' + offIds;
+  let c = _calCache.get(key);
+  if (!c) {
+    const hs = new Set(base ? base.hol : CAL.hol);
+    if (base && base.inh) CAL.hol.forEach(h => hs.add(h));
+    offIds.split(',').filter(Boolean).forEach(id => { const r = resById(+id); (r.off || []).forEach(h => hs.add(h)); });
+    c = { days: base ? base.days : CAL.days, hs };
+    _calCache.set(key, c);
+  }
+  return c;
+}
+// Concediile sau calendarele s-au schimbat: calendarele combinate se refac (apelat și la fiecare recalculare)
+function calCacheClear() { _calCache.clear(); }
+const hasTaskCal = t => calOf(t) !== _PROJ;
+
+const isWork = d => !!_CUR.days[d.getDay()] && !_CUR.hs.has(fD(d));
 const isOff = d => !isWork(d);
 
 function nextWork(d) {
@@ -32,8 +77,8 @@ function addWorkDays(d, n) {
   return r;
 }
 
-// Ultima zi lucrată a unei activități
-const endDate = t => addWorkDays(pD(t.sd), Math.max(1, t.dur) - 1);
+// Ultima zi lucrată a unei activități (în calendarul ei)
+const endDate = t => withCal(calOf(t), () => addWorkDays(pD(t.sd), Math.max(1, t.dur) - 1));
 
 // Număr de zile lucrătoare în [sd, ed] (minim 1)
 function workDur(sd, ed) {

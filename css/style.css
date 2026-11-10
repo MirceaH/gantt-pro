@@ -987,3 +987,16 @@ body.dark .g-info .gi-res.over{background:#3a1a22;color:#ff9a9a}
 .col-menu{display:block;max-height:80vh;overflow:auto}
 .col-menu-t{padding:6px 10px 4px;font-size:11.5px;font-weight:800;color:var(--text2)}
 .col-menu-t small{font-weight:600;color:var(--muted)}
+
+/* Grupare (Filtru › Grupează după): titlurile de grup din tabel și din Gantt */
+.rb-menu-h{padding:6px 10px 3px;font-size:10.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+.t-row.grp-row{background:var(--accentL);cursor:pointer;font-weight:800}
+.t-row.grp-row .c{font-size:11.5px;font-weight:800;color:var(--text)}
+.t-row.grp-row .c{overflow:hidden;white-space:nowrap}
+.t-row.grp-row .grp-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.t-row.grp-row .grp-n{margin-left:6px;font-weight:700;color:var(--muted);flex-shrink:0}
+.t-row.grp-row .grp-ico{display:inline-block;width:16px;color:var(--accent)}
+.g-row.grp-row{background:var(--accentL)}
+.gb-grp{position:absolute;top:11px;height:8px;border-radius:2px;background:var(--text2);opacity:.75}
+.gb-grp.crit{background:#d94040}
+.gb-grp .gb-grp-p{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:2px}

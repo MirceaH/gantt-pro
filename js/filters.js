@@ -47,9 +47,93 @@ function _typeOk(t) {
   return true;
 }
 
+// ============================================================
+// GRUPARE (ca View › Group by din MS Project): activitățile (fără capitole) apar sub titluri de grup cu subtotaluri.
+// Se combină cu filtrul; nu schimbă datele; structura (mutări / indentări) e blocată cât e pornită, ca la filtru.
+// ============================================================
+const GROUP = { by: null, coll: new Set() };
+const GROUP_LABELS = { crit: 'Critic / cu rezervă', status: 'Stare', res: 'Resurse', chap: 'Capitol', month: 'Luna de start', ms: 'Repere / activități' };
+const _MONTHS = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'];
+const groupActive = () => !!GROUP.by && !!GROUP_LABELS[GROUP.by];
+// Cheia, eticheta și ordinea grupului unei activități
+function _groupOf(t, ids) {
+  switch (GROUP.by) {
+    case 'crit': return cpm[t.id] && cpm[t.id].crit ? { k: 'c', l: 'Pe drumul critic', o: 0 } : { k: 'n', l: 'Cu rezervă', o: 1 };
+    case 'status': {
+      const s = _statusOf(t), ord = { late: 0, wip: 1, todo: 2, done: 3 };
+      const l = s.k === 'todo' ? 'Nepornite' : s.k === 'late' ? 'Întârziate' : s.k === 'wip' ? 'În lucru' : 'Finalizate';
+      return { k: s.k, l, o: ord[s.k] ?? 9 };
+    }
+    case 'res': {
+      const n = [...new Set((t.assign || []).map(a => resById(a.rid)).filter(Boolean).map(r => r.name))].sort((a, b) => a.localeCompare(b, 'ro'));
+      return n.length ? { k: 'r:' + JSON.stringify(n), l: n.join(', '), o: 1, s: n.join(', ') } : { k: 'r:', l: 'Fără resurse', o: 2 };
+    }
+    case 'chap': {
+      let top = t; for (let n = 0; top.pid != null && n < 1000; n++) { const p = taskById(top.pid); if (!p) break; top = p; }
+      return top === t ? { k: 'c:', l: 'Fără capitol', o: 1e9 } : { k: 'c:' + top.id, l: top.nm, o: ids[top.id] || 0 };
+    }
+    case 'month': { const d = pD(t.sd); return { k: 'm:' + t.sd.slice(0, 7), l: _MONTHS[d.getMonth()] + ' ' + d.getFullYear(), o: +t.sd.slice(0, 7).replace('-', '') }; }
+    case 'ms': return t.isMilestone ? { k: 'ms', l: 'Repere', o: 0 } : { k: 'ta', l: 'Activități', o: 1 };
+  }
+  return { k: '', l: '', o: 0 };
+}
+// Grupurile, în ordine, cu activitățile lor (după filtru) și subtotalurile
+function _groups() {
+  const ids = rowIds(), base = filterActive() ? _filteredRows() : _allRows();
+  const m = new Map();
+  base.filter(t => !hasK(t.id)).forEach(t => {
+    const g = _groupOf(t, ids);
+    if (!m.has(g.k)) m.set(g.k, { ...g, tasks: [] });
+    m.get(g.k).tasks.push(t);
+  });
+  const list = [...m.values()].sort((a, b) => a.o - b.o || String(a.s || a.l).localeCompare(String(b.s || b.l), 'ro'));
+  list.forEach((g, i) => {
+    const L = g.tasks, s = L.map(t => pD(t.sd)), e = L.map(endDate);
+    const mn = new Date(Math.min(...s)), mx = new Date(Math.max(...e)), dsum = L.reduce((a, t) => a + (t.isMilestone ? 0 : Math.max(1, t.dur)), 0);
+    Object.assign(g, {
+      _grp: true, id: -(i + 1), nm: g.l, n: L.length, sd: fD(mn), dur: workDur(mn, mx), deps: [],
+      prog: dsum ? Math.round(L.reduce((a, t) => a + (t.isMilestone ? 0 : Math.max(1, t.dur)) * (t.prog || 0), 0) / dsum) : (L.every(t => t.prog >= 100) ? 100 : 0),
+      cost: L.reduce((a, t) => a + ((typeof costMap !== 'undefined' && costMap[t.id]) || 0), 0),
+      crit: L.some(t => cpm[t.id] && cpm[t.id].crit), closed: GROUP.coll.has(g.k)
+    });
+  });
+  return list;
+}
+// Rândurile din tabel și din Gantt: titlurile grupurilor + activitățile din grupurile deschise
+function viewList() {
+  if (!groupActive()) return viewRows();
+  const out = [];
+  _groups().forEach(g => { out.push(g); if (!g.closed) out.push(...g.tasks); });
+  return out;
+}
+function setGroup(by) {
+  if (!tabs.length) return;
+  GROUP.by = GROUP_LABELS[by] ? by : null; GROUP.coll.clear();
+  sel = null; renderAll();
+  toast(GROUP.by ? '🗂 Grupat după: ' + GROUP_LABELS[GROUP.by] + ' — ' + _groups().length + ' grupuri · structura e blocată cât e pornită gruparea' : 'Grupare oprită');
+}
+function toggleGroupRow(k) {
+  if (GROUP.coll.has(k)) GROUP.coll.delete(k);
+  else {                                            // grupul se închide: rândurile lui ascunse ies din selecție (Delete / Leagă să nu lucreze pe nevăzute)
+    GROUP.coll.add(k);
+    const g = _groups().find(x => x.k === k), hid = new Set(g ? g.tasks.map(t => t.id) : []);
+    if (sel != null && hid.has(sel)) sel = null;
+    hid.forEach(id => msel.delete(id));
+  }
+  renderAll();
+}
+
+// Toate activitățile, în ordinea schemei (ignoră capitolele închise: în grupare, capitolele nu se văd)
+function _allRows() { const out = []; (function w(l) { l.forEach(t => { out.push(t); w(kids(t.id)); }); })(T.filter(t => !t.pid)); return out; }
+
 // Rândurile afișate (în ordinea ierarhiei). Fără filtru = exact flat() (respectă capitolele închise).
+// Cu grupare: doar activitățile din grupurile deschise, în ordinea grupurilor (ce poți selecta / parcurge cu săgețile).
 function viewRows() {
+  if (groupActive()) { const out = []; _groups().forEach(g => { if (!g.closed) out.push(...g.tasks); }); return out; }
   if (!filterActive()) return flat();
+  return _filteredRows();
+}
+function _filteredRows() {
   const byId = new Map(T.map(t => [t.id, t])), q = _normTxt(FILTER.text.trim()), keep = new Set();
   const textOk = t => {
     if (!q) return true;
@@ -84,7 +168,7 @@ function clearFilter(silent) {
   const was = filterActive();
   FILTER.type = 'all'; FILTER.rid = null; FILTER.from = ''; FILTER.to = ''; FILTER.text = '';
   const el = $('flText'); if (el) el.value = '';
-  if (silent) return was;
+  if (silent) { GROUP.by = null; GROUP.coll.clear(); return was; }   // la schimbarea proiectului se opresc și filtrul, și gruparea
   renderAll();
   if (was) toast('Filtru oprit');
   return was;
@@ -92,13 +176,14 @@ function clearFilter(silent) {
 
 // Când schimbi structura (mută / indentează / trage rânduri) cu un filtru pornit, rândurile ascunse ar fi mutate „pe nevăzute"
 function structLocked() {
-  if (view !== 'gantt' || !filterActive()) return false;
-  toast('🔎 Oprește filtrul ca să muți rânduri sau să schimbi structura');
+  if (view !== 'gantt' || !(filterActive() || groupActive())) return false;
+  toast(groupActive() ? '🗂 Oprește gruparea ca să muți rânduri sau să schimbi structura' : '🔎 Oprește filtrul ca să muți rânduri sau să schimbi structura');
   return true;
 }
 
-// Dacă adaugi / lipești ceva cu filtru pornit, îl oprim ca să vezi rezultatul
+// Dacă adaugi / lipești ceva cu filtru (sau grupare) pornit, îl oprim ca să vezi rezultatul
 function stopFilterForEdit() {
+  if (groupActive()) { GROUP.by = null; GROUP.coll.clear(); toast('🗂 Grupare oprită ca să vezi ce adaugi'); }
   if (filterActive()) { clearFilter(); toast('🔎 Filtru oprit ca să vezi ce adaugi'); }
 }
 
@@ -136,14 +221,20 @@ function applyFilterModal() {
 // ----- indicatorii din interfață (apelat la finalul lui renderAll) -----
 function updateFilterUI() {
   const on = filterActive(), bar = $('filterBar');
-  const b = $('btnFilter'); if (b) b.classList.toggle('active', on);
+  const b = $('btnFilter'); if (b) b.classList.toggle('active', on || groupActive());
   const lb = $('btnFilterLbl'); if (lb) lb.textContent = FILTER.type !== 'all' ? FILTER_LABELS[FILTER.type] : 'Filtru';
   const el = $('flText'); if (el && document.activeElement !== el && el.value !== FILTER.text) el.value = FILTER.text;
   document.querySelectorAll('#filterMenu button[data-f]').forEach(x => x.classList.toggle('on', x.dataset.f === FILTER.type));
+  const g = groupActive(), gb = $('btnGroup'); if (gb) gb.classList.toggle('active', g);
+  document.querySelectorAll('#groupMenu button[data-g]').forEach(x => x.classList.toggle('on', (x.dataset.g || null) === (GROUP.by || null) || (!x.dataset.g && !g)));
   if (!bar) return;
-  if (!on || view !== 'gantt' || !tabs.length) { bar.style.display = 'none'; return; }
-  const shown = viewRows().length;
-  $('filterBarTxt').innerHTML = '🔎 Filtru activ: <b>' + esc(describeFilter()) + '</b> — se arată ' + shown + ' din ' + T.length + ' rânduri';
+  if (!(on || g) || view !== 'gantt' || !tabs.length) { bar.style.display = 'none'; return; }
+  const parts = [];
+  if (on) parts.push('🔎 Filtru activ: <b>' + esc(describeFilter()) + '</b> — se arată ' + viewRows().length + ' din ' + T.length + ' rânduri');
+  if (g) parts.push('🗂 Grupat după: <b>' + esc(GROUP_LABELS[GROUP.by]) + '</b>');
+  $('filterBarTxt').innerHTML = parts.join(' &nbsp;·&nbsp; ');
+  const fb = $('filterBarFilterBtns'), gbb = $('filterBarGroupBtn');
+  if (fb) fb.style.display = on ? '' : 'none'; if (gbb) gbb.style.display = g ? '' : 'none';
   bar.style.display = 'flex';
 }
 

@@ -389,6 +389,28 @@ function colVal(k,t){
 
 // Coloana „Activitate” e elastică: când panoul din stânga e mai îngust decât coloanele, ea se strânge (până la 110 px), iar celelalte rămân vizibile — „După” nu mai dispare
 const NAME_MIN=110, _cmin=(i,c)=>i===1?Math.min(c.w,NAME_MIN):c.w;
+// Titlul unui grup (Filtru › Grupează după): același număr de celule ca rândurile, cu subtotaluri; click = deschide / închide grupul
+function _grpTableRow(g){
+  const cell=(c,i,html,just)=>'<div class="c'+(c.cls?' '+c.cls:'')+'" style="width:'+c.w+'px;min-width:'+(i===1?_cmin(i,c):c.w)+'px;justify-content:'+(just||'center')+'">'+html+'</div>';
+  const fin=endDate(g);
+  let h='<div class="t-row grp-row" data-grp="'+esc(g.k)+'" onclick="toggleGroupRow(this.dataset.grp)" title="Click: deschide / închide grupul">';
+  C.forEach((c,i)=>{
+    if(c.k==="nm") h+=cell(c,i,'<span class="grp-ico">'+(g.closed?'▶':'▼')+'</span><span class="grp-l">'+esc(g.nm)+'</span><span class="grp-n">('+g.n+')</span>','flex-start');
+    else if(c.k==="dur") h+=cell(c,i,String(g.dur));
+    else if(c.k==="sd") h+=cell(c,i,fmtDate(pD(g.sd)));
+    else if(c.k==="ed") h+=cell(c,i,fmtDate(fin));
+    else if(c.k==="prog") h+=cell(c,i,g.prog+'%');
+    else h+=cell(c,i,'');
+  });
+  CX.forEach((c,i)=>h+=cell(c,C.length+i,c.k==="cost"?(g.cost?fmtMoney(g.cost):'—'):'',c.k==="cost"?'flex-end':'center'));
+  return h+'</div>';
+}
+function _grpGanttRow(g,cs,dw){
+  const off=dD(cs,pD(g.sd)), w=Math.max((dD(pD(g.sd),endDate(g))+1)*dw,dw);
+  return '<div class="g-row grp-row" data-grp="'+esc(g.k)+'" onclick="toggleGroupRow(this.dataset.grp)">'
+    +'<div class="gb-grp'+(g.crit&&showCritical?' crit':'')+'" style="left:'+off*dw+'px;width:'+w+'px" title="'+esc(g.nm)+' · '+g.n+' rânduri · '+fmtDate(pD(g.sd))+' – '+fmtDate(endDate(g))+'"><div class="gb-grp-p" style="width:'+g.prog+'%"></div></div></div>';
+}
+
 function renderTH(){
   let h="";
   C.forEach((c,i)=>h+='<div class="th" style="width:'+c.w+'px;min-width:'+_cmin(i,c)+'px">'+c.l+'<span class="col-rs" data-ci="'+i+'"></span></div>');
@@ -447,7 +469,7 @@ function _statusOf(t){
 }
 
 function renderTBody(){
-  const o=viewRows(), w=wbs(), ids=rowIds(), filtered=filterActive();
+  const o=viewList(), G=groupActive(), w=wbs(), ids=rowIds(), filtered=filterActive()||G;
   if(!o.length){
     $("tBody").innerHTML = (filtered && T.length)
       ? '<div style="padding:20px;color:var(--muted);text-align:center;font-weight:700">Niciun rând nu se potrivește filtrului.<br><button type="button" class="sp-btn" style="margin-top:10px;width:auto;padding:6px 14px" onclick="clearFilter()">✕ Elimină filtrul</button></div>'
@@ -456,7 +478,8 @@ function renderTBody(){
   }
   let h="";
   o.forEach(t=>{
-    const p=ps(t), dp=Math.min(dep(t.id),3), isSumm=hasK(t.id), isCol=coll.has(t.id)&&!filtered, indent=dep(t.id)*18;
+    if(t._grp){ h+=_grpTableRow(t); return; }
+    const p=ps(t), dp=G?1:Math.min(dep(t.id),3), isSumm=hasK(t.id), isCol=coll.has(t.id)&&!filtered, indent=G?18:dep(t.id)*18;
     const isMs = !!t.isMilestone && !isSumm;
     const ci = isSumm
       ? '<span class="cico" onclick="event.stopPropagation();toggleC('+t.id+')">'+(isCol?"▶":"▼")+'</span>'
@@ -588,13 +611,14 @@ function attachDnD(sel2,attr,cls){
 function clearDI(cls){document.querySelectorAll("."+cls).forEach(r=>r.classList.remove("drop-above","drop-below","drop-inside"))}
 
 function renderGantt(){
-  const o=viewRows(); if(!o.length){$("gHead").innerHTML=""; $("gBody").innerHTML=""; return;}
+  const o=viewList(), G=groupActive(); if(!o.length){$("gHead").innerHTML=""; $("gBody").innerHTML=""; return;}
   const b=ab(), cs=aD(b.mn,-3), ce=aD(b.mx,5), td=dD(cs,ce)+1;
 
   // Spațiu la capăt = cât ocupă cea mai lungă etichetă a activităților care se termină spre final
   const lastDays=Math.max(3,Math.round(td*0.1));
   let tailW=50;
   o.forEach(t=>{
+    if(t._grp) return;
     const endsLate=dD(ps(t)._e,ce)<=lastDays+5; if(!endsLate) return;
     const shown=t.nm.length>20?t.nm.slice(0,19)+'…':t.nm;
     const lw=hasK(t.id)?_textW(shown,'800 11px Nunito')+(t.prog>0?50:12)+10:(t.isMilestone?_textW(t.nm,'700 11px Nunito')+34:((showSideNames||barStyle==="new")?_textW(t.nm,'700 11.5px '+getComputedStyle(document.body).fontFamily)+28:50));
@@ -663,7 +687,8 @@ function renderGantt(){
   const wbsMap=wbs();
   let rows="";
   o.forEach(t=>{
-    const p=ps(t), dp=Math.min(dep(t.id),3), isSumm=hasK(t.id), isMs=!!t.isMilestone && !isSumm;
+    if(t._grp){ rows+=_grpGanttRow(t,cs,dw); return; }
+    const p=ps(t), dp=G?1:Math.min(dep(t.id),3), isSumm=hasK(t.id), isMs=!!t.isMilestone && !isSumm;
     const off=dD(cs,p._s), w=Math.max(calSpan(t)*dw,dw), l=off*dw;
     const _isS=isSelId(t.id), sc=_isS?"selected":"", ac=_isS?" active":"", bc=isMs?"milestone":(isSumm?"summ":"task");
     let bi="", sideAuto=false;
@@ -711,6 +736,7 @@ function renderGantt(){
 
   // Săgețile care intră în aceeași bară se desenează toate; ultimele segmente se suprapun și par o singură săgeată cu ramificații.
   o.forEach((t,si)=>{
+    if(t._grp) return;
     const deps=t.deps||[]; if(!deps.length) return;
     const succP=ps(t);
     const msEnd = (x,s)=>(dD(cs,s._s)+1)*dw;       // reperele: săgețile intră / ies din romb, la finalul zilei lui

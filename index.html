@@ -274,7 +274,7 @@
         <div class="rb-group" data-cap="Filtru">
           <div class="rb-row">
             <div class="rb-dd">
-              <button class="rb-btn rb-btn-big" id="btnFilter" onclick="toggleDD(this)" title="Arată doar activitățile care te interesează (în tabel și în Gantt)">
+              <button class="rb-btn rb-btn-big" id="btnFilter" onclick="toggleDD(this)" title="Arată doar activitățile care te interesează (în tabel și în Gantt) sau grupează-le (stare, resurse, critic, lună…) cu subtotaluri">
                 <svg class="ic"><use href="#i-filter"/></svg><span class="rb-lbl" id="btnFilterLbl">Filtru</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
               </button>
               <div class="rb-menu" id="filterMenu">
@@ -290,6 +290,17 @@
                 <button title="Activitățile cu avertismente: restricție neîndeplinită, termen depășit, resursă supraalocată" data-f="warn" onclick="closeDD();setFilter('warn')"><span>Cu avertismente</span></button>
                 <hr>
                 <button title="Filtrează după resursă, interval de date sau nume" onclick="closeDD();openFilterModal()"><span>După resursă, interval de date, nume…</span></button>
+                <hr>
+                <div class="rb-menu-h">Grupează după (subtotaluri pe grup)</div>
+                <div id="groupMenu">
+                  <button title="Fără grupare: tabelul pe capitole" data-g="" onclick="closeDD();setGroup(null)"><span>Fără grupare</span></button>
+                  <button title="Activitățile de pe drumul critic, apoi cele cu rezervă" data-g="crit" onclick="closeDD();setGroup('crit')"><span>Critic / cu rezervă</span></button>
+                  <button title="Întârziate, în lucru, nepornite, finalizate" data-g="status" onclick="closeDD();setGroup('status')"><span>Stare</span></button>
+                  <button title="Câte un grup pentru fiecare combinație de resurse atribuite" data-g="res" onclick="closeDD();setGroup('res')"><span>Resurse</span></button>
+                  <button title="Câte un grup pentru fiecare capitol de pe primul nivel" data-g="chap" onclick="closeDD();setGroup('chap')"><span>Capitol</span></button>
+                  <button title="După luna în care încep activitățile" data-g="month" onclick="closeDD();setGroup('month')"><span>Luna de start</span></button>
+                  <button title="Reperele separat de activități" data-g="ms" onclick="closeDD();setGroup('ms')"><span>Repere / activități</span></button>
+                </div>
               </div>
             </div>
             <input id="flText" class="rb-input" placeholder="Filtrează după nume…" oninput="setFilterTextDebounced(this.value)" autocomplete="off">
@@ -417,8 +428,11 @@
   <!-- Bara de filtru activ -->
   <div class="filter-bar" id="filterBar" style="display:none">
     <span id="filterBarTxt"></span>
-    <button type="button" onclick="openFilterModal()">Schimbă</button>
-    <button type="button" onclick="clearFilter()">✕ Elimină filtrul</button>
+    <span id="filterBarFilterBtns" style="display:contents">
+      <button type="button" onclick="openFilterModal()">Schimbă</button>
+      <button type="button" onclick="clearFilter()">✕ Elimină filtrul</button>
+    </span>
+    <button type="button" id="filterBarGroupBtn" onclick="setGroup(null)" title="Revine la tabelul pe capitole">✕ Oprește gruparea</button>
   </div>
 
   <div class="split" id="splitView">
