@@ -93,9 +93,9 @@ function withIndex(fn) {
 }
 const taskById = id => _ix ? _ix.byId.get(id) : T.find(x => x.id === id);
 function kids(p) { return _ix ? (_ix.kidsOf.get(p) || []) : T.filter(t=>t.pid===p); }
-function dep(id) { let d=0, t=T.find(x=>x.id===id); while(t&&t.pid){d++; t=T.find(x=>x.id===t.pid)} return d; }
+function dep(id) { let d=0, t=taskById(id); while(t&&t.pid){d++; t=taskById(t.pid)} return d; }
 function allD(id) { const r=[]; kids(id).forEach(c=>{r.push(c.id); r.push(...allD(c.id))}); return r; }
-function isD(c,a) { let t=T.find(x=>x.id===c); while(t&&t.pid){if(t.pid===a) return true; t=T.find(x=>x.id===t.pid)} return false; }
+function isD(c,a) { let t=taskById(c); while(t&&t.pid){if(t.pid===a) return true; t=taskById(t.pid)} return false; }
 function hasK(id) { return kids(id).length>0; }
 
 // ============================================================
@@ -111,7 +111,7 @@ function _normalizeDep(d) {
   const id = +d.id;
   if (!Number.isFinite(id)) return null;
   const type = DEP_TYPES.includes(d.type) ? d.type : 'FS';
-  const lag = Number.isFinite(+d.lag) ? +d.lag : 0;
+  const lag = Number.isFinite(+d.lag) ? Math.round(+d.lag) : 0;   // decalaj în zile lucrătoare întregi (fracțiunile nu sunt suportate)
   return { id, type, lag };
 }
 
@@ -155,10 +155,24 @@ function _parseDepToken(tok) {
 // Dacă există mai multe legături, câștigă cea mai târzie (max).
 // Dependențe circulare → detectate și semnalate cu toast; task-urile
 // rămase în ciclu nu se recalculează, dar restul proiectului se mișcă.
+// Legăturile moștenite: o legătură pusă PE un capitol (capitolul e succesor) se aplică fiecărei activități din el, ca în MS Project.
+// Doar FS și SS (legături de START); FF / SF pe capitole nu sunt permise (MS Project le refuză și el).
+function inheritedDeps(t) {
+  const out = [];
+  for (let p = t.pid, n = 0; p != null && n < 1000; n++) {
+    const par = taskById(p); if (!par) break;
+    (par.deps || []).forEach(d => { if (d.type === 'FS' || d.type === 'SS') out.push(d); });
+    p = par.pid;
+  }
+  return out;
+}
+// Legăturile care dictează startul unei activități: ale ei + cele moștenite de la capitolele ei
+const schedDeps = t => hasK(t.id) ? [] : (t.deps || []).concat(inheritedDeps(t));
+
 function _topoDepOrder() {
   const inDeg = new Map(), adj = new Map();
   T.forEach(t => { inDeg.set(t.id, 0); adj.set(t.id, []); });
-  T.forEach(t => (t.deps || []).forEach(d => {
+  T.forEach(t => (hasK(t.id) ? (t.deps || []) : schedDeps(t)).forEach(d => {
     if (!inDeg.has(d.id)) return;
     inDeg.set(t.id, (inDeg.get(t.id) || 0) + 1);
     adj.get(d.id).push(t.id);
@@ -210,25 +224,30 @@ function _tryHierarchyChange(fn) {
 
 // Aplică o listă de dependențe unei activități, ignorând cele care ar crea bucle
 function _applyDepsSafely(t, list) {
-  t.deps = []; let bad = 0;
+  t.deps = []; let bad = 0, summ = 0;
   list.forEach(d => {
+    if (hasK(t.id) && (d.type === 'FF' || d.type === 'SF')) { summ++; return; }   // pe un capitol: doar legături de start (FS / SS)
     if (d.id === t.id || wouldCreateCycle(d.id, t.id)) { bad++; return; }
     if (!t.deps.some(x => x.id === d.id)) t.deps.push(d);
   });
   if (bad) toast('🚫 ' + bad + (bad === 1 ? ' legătură ignorată' : ' legături ignorate') + ' (ar crea o buclă sau ar lega o activitate de capitolul ei)');
+  if (summ) toast('🚫 Un capitol poate avea doar legături FS sau SS (ele se aplică tuturor activităților din el)');
 }
 
 // Startul pe care îl cere legătura `d` activității `t`, cu lag-ul dat (zile lucrătoare, calendarul proiectului); null dacă predecesorul lipsește.
 //   FS: începe în ziua lucrătoare de după finalul predecesorului (+lag)   SS: începe la startul predecesorului (+lag)
 //   FF: se termină la finalul predecesorului (+lag)                       SF: se termină la startul predecesorului (+lag)
+// Reperul are durată 0 (ca în MS Project): stă la FINALUL zilei lui. Ca succesor FS / FF al lui A, cade în ultima zi a lui A
+// (nu în ziua următoare), iar ca predecesor FS, succesorul începe în ziua lucrătoare de după el — deci nu consumă o zi din plan.
+//   SF (start → final): succesorul se termină în ziua lucrătoare dinaintea startului predecesorului (+lag), nu în aceeași zi.
 function depStart(t, d, lag) {
   const pred = taskById(d.id); if (!pred) return null;
-  const sucDur = Math.max(1, t.dur);
+  const ms = !!t.isMilestone && !hasK(t.id), sucDur = ms ? 1 : Math.max(1, t.dur);
   switch (d.type) {
-    case 'FS': return addWorkDays(endDate(pred), 1 + lag);
+    case 'FS': return ms ? addWorkDays(endDate(pred), lag) : addWorkDays(endDate(pred), 1 + lag);
     case 'SS': return addWorkDays(pD(pred.sd), lag);
     case 'FF': return addWorkDays(addWorkDays(endDate(pred), lag), -(sucDur - 1));
-    case 'SF': return addWorkDays(addWorkDays(pD(pred.sd), lag), -(sucDur - 1));
+    case 'SF': return addWorkDays(addWorkDays(pD(pred.sd), lag - 1), -(sucDur - 1));
     default:   return null;
   }
 }
@@ -257,6 +276,22 @@ function lagFromMove(t) {
   return drv;
 }
 
+// Utilizatorul a scris un start nou (tabel / Detalii): activitatea se MUTĂ, durata rămâne (ca în MS Project).
+// Cu legături proprii, mutarea devine decalaj pe legătura care o ține (ca la tragerea barei); cu legături doar moștenite de la capitol,
+// devine restricția „Nu începe înainte de". O restricție pusă de utilizator nu se atinge. Întoarce un mesaj (sau '').
+function moveStartTo(t, v) {
+  t.sd = v;
+  if (hasK(t.id)) return '';
+  if (t.cons && t.cons.type === 'SNET') {            // „Nu începe înainte de": ca în MS Project, startul scris îi devine noua dată
+    if (t.cons.date === v) return '';
+    t.cons = { type: 'SNET', date: v }; return '📌 Restricție actualizată: nu începe înainte de ' + fmtDate(pD(v));
+  }
+  if (t.cons && t.cons.type && t.cons.type !== 'ASAP') return '';
+  if (t.deps && t.deps.length) { const d = lagFromMove(t); return d ? '↔ Legătura cu ' + (wbs()[d.id] || '?') + ' are acum ' + depLabel(d) : ''; }
+  if (inheritedDeps(t).length) { t.cons = { type: 'SNET', date: v }; return '📌 Restricție pusă: nu începe înainte de ' + fmtDate(pD(v)); }
+  return '';
+}
+
 let _lastCycleWarnAt = 0;
 function recalcSchedule() {
   _ensureDeps();
@@ -273,12 +308,15 @@ function recalcSchedule() {
   for (const tid of order) {
     const t = taskById(tid); if (!t) continue;
     if (hasK(t.id)) { _calcSummaryDates(t); continue; } // capitolele se derivă din copii (deja calculați în ordine)
-    const hasDeps = !!(t.deps && t.deps.length);
+    const deps = schedDeps(t), hasDeps = deps.length > 0;
     const hasCons = !!(t.cons && t.cons.type && t.cons.type !== 'ASAP' && (t.cons.type === 'ALAP' || t.cons.date));
-    if (!hasDeps && !hasCons) continue;
+    if (!hasDeps && !hasCons) {               // fără legături / restricții: startul introdus de mână, dar mereu într-o zi lucrătoare
+      const nw = fD(nextWork(pD(t.sd))); if (nw !== t.sd) t.sd = nw;
+      continue;
+    }
 
     let bestStart = null;
-    for (const d of (t.deps || [])) {
+    for (const d of deps) {
       const newStart = depStart(t, d, +d.lag || 0);
       if (newStart && (!bestStart || newStart > bestStart)) bestStart = newStart;
     }
@@ -288,7 +326,7 @@ function recalcSchedule() {
     if (bestStart && t.cons && t.cons.type === 'ALAP') s = addWorkDays(s, t._alap || 0);
     const r = _applyCons(t, s, bestStart);
     s = r.s; if (r.w) consWarn[t.id] = r.w;
-    if (bestStart || hasCons) t.sd = fD(s);
+    if (bestStart || hasCons) t.sd = fD(nextWork(s));
   }
 }
 
@@ -329,15 +367,15 @@ function _applyCons(t, s, depStart) {
 function wouldCreateCycle(predId, succId) {
   if (predId === succId) return true;
   // DFS din succ pe graful curent: dacă ajungem la pred, e ciclu
-  const stack = [succId], seen = new Set();
+  const stack = [succId, ...allD(succId)], seen = new Set();   // legătura pe un capitol se aplică și activităților lui
   while (stack.length) {
     const cur = stack.pop();
     if (cur === predId) return true;
     if (seen.has(cur)) continue;
     seen.add(cur);
-    // Toate task-urile care au cur ca predecesor
+    // Toate task-urile care au cur ca predecesor (iar dacă succesorul e un capitol, și activitățile lui, care moștenesc legătura)
     T.forEach(t => {
-      if ((t.deps || []).some(d => d.id === cur)) stack.push(t.id);
+      if ((t.deps || []).some(d => d.id === cur)) { stack.push(t.id); stack.push(...allD(t.id)); }
     });
     const me = T.find(x => x.id === cur);            // capitolul depinde de copiii lui
     if (me && me.pid != null) stack.push(me.pid);
@@ -455,10 +493,12 @@ function loadTabData(tabId) {
   if (typeof _summaryOnly !== 'undefined') _summaryOnly = false;
   if (typeof treeFocus !== 'undefined') { treeFocus = null; treeOpen.clear(); }
   const btn = $('btnSummaryOnly'); if (btn) btn.classList.remove('active');
-  _history = [];
-  _future  = [];
+  const hh = _histByTab[tabId];              // istoricul Ctrl+Z al proiectului (păstrat cât e pagina deschisă, la schimbarea filelor)
+  _history = hh ? hh[0] : [];
+  _future  = hh ? hh[1] : [];
   updateUndoRedoBtns();
 }
+const _histByTab = {};
 
 // ============================================================
 // GESTIONARE TAB-URI
@@ -476,6 +516,7 @@ function addNewTab(name, data, nidVal, cal, res, meta) {
     meta: meta || { sdate: null }
   };
   tabs.push(tab);
+  delete _histByTab[tab.id];                 // un proiect nou pornește fără istoric de anulare
   switchTab(tab.id);
   saveAllTabs();
   if (typeof maybeStartTour === 'function') maybeStartTour();   // prima deschidere de proiect → turul ghidat (o singură dată)
@@ -483,8 +524,9 @@ function addNewTab(name, data, nidVal, cal, res, meta) {
 }
 
 function switchTab(tabId) {
-  // Salvăm datele tab-ului curent înainte de a schimba
+  // Salvăm datele tab-ului curent (și istoricul lui de anulare) înainte de a schimba
   syncTabData();
+  if (activeTabId != null) _histByTab[activeTabId] = [_history, _future];
   activeTabId = tabId;
   loadTabData(tabId);
   renderTabsBar();
@@ -494,10 +536,12 @@ function switchTab(tabId) {
 
 function closeTab(tabId, e) {
   if (e) e.stopPropagation();
-  customConfirm('Închizi acest proiect? Ce nu ai salvat într-un fișier (Ctrl+S) se pierde.', function() {
+  const fn = typeof fileNames !== 'undefined' && fileNames[tabId];
+  customConfirm(fn ? 'Închizi proiectul? E salvat în „' + fn + '"; modificările făcute după ultima salvare (Ctrl+S) se pierd.'
+                   : 'Închizi acest proiect? Nu e salvat într-un fișier: dacă nu-l salvezi (Ctrl+S), se pierde.', function() {
     const idx = tabs.findIndex(t => t.id === tabId);
     if (idx < 0) return;
-    tabs.splice(idx, 1);
+    tabs.splice(idx, 1); delete _histByTab[tabId];
     delete fileHandles[tabId]; delete fileAuto[tabId]; delete fileNames[tabId]; delete fileSavedAt[tabId];
 
     if (!tabs.length) {
@@ -719,9 +763,16 @@ function toggleMilestone() {
   toast(t.isMilestone ? '♦ Convertit la milestone' : '📊 Convertit la activitate');
 }
 
-function delSel() {
+// before (opțional): rulează după confirmare, chiar înainte de ștergere (ex. „Taie" copiază abia atunci)
+function delSel(before) {
   if(!sel) return;
   if(filterActive() && view==='gantt' && hasK(sel)) { toast('🔎 Oprește filtrul ca să ștergi un capitol (ar șterge și rândurile ascunse)'); return; }
+  if(hasK(sel) && !delSel._ok) {                 // un capitol: confirmare, pentru că pleacă și tot ce conține
+    const id=sel, t=T.find(x=>x.id===id), n=allD(id).length;
+    customConfirm('Ștergi capitolul „'+t.nm+'" și '+(n===1?'activitatea':'cele '+n+' activități')+' din el? Poți anula cu Ctrl+Z.', ()=>{ sel=id; delSel._ok=true; try { delSel(before); } finally { delSel._ok=false; } });
+    return;
+  }
+  if(typeof before==='function') before();
   pushHistory();
   const d=allD(sel), rm=new Set([sel,...d]);
   // Curățăm referințele de dependență către task-urile șterse
@@ -745,9 +796,11 @@ function upd(id, f, v) {
     const msg = _syncActuals(t, oldProg); if (msg) toast('📅 ' + msg);   // început / final real completate din data de status
   }
   else if (f === "sd" && v) {
-    const oldEnd = endDate(t);
-    t.sd = v;
-    t.dur = workDur(pD(v), oldEnd);
+    const msg = moveStartTo(t, v);                 // startul nou mută activitatea; durata rămâne
+    syncTabData(); renderAll();
+    if (t.sd !== fD(nextWork(pD(v)))) toast('ℹ️ Startul rămâne ' + fmtDate(pD(t.sd)) + ': îl dictează legăturile sau o restricție');
+    else if (msg) toast(msg);
+    return;
   }
   else if (f === "ed" && v) { t.dur = workDur(pD(t.sd), pD(v)); }
   else if (f === "pid") { t.pid = v; }
@@ -807,8 +860,15 @@ function moveSel(dir) {
   syncTabData(); renderAll();
 }
 
+// Inserează rânduri imediat după blocul unui rând (rândul + tot ce conține); fără ancoră → la final
+function insertAfterBlock(rows, anchorId) {
+  if (anchorId == null || !T.some(t => t.id === anchorId)) { T.push(...rows); return; }
+  const block = [anchorId, ...allD(anchorId)], last = Math.max(...block.map(id => T.findIndex(x => x.id === id)));
+  T.splice(last + 1, 0, ...rows);
+}
+
 function toggleC(id) { if(coll.has(id)) coll.delete(id); else coll.add(id); renderAll(); }
-function selTask(id) { sel=sel===id?null:id; renderAll(); if(typeof closeCtx==='function') closeCtx(); }
+function selTask(id) { sel=sel===id?null:id; refreshSelection(); if(typeof closeCtx==='function') closeCtx(); }
 
 function handleDrop(dragId, targetId, dropType) {
   if(!dragId||dragId===targetId||isD(targetId,dragId)) return;

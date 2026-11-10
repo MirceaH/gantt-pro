@@ -269,12 +269,14 @@ function _recomputeAll(){
 function renderAll(){
   updateEmptyState();
   recomputeAll();
-  renderTH();
-  renderTBody();
-  if(view==="gantt") renderGantt();
-  if(view==="tree"){ renderTree(); renderSidePanel(); }
-  if(view==="timeline") renderTimeline();
-  renderStatus();
+  withIndex(() => {                    // desenarea nu schimbă structura lui T: căutările (kids, hasK, dep, taskById) devin O(1)
+    renderTH();
+    renderTBody();
+    if(view==="gantt") renderGantt();
+    if(view==="tree"){ renderTree(); renderSidePanel(); }
+    if(view==="timeline") renderTimeline();
+    renderStatus();
+  });
   saveAllTabs();
   updateUndoRedoBtns();
   if (typeof updateFormatTabVisibility === "function") updateFormatTabVisibility();
@@ -517,8 +519,8 @@ function updateEmptyState() {
 }
 
 // ======== SELECȚIE + TASTE ========
-function setSel(id) { sel = id; renderAll(); }
-function deselectAll() { if (sel === null) return; sel = null; renderAll(); }
+function setSel(id) { sel = id; refreshSelection(); }
+function deselectAll() { if (sel === null) return; sel = null; refreshSelection(); }
 
 // Click pe spațiul gol de sub activități (tabel sau Gantt) = nimic selectat
 document.addEventListener("click", e => {

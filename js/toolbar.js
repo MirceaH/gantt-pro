@@ -18,9 +18,8 @@ let _summaryOnly = false;     // toggle per tab
 // ============================================================
 function cutTask() {
   if (!sel) { toast('⚠️ Selectează un task'); return; }
-  copyTask();
-  delSel();
-  toast('✂️ Tăiat în clipboard');
+  // la un capitol, copierea și mesajul vin abia după confirmarea ștergerii
+  delSel(() => { copyTask(); setTimeout(() => toast('✂️ Tăiat în clipboard'), 0); });
 }
 
 function copyTask() {
@@ -40,8 +39,10 @@ function pasteTask() {
   const idMap = {};
   _clipboard.tasks.forEach(t => { idMap[t.id] = nid++; });
 
-  // Determinăm noul părinte (sub task-ul selectat sau rădăcină)
-  const newParentId = sel || null;
+  // Copia se lipește ca rând NOU, la același nivel cu rândul selectat, imediat sub el (rândul selectat nu devine capitol)
+  const anchor = sel ? T.find(x => x.id === sel) : null;
+  const newParentId = anchor ? anchor.pid : null;
+  const pasted = [];
 
   _clipboard.tasks.forEach(t => {
     const cp = JSON.parse(JSON.stringify(t));
@@ -63,8 +64,9 @@ function pasteTask() {
       cp.deps = [];
     }
 
-    T.push(cp);
+    pasted.push(cp);
   });
+  insertAfterBlock(pasted, anchor ? anchor.id : null);
 
   if (newParentId) coll.delete(newParentId);
   sel = idMap[_clipboard.rootId];
@@ -160,7 +162,9 @@ function saveAddTask() {
   if (isMs) task.isMilestone = true;
   const notes = $('atNotes').value.trim();
   if (notes) task.notes = notes;
-  T.push(task);
+  // Se inserează sub rândul selectat (dacă e în același capitol), altfel ultima în capitolul ales
+  const selRow = sel ? T.find(x => x.id === sel) : null;
+  insertAfterBlock([task], selRow && selRow.pid === pid ? selRow.id : pid);
   _applyDepsSafely(task, deps);
   if (pid) coll.delete(pid);
   sel = task.id;
@@ -484,6 +488,7 @@ function saveTaskInfo(id) {
   if (asV && afV && afV < asV) { toast('⚠️ Finalul real nu poate fi înaintea începutului real'); return; }
   pushHistory();
   let actMsg = '';
+  const sd0 = t.sd;
 
   t.nm = $('tiName').value.trim() || t.nm;
   { const sn = $('tiShort').value.trim(); if (sn) t.sn = sn; else delete t.sn; }
@@ -534,6 +539,8 @@ function saveTaskInfo(id) {
   } else {
     t.deps = [];
   }
+  // Start schimbat: activitatea se mută (decalaj pe legătură / restricție), la fel ca în tabel și la tragerea barei
+  if (!hasK(t.id) && t.sd !== sd0) { const m = moveStartTo(t, t.sd); if (m) actMsg = actMsg ? actMsg + ' · ' + m : m; }
 
   // Resurse atribuite + tip activitate
   if (!hasK(t.id)) {
@@ -573,90 +580,106 @@ function exportMSProject() {
 }
 
 function _msXmlEscape(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+  return String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 }
 
 function _msXmlDate(s) {
   return s + 'T08:00:00';
 }
+const _msFin = s => s + 'T17:00:00';
+const _msDur = days => 'PT' + Math.round(days * 8) + 'H0M0S';
 
+// Fișier XML pentru Microsoft Project (schema „http://schemas.microsoft.com/project"), verificat deschizându-l în MS Project.
+// Reguli importante ale formatului: decalajul (LinkLag) e în ZECIMI de minut (1 zi = 8 h = 4800); activitățile sunt planificate automat
+// (Manual = 0), deci MS Project le recalculează după legături; activitățile fără legături primesc restricția „Nu începe înainte de"
+// la startul lor (așa le păstrează MS Project data); reperele au durată 0 și cad la finalul zilei (17:00).
 function _buildMSProjectXML(projectName) {
-  const w = wbs();
-  const today = fD(new Date()) + 'T08:00:00';
-  const outlineLevel = id => dep(id) + 1;
+  const w = wbs(), ids = rowIds(), now = fD(new Date()) + 'T08:00:00', X = _msXmlEscape;
+  const typeMap = { FS: 1, SS: 3, FF: 0, SF: 2 };
+  const consMap = { ASAP: 0, ALAP: 1, MSO: 2, MFO: 3, SNET: 4, SNLT: 5, FNET: 6, FNLT: 7 };
+  const ttMap = { fu: 0, fd: 1, fw: 2 };
+  const starts = T.map(t => t.sd).sort(), projStart = starts.length ? starts[0] : fD(new Date());
+
+  // calendarul proiectului: zilele lucrătoare (8–12, 13–17) și zilele libere
+  const wt = '<WorkingTimes><WorkingTime><FromTime>08:00:00</FromTime><ToTime>12:00:00</ToTime></WorkingTime><WorkingTime><FromTime>13:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes>';
+  let weekDays = '';
+  for (let i = 0; i < 7; i++) weekDays += `<WeekDay><DayType>${i + 1}</DayType><DayWorking>${CAL.days[i] ? 1 : 0}</DayWorking>${CAL.days[i] ? wt : ''}</WeekDay>`;
+  CAL.hol.forEach(h => { weekDays += `<WeekDay><DayType>0</DayType><DayWorking>0</DayWorking><TimePeriod><FromDate>${h}T00:00:00</FromDate><ToDate>${h}T23:59:00</ToDate></TimePeriod></WeekDay>`; });
+  const calendars = `<Calendars><Calendar><UID>1</UID><Name>Standard</Name><IsBaseCalendar>1</IsBaseCalendar><BaseCalendarUID>-1</BaseCalendarUID><WeekDays>${weekDays}</WeekDays></Calendar></Calendars>`;
 
   let tasksXml = '';
-  function walk(list) {
+  (function walk(list) {
     list.forEach(t => {
-      const p = ps(t);
-      const isSumm = hasK(t.id);
-      const finishDate = fD(p._e);
+      const isSumm = hasK(t.id), isMs = !!t.isMilestone && !isSumm, end = fD(endDate(t));
+      const start = isMs ? _msFin(t.sd) : _msXmlDate(t.sd), finish = isMs ? _msFin(t.sd) : _msFin(end);
+      let cons = '';
+      if (!isSumm) {
+        if (t.cons && consMap[t.cons.type] !== undefined && t.cons.type !== 'ASAP') cons = `<ConstraintType>${consMap[t.cons.type]}</ConstraintType>` + (t.cons.date ? `<ConstraintDate>${_msXmlDate(t.cons.date)}</ConstraintDate>` : '');
+        else if (!schedDeps(t).length) cons = `<ConstraintType>4</ConstraintType><ConstraintDate>${_msXmlDate(t.sd)}</ConstraintDate>`;
+        else cons = '<ConstraintType>0</ConstraintType>';     // explicit „cât mai devreme" (fără el, MS Project poate pune altă restricție la import)
+      }
+      // Datele reale: MS Project le cere pentru progres > 0 (altfel le inventează și raportează conflicte de planificare)
+      const aS = !isSumm ? (t.as || (t.prog > 0 ? t.sd : '')) : '', aF = !isSumm ? (t.af || (t.prog >= 100 ? end : '')) : '';
+      const bl = (!isSumm && t.bl) ? `<Baseline><Number>0</Number><Start>${_msXmlDate(t.bl.sd)}</Start><Finish>${_msFin(fD(endDate({ sd: t.bl.sd, dur: t.bl.dur })))}</Finish><Duration>${_msDur(isMs ? 0 : t.bl.dur)}</Duration>${t.bl.cost != null ? `<Cost>${t.bl.cost}</Cost>` : ''}</Baseline>` : '';
+      const links = (t.deps || []).map(d => `<PredecessorLink><PredecessorUID>${d.id}</PredecessorUID><Type>${typeMap[d.type] ?? 1}</Type><CrossProject>0</CrossProject><LinkLag>${Math.round((+d.lag || 0) * 4800)}</LinkLag><LagFormat>7</LagFormat></PredecessorLink>`).join('');
       tasksXml += `
-    <Task>
-      <UID>${t.id}</UID>
-      <ID>${t.id}</ID>
-      <Name>${_msXmlEscape(t.nm)}</Name>
-      <Type>0</Type>
-      <IsNull>0</IsNull>
-      <CreateDate>${today}</CreateDate>
-      <WBS>${_msXmlEscape(w[t.id] || '')}</WBS>
-      <OutlineNumber>${_msXmlEscape(w[t.id] || '')}</OutlineNumber>
-      <OutlineLevel>${outlineLevel(t.id)}</OutlineLevel>
-      <Priority>500</Priority>
-      <Start>${_msXmlDate(t.sd)}</Start>
-      <Finish>${_msXmlDate(finishDate)}</Finish>
-      <Duration>PT${t.dur * 8}H0M0S</Duration>
-      <DurationFormat>7</DurationFormat>
-      <Work>PT${t.dur * 8}H0M0S</Work>
-      <Summary>${isSumm ? 1 : 0}</Summary>
-      <Manual>1</Manual>
-      <PercentComplete>${t.prog}</PercentComplete>
-      <PercentWorkComplete>${t.prog}</PercentWorkComplete>${t.notes ? `
-      <Notes>${_msXmlEscape(t.notes)}</Notes>` : ''}${(t.deps || []).map(d => {
-        // MS Project link types: 0=FF, 1=FS, 2=SF, 3=SS
-        const typeMap = { FS: 1, SS: 3, FF: 0, SF: 2 };
-        const lagMin = Math.round((+d.lag || 0) * 480); // 1 zi = 480 min (8h)
-        return `
-      <PredecessorLink>
-        <PredecessorUID>${d.id}</PredecessorUID>
-        <Type>${typeMap[d.type] ?? 1}</Type>
-        <CrossProject>0</CrossProject>
-        <LinkLag>${lagMin}</LinkLag>
-        <LagFormat>7</LagFormat>
-      </PredecessorLink>`;
-      }).join('')}
+    <Task><UID>${t.id}</UID><ID>${ids[t.id] || t.id}</ID><Name>${X(t.nm)}</Name><Type>${ttMap[t.ttype] ?? 0}</Type><IsNull>0</IsNull><CreateDate>${now}</CreateDate>
+      <WBS>${X(w[t.id] || '')}</WBS><OutlineNumber>${X(w[t.id] || '')}</OutlineNumber><OutlineLevel>${dep(t.id) + 1}</OutlineLevel><Priority>500</Priority>
+      <Start>${start}</Start><Finish>${finish}</Finish><Duration>${_msDur(isMs ? 0 : t.dur)}</Duration><DurationFormat>7</DurationFormat>
+      <Milestone>${isMs ? 1 : 0}</Milestone><Summary>${isSumm ? 1 : 0}</Summary><Manual>0</Manual><EffortDriven>0</EffortDriven>
+      <PercentComplete>${t.prog || 0}</PercentComplete>${cons}${t.deadline ? `<Deadline>${_msFin(t.deadline)}</Deadline>` : ''}${aS ? `<ActualStart>${_msXmlDate(aS)}</ActualStart>` : ''}${aF ? `<ActualFinish>${_msFin(aF)}</ActualFinish>` : ''}${t.notes ? `<Notes>${X(t.notes)}</Notes>` : ''}${bl}${links}
     </Task>`;
       walk(kids(t.id));
     });
-  }
-  walk(T.filter(t => !t.pid));
+  })(T.filter(t => !t.pid));
+
+  // resurse și atribuiri (muncă: tarif pe oră, unități ca fracție; material: cantitate; cost fix: sumă)
+  const rType = { work: 1, material: 0, cost: 2 };
+  const resXml = RES.list.map((r, i) => `<Resource><UID>${r.id}</UID><ID>${i + 1}</ID><Name>${X(r.name)}</Name><Type>${rType[r.type] ?? 1}</Type><IsNull>0</IsNull>`
+    + (r.type === 'material' ? `<MaterialLabel>${X(r.unit || '')}</MaterialLabel>` : '')
+    + (r.type === 'work' ? `<MaxUnits>${(r.max || 100) / 100}</MaxUnits>` : '')
+    + (r.type !== 'cost' ? `<StandardRate>${r.rate || 0}</StandardRate><StandardRateFormat>${r.type === 'work' ? 2 : 7}</StandardRateFormat>` : '')
+    + `<CalendarUID>1</CalendarUID></Resource>`).join('');
+  let aUid = 1;
+  const asgXml = T.filter(t => !hasK(t.id)).flatMap(t => (t.assign || []).filter(a => resById(a.rid)).map(a => {
+    const r = resById(a.rid);
+    const units = r.type === 'work' ? (a.units || 0) / 100 : (r.type === 'material' ? (a.units || 0) : 1);
+    // munca: ore; materialul: cantitatea totală (MS Project o ține tot în câmpul Work, câte o „oră" pe unitate)
+    const work = r.type === 'work' ? `<Work>${_msDur(Math.max(1, t.dur) * (a.units || 0) / 100)}</Work>` : (r.type === 'material' ? `<Work>PT${a.units || 0}H0M0S</Work>` : '');
+    // Start / Finish pe atribuire: fără ele MS Project le pune la începutul proiectului și mută activitatea (conflict de planificare)
+    return `<Assignment><UID>${aUid++}</UID><TaskUID>${t.id}</TaskUID><ResourceUID>${r.id}</ResourceUID><Start>${_msXmlDate(t.sd)}</Start><Finish>${_msFin(fD(endDate(t)))}</Finish><Units>${units}</Units>${work}${r.type === 'cost' ? `<Cost>${a.units || 0}</Cost>` : ''}</Assignment>`;
+  })).join('');
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Project xmlns="http://schemas.microsoft.com/project">
   <SaveVersion>14</SaveVersion>
-  <Name>${_msXmlEscape(projectName)}</Name>
-  <Title>${_msXmlEscape(projectName)}</Title>
+  <Name>${X(projectName)}</Name>
+  <Title>${X(projectName)}</Title>
   <Author>Gantt PRO</Author>
-  <CreationDate>${today}</CreationDate>
-  <LastSaved>${today}</LastSaved>
+  <CreationDate>${now}</CreationDate>
+  <LastSaved>${now}</LastSaved>
   <ScheduleFromStart>1</ScheduleFromStart>
-  <StartDate>${today}</StartDate>
-  <FYStartDate>1</FYStartDate>
+  <StartDate>${_msXmlDate(projStart)}</StartDate>
+  ${hasCustomStatus() ? `<StatusDate>${_msFin(META.sdate)}</StatusDate>` : ''}
   <CriticalSlackLimit>0</CriticalSlackLimit>
   <CurrencyDigits>2</CurrencyDigits>
-  <CurrencySymbol>$</CurrencySymbol>
-  <CurrencySymbolPosition>0</CurrencySymbolPosition>
+  <CurrencySymbol>${X(RES.cur || 'RON')}</CurrencySymbol>
+  <CurrencySymbolPosition>3</CurrencySymbolPosition>
   <CalendarUID>1</CalendarUID>
   <DefaultStartTime>08:00:00</DefaultStartTime>
   <DefaultFinishTime>17:00:00</DefaultFinishTime>
   <MinutesPerDay>480</MinutesPerDay>
-  <MinutesPerWeek>2400</MinutesPerWeek>
+  <MinutesPerWeek>${480 * CAL.days.filter(Boolean).length}</MinutesPerWeek>
   <DaysPerMonth>20</DaysPerMonth>
-  <NewTasksAreManual>1</NewTasksAreManual>
+  <NewTasksAreManual>0</NewTasksAreManual>
+  ${calendars}
   <Tasks>${tasksXml}
   </Tasks>
+  <Resources>${resXml}</Resources>
+  <Assignments>${asgXml}</Assignments>
 </Project>`;
 }
+
 
 // ============================================================
 // CUSTOM MODALE — confirm + name input (înlocuiesc confirm/prompt)

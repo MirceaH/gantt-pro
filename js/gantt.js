@@ -209,15 +209,33 @@ function showTip(e,t){
 
 function hideTip(){clearTimeout(tipTimer);tipTimer=null;$("tip").classList.remove("show")}
 
+// Selecția se schimbă fără redesenarea completă (în Gantt): doar clasele rândurilor / barei, săgețile evidențiate și fila Format.
+// La sute de rânduri, redesenarea completă la fiecare click dura 0,5–1,5 s. Arborele are nevoie de redesenare (panoul de detalii).
+function refreshSelection(){
+  if(view!=="gantt"){ renderAll(); return; }
+  document.querySelectorAll(".t-row.selected,.g-row.selected").forEach(r=>r.classList.remove("selected"));
+  document.querySelectorAll(".gb.active").forEach(b=>b.classList.remove("active"));
+  if(sel!=null){
+    document.querySelectorAll('.t-row[data-tid="'+sel+'"],.g-row[data-gid="'+sel+'"]').forEach(r=>r.classList.add("selected"));
+    const b=document.querySelector('.gb[data-bid="'+sel+'"]'); if(b) b.classList.add("active");
+  }
+  unfocusDeps();                                   // scoate evidențierea veche și o pune pe activitatea selectată
+  updateInfoBar(sel!=null?T.find(x=>x.id===sel):null);
+  if(typeof updateFormatTabVisibility==="function") updateFormatTabVisibility();
+}
+
 function showCtx(e,id){
   e.preventDefault(); hideTip();
-  sel=id; renderAll(); const t=T.find(x=>x.id===id); if(!t) return;
+  sel=id; refreshSelection(); const t=T.find(x=>x.id===id); if(!t) return;
   const hasPar=!!t.pid; let h="";
   h+='<div class="ctx-item" onclick="openTaskInfo('+id+');closeCtx()">ⓘ Detalii (Task Info)</div>';
   if(_isLeafTask(t)){
     h+='<div class="ctx-sep"></div>';
     h+='<div class="ctx-item" onclick="markStarted('+id+');closeCtx()">▶ A început (la data de status)</div>';
     h+='<div class="ctx-item" onclick="markDone('+id+');closeCtx()">✓ Finalizat (100%)</div>';
+  } else if(t.isMilestone && !hasK(id)){
+    h+='<div class="ctx-sep"></div>';
+    h+='<div class="ctx-item" onclick="markDone('+id+');closeCtx()">✓ Reper atins</div>';
   }
   h+='<div class="ctx-sep"></div>';
   h+='<div class="ctx-item" onclick="cutTask();closeCtx()">✂️ Tăiat (Ctrl+X)</div>';
@@ -395,7 +413,7 @@ function renderTBody(){
 
     // Zile
     h += '<div class="c" style="width:'+C[2].w+'px;min-width:'+C[2].w+'px">'
-       + '<input type="number" min="1" value="'+t.dur+'" style="width:42px" '+dis
+       + '<input type="number" min="1" value="'+(isMs?0:t.dur)+'" style="width:42px" '+(isMs?'disabled title="Reperul are durată 0"':dis)
        + ' onchange="upd('+t.id+',\'dur\',this.value)"'
        + ' '+onkeyNum
        + ' onclick="event.stopPropagation()" ondblclick="event.stopPropagation()">'
@@ -593,7 +611,7 @@ function renderGantt(){
     }
     // Pentru milestone: width fix mic, doar diamant + label
     const styleStr = isMs
-      ? `left:${l}px;width:auto;`
+      ? `left:${(off+1)*dw-9}px;width:auto;`          // reperul (durată 0) stă la finalul zilei lui; rombul de 18 px e centrat pe acel moment
       : `left:${l}px;width:${w}px`;
     rows+='<div class="g-row '+sc+'" data-gid="'+t.id+'" draggable="true"'
         +' onclick="selTask('+t.id+')"'
@@ -615,16 +633,19 @@ function renderGantt(){
   o.forEach((t,si)=>{
     const deps=t.deps||[]; if(!deps.length) return;
     const succP=ps(t);
-    const succLeft  = dD(cs,succP._s)*dw;
-    const succRight = (dD(cs,succP._s)+calSpan(t))*dw;
+    const msEnd = (x,s)=>(dD(cs,s._s)+1)*dw;       // reperele: săgețile intră / ies din romb, la finalul zilei lui
+    const succMs = !!t.isMilestone && !hasK(t.id);
+    const succLeft  = succMs ? msEnd(t,succP)-9 : dD(cs,succP._s)*dw;
+    const succRight = succMs ? msEnd(t,succP)+9 : (dD(cs,succP._s)+calSpan(t))*dw;
     const succCY=si*RH+RH/2;
     deps.forEach(d=>{
       const predId = d.id, type = d.type || 'FS', lag = +d.lag || 0;
       const pi=idxMap[predId]; if(pi===undefined) return;
       const pred=T.find(x=>x.id===predId); if(!pred) return;
       const predP=ps(pred);
-      const predLeft  = dD(cs,predP._s)*dw;
-      const predRight = (dD(cs,predP._s)+calSpan(pred))*dw;
+      const predMs = !!pred.isMilestone && !hasK(pred.id);
+      const predLeft  = predMs ? msEnd(pred,predP)-9 : dD(cs,predP._s)*dw;
+      const predRight = predMs ? msEnd(pred,predP)+9 : (dD(cs,predP._s)+calSpan(pred))*dw;
       const predCY=pi*RH+RH/2;
 
       // Anchor points + direcția de ieșire/intrare (+1 = dreapta, -1 = stânga)
@@ -756,7 +777,7 @@ function attachBars(cs,td,dw){
       bar.addEventListener("mousedown",e=>{
         // Ignoră dep-dot, resize, progress
         if(e.target.closest(".rs")||e.target.closest(".prog-handle")||e.target.closest(".dep-dot")||e.button!==0) return;
-        e.preventDefault(); e.stopPropagation(); sel=tid; hideTip(); if(!t) return;
+        e.preventDefault(); e.stopPropagation(); hideTip(); if(!t) return;   // selecția o face click-ul (fără redesenare); aici doar mutarea
         const orig=pD(t.sd), sx=e.clientX, startLeft=parseFloat(bar.style.left);
         bar.classList.add("dragging");
         const mv=ev=>{
@@ -770,11 +791,11 @@ function attachBars(cs,td,dw){
           document.removeEventListener("mouseup",up);
           const ns=fD(aD(orig,Math.round((ev.clientX-sx)/(dw*ZF))));
           if(ns!==t.sd){                                // mutarea unei bare intră în istoric (Ctrl+Z) doar dacă s-a mutat
-            pushHistory(); t.sd=ns;
-            const d=lagFromMove(t);                     // task cu legături: mutarea devine lag pe legătura care îl ține pe loc
-            if(d) toast("↔ Legătura cu "+(wbs()[d.id]||"?")+" are acum "+depLabel(d));
+            pushHistory(); sel=tid;
+            const m=moveStartTo(t,ns);                  // cu legături: mutarea devine decalaj; cu legături moștenite de la capitol: restricție
+            if(m) toast(m);
+            syncTabData(); renderAll();
           }
-          syncTabData(); renderAll();
         };
         document.addEventListener("mousemove",mv);
         document.addEventListener("mouseup",up);
@@ -782,7 +803,7 @@ function attachBars(cs,td,dw){
     }
     bar.addEventListener("click",e=>{
       if(e.target.closest(".rs")||e.target.closest(".prog-handle")||e.target.closest(".dep-dot")) return;
-      e.stopPropagation(); sel=sel===tid?null:tid; renderAll();
+      e.stopPropagation(); sel=sel===tid?null:tid; refreshSelection();
     });
   });
 

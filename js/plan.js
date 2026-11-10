@@ -63,7 +63,7 @@ function varDays(t) {
 
 // Activitate întârziată: ar fi trebuit să fie gata până la data de status (azi, dacă nu ai setat alta), dar nu e finalizată
 function isBehind(t) {
-  if (hasK(t.id) || t.isMilestone || t.prog >= 100) return false;
+  if (hasK(t.id) || t.prog >= 100) return false;           // și reperele: un reper neatins cu data trecută e întârziat
   return endDate(t) < pD(statusDay());
 }
 
@@ -145,7 +145,12 @@ function markStarted(id) {
 }
 
 function markDone(id) {
-  const t = T.find(x => x.id === id); if (!_isLeafTask(t)) { toast('ℹ️ Doar activitățile (nu capitolele sau reperele) pot fi finalizate'); return; }
+  const t = T.find(x => x.id === id);
+  if (t && t.isMilestone && !hasK(t.id)) {                 // reper: „atins" = 100%
+    if (t.prog >= 100) { toast('ℹ️ Reperul e deja atins'); return; }
+    pushHistory(); t.prog = 100; syncTabData(); renderAll(); toast('♦ Reper atins'); return;
+  }
+  if (!_isLeafTask(t)) { toast('ℹ️ Doar activitățile (nu capitolele sau reperele) pot fi finalizate'); return; }
   pushHistory();
   const sd = statusDay();
   if (!t.as) t.as = _minISO(t.sd, sd);

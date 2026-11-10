@@ -180,14 +180,18 @@ function _resCommit() { syncTabData(); renderAll(); renderResModal(); }
 
 function resAdd(type) {
   const names = { work: 'Resursă nouă', material: 'Material nou', cost: 'Cost nou' };
+  pushHistory();                                  // fiecare editare de resursă e un pas separat de anulare (Ctrl+Z)
   RES.list.push({ id: RES.next++, name: names[type], type, rate: 0, max: type === 'work' ? 100 : null, unit: type === 'material' ? 'buc' : '' });
   _resCommit();
 }
 function resEdit(id, field, val) {
   const r = resById(id); if (!r) return;
+  const before = JSON.stringify(r), h0 = _history.slice(), f0 = _future.slice();
+  pushHistory();
   if (field === 'rate' || field === 'max') r[field] = Math.max(0, +val || 0);
   else if (field === 'type') { r.type = val; r.max = val === 'work' ? (r.max || 100) : null; }
   else r[field] = (field === 'unit' ? plainText(val, 12) : String(val).trim()) || r[field];
+  if (JSON.stringify(r) === before) { _history = h0; _future = f0; updateUndoRedoBtns(); }   // nicio schimbare reală: istoricul rămâne cum era
   _resCommit();
 }
 function resDel(id) {
@@ -199,7 +203,7 @@ function resDel(id) {
     _resCommit();
   });
 }
-function resSetCur(v) { RES.cur = plainText(v, 8) || 'RON'; _resCommit(); }
+function resSetCur(v) { const c = plainText(v, 8) || 'RON'; if (c === RES.cur) return; pushHistory(); RES.cur = c; _resCommit(); }
 
 function renderResModal() {
   const tabs = [['res', '👥 Resurse'], ['load', '📊 Încărcare'], ['usage', '📋 Utilizare'], ['budget', '💰 Buget']];

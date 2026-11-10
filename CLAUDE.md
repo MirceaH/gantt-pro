@@ -39,8 +39,14 @@ Format vechi (`deps: [1, 2]`) e **auto-migrat la FS** prin `_ensureDeps()`.
 FS: succ.start = pred.start + pred.dur + lag
 SS: succ.start = pred.start + lag
 FF: succ.start = pred.start + pred.dur + lag - succ.dur
-SF: succ.start = pred.start + lag - succ.dur + 1
+SF: succ.final = ziua lucrătoare dinaintea pred.start (+lag)   // ca în MS Project: fără zi suprapusă
 ```
+(în zile lucrătoare, calendarul proiectului; formula comună e `depStart(t,d,lag)` în data.js; decalajul se rotunjește la zile întregi în `_normalizeDep`)
+
+- **Reperul are durată 0** (ca în MS Project): `dur` rămâne 1 în date, dar reperul stă la FINALUL zilei lui. Ca succesor FS / FF cade în ultima zi a predecesorului, iar succesorul lui FS începe în ziua lucrătoare următoare (deci nu consumă o zi). În CPM `d = 0`; în Gantt rombul e la finalul zilei (`(off+1)*dw`), iar coloana „Zile" arată 0.
+- **Legături pe un capitol** (capitolul ca succesor): se aplică tuturor activităților din el — `inheritedDeps(t)` / `schedDeps(t)` (data.js), folosite de `recalcSchedule`, `_topoDepOrder`, `computeCPM`, `wouldCreateCycle` și export. Doar FS / SS pe capitole (FF / SF refuzate în `_applyDepsSafely`, ca în MS Project).
+- **Startul unei activități e mereu o zi lucrătoare** (`recalcSchedule` aliniază cu `nextWork`).
+- **Start scris de mână** (tabel, Detalii, tragerea barei) → `moveStartTo(t, v)`: activitatea se mută, durata rămâne; cu legături proprii → decalaj (`lagFromMove`); cu legături doar moștenite → restricție SNET; o SNET existentă își ia data nouă; alte restricții puse de utilizator nu se ating.
 
 `recalcSchedule()` rulează la fiecare `renderAll()` în loop cu `recalcSummaries()` până la stabilizare (max 20 iterații). Cicluri detectate cu `_topoDepOrder()`, prevenție la creare cu `wouldCreateCycle()`.
 
@@ -87,7 +93,7 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 ## Export MS Project XML
 
 În `toolbar.js: _buildMSProjectXML`. Mapare Type codes:
-`FS=1, SS=3, FF=0, SF=2`. Lag convertit în minute: `lag_zile * 480` (8h/zi).
+`FS=1, SS=3, FF=0, SF=2`. **Lag în ZECIMI de minut**: `lag_zile * 4800` (8h/zi). Verificat deschizând fișierul în MS Project Professional: activitățile sunt automate (`Manual=0`); cele fără legături primesc SNET la start, cele cu legături `ConstraintType=0` explicit; reperul `Milestone=1`, durată 0, la 17:00; finalurile la 17:00; calendarul (zile lucrătoare 8–12 / 13–17 + zile libere ca `WeekDay DayType=0`), resurse (muncă: tarif/oră, `MaxUnits` ca fracție; material: `Work = PT{cantitate}H`; cost fix: `Cost`), atribuiri **cu Start / Finish** (fără ele MS Project mută activitatea), date reale (deduse din progres dacă lipsesc), restricții, termene, linia de bază 0, moneda. Fișiere de test: `Claude outputs/export-test-*.xml`.
 
 ## Fazele proiectului (roadmap)
 
@@ -155,6 +161,8 @@ Fiecare acțiune user face `pushHistory() → modify → syncTabData() → rende
 - **Index de căutare:** `recomputeAll()` rulează sub `withIndex()`; în acest interval `kids()` / `taskById()` sunt O(1). Nu schimba structura lui `T` (adăugare / ștergere / `pid`) în interiorul recalculării. `computeCPM` folosește un tabel cumulat de zile lucrătoare.
 - **CPM și capitole:** o legătură către un capitol se aplică frunzelor lui (FS/FF: toate; SS/SF: cele care încep primele). Progresul capitolului e ponderat cu durata copiilor.
 - **Mutare bară cu legături:** `lagFromMove(t)` transformă mutarea într-un lag pe legătura dominantă (minim 0, nu creează suprapuneri din greșeală); `depStart(t,d,lag)` e formula comună de programare.
+- **Selecție fără redesenare:** `refreshSelection()` (gantt.js) schimbă doar clasele rândului / barei, săgețile evidențiate și fila Format (în Arbore face `renderAll`). `selTask`, `setSel`, `deselectAll`, click pe bară și meniul click-dreapta o folosesc. `renderAll()` desenează sub `withIndex()` (căutări O(1)) — nu schimba structura lui `T` în funcțiile de desenare.
+- **Editare:** „Lipește" pune copia sub rândul selectat, la același nivel (`insertAfterBlock`); activitatea nouă din dialog intră sub rândul selectat; ștergerea unui capitol cere confirmare; istoricul Ctrl+Z e păstrat pe fiecare filă (`_histByTab`); editările din foaia de resurse sunt pași de anulare; reperele se pot marca „atinse" (`markDone`) și apar ca întârziate dacă data lor a trecut (`isBehind`).
 - **Undo:** instantaneele identice nu se dublează; plafon `MAX_HISTORY` și `MAX_HISTORY_CHARS`.
 - **Accesibilitate:** `initA11y()` (main.js) pune `role="dialog"`, mută focusul la deschiderea ferestrelor și îl readuce la închidere.
 

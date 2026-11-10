@@ -25,7 +25,8 @@ function computeCPM() {
   const workIdx = d => cum[clamp(dD(base, d), 0, span)];
   const node = {};
   leaves.forEach(t => {
-    const es = workIdx(nextWork(pD(t.sd))), d = Math.max(1, t.dur);
+    // reperul are durată 0 și stă la finalul zilei lui (ca în MS Project)
+    const ms = !!t.isMilestone, d = ms ? 0 : Math.max(1, t.dur), es = workIdx(nextWork(pD(t.sd))) + (ms ? 1 : 0);
     node[t.id] = { es, ef: es + d, d, ls: 0, lf: 0 };
   });
   const projEnd = Math.max(...Object.values(node).map(n => n.ef));
@@ -35,7 +36,7 @@ function computeCPM() {
   //   SS / SF (se leagă de STARTUL capitolului) → frunzele care încep primele (ele dau startul capitolului).
   const succ = {};
   const addSucc = (pid, t, dp) => (succ[pid] = succ[pid] || []).push({ id: t.id, type: dp.type, lag: +dp.lag || 0 });
-  leaves.forEach(t => (t.deps || []).forEach(dp => {
+  leaves.forEach(t => schedDeps(t).forEach(dp => {          // inclusiv legăturile moștenite de la capitolele activității
     if (node[dp.id]) { addSucc(dp.id, t, dp); return; }
     if (!hasK(dp.id)) return;
     const under = allD(dp.id).filter(id => node[id]);
@@ -53,7 +54,7 @@ function computeCPM() {
         case 'FS': v = m.ls - s.lag; break;
         case 'SS': v = m.ls - s.lag + n.d; break;
         case 'FF': v = m.lf - s.lag; break;
-        case 'SF': v = m.lf - s.lag - 1 + n.d; break;
+        case 'SF': v = m.lf - s.lag + n.d; break;   // succesorul se termină înainte de startul predecesorului
         default: return;
       }
       if (v < lf) lf = v;

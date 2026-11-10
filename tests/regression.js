@@ -111,7 +111,7 @@
           if (d.type === 'FS') ok(pD(t.sd) >= addWorkDays(endDate(p), 1 + lag), 'seed ' + seed + ' FS încălcat ' + t.id);
           if (d.type === 'SS') ok(pD(t.sd) >= addWorkDays(pD(p.sd), lag), 'seed ' + seed + ' SS încălcat ' + t.id);
           if (d.type === 'FF') ok(endDate(t) >= addWorkDays(endDate(p), lag), 'seed ' + seed + ' FF încălcat ' + t.id);
-          if (d.type === 'SF') ok(endDate(t) >= addWorkDays(pD(p.sd), lag), 'seed ' + seed + ' SF încălcat ' + t.id);
+          if (d.type === 'SF') ok(endDate(t) >= addWorkDays(pD(p.sd), lag - 1), 'seed ' + seed + ' SF încălcat ' + t.id);   // SF: se termină în ziua dinaintea startului predecesorului (+lag)
         });
       });
     }
@@ -695,7 +695,7 @@
     eq(p.tasks.map(t => t.prog), [100, 40, 0, 0, 25], 'procente din celule procentuale'); eq(p.tasks[0].sd, '2026-10-26'); eq(p.tasks[4].sd, '2026-11-02'); eq(p.tasks[1].notes, 'cu excavator');
     eq(p.depText, { 2: '1', 3: '2FS+2', 4: '3', 5: '4' }, 'predecesori');
     const r = importRowsAsTab(rows, 'Lucrări'); settle(); eq(r.linked, 4);
-    eq(T.map(t => t.sd), ['2026-10-26', '2026-11-02', '2026-11-18', '2026-11-24', '2026-11-25'], 'planificarea după legături (FS+2 zile lucrătoare)'); ok(T[3].isMilestone);
+    eq(T.map(t => t.sd), ['2026-10-26', '2026-11-02', '2026-11-18', '2026-11-23', '2026-11-24'], 'planificarea după legături (FS+2 zile lucrătoare; reperul are durată 0 și cade în ultima zi a predecesorului)'); ok(T[3].isMilestone);
   });
 
   test('excel: titluri aproximative (denumire lucrare, data început planificat, predecesori) se recunosc', () => {
@@ -1435,6 +1435,102 @@
     const view = document.querySelector('.rb-tab[data-rt="view"]'); k(view, 'Enter'); eq(act().dataset.rt, 'view'); eq(view.getAttribute('aria-selected'), 'true'); eq(document.querySelector('.rb-tab[data-rt="home"]').getAttribute('aria-selected'), 'false');
     const pid = byId(2).pid; k(view, 'ArrowRight'); eq(act().dataset.rt, 'project'); eq(byId(2).pid, pid, '→ nu face indent când focusul e pe filă'); k(act(), 'ArrowLeft'); eq(act().dataset.rt, 'view'); k(act(), ' '); eq(act().dataset.rt, 'view');
     document.querySelector('.rb-tab[data-rt="home"]').click(); sel = null;
+  });
+
+  // ---------- analiza aprofundată: motor, editare, export MS Project ----------
+  test('motor: legătura pusă PE un capitol se aplică activităților lui (și în drumul critic); FF / SF pe capitol sunt refuzate; bucla prin capitol e detectată', () => {
+    newTabWith('M1', [mk(1, 'A', 5, null, [], '2026-11-02'), mk(2, 'Cap', 1, null, [F(1)]), mk(3, 'X', 3, 2, [], '2026-11-02'), mk(4, 'Y', 2, 2, [F(3)])]); settle();
+    eq(byId(3).sd, '2026-11-09', 'X începe după A'); eq(byId(4).sd, '2026-11-12', 'Y după X'); ok(cpm[1].crit && cpm[3].crit && cpm[4].crit, 'A, X, Y pe drumul critic');
+    updDeps(2, '1FF'); eq(byId(2).deps.length, 0, 'FF pe capitol refuzat');
+    updDeps(2, '1'); ok(wouldCreateCycle(4, 1), 'Y → A ar face buclă prin capitol'); updDeps(1, wbs()[4]); eq(byId(1).deps.length, 0, 'bucla respinsă');
+  });
+
+  test('motor: reperul are durată 0 — „A → Reper → B" pornește B la fel ca „A → B"; reperul cade în ultima zi a lui A; rezerva rămâne 0', () => {
+    newTabWith('M2', [mk(1, 'A', 5, null, [], '2026-11-02'), mk(2, 'M', 1, null, [F(1)], null, { isMilestone: true }), mk(3, 'B', 3, null, [F(2)]), mk(4, 'B2', 3, null, [F(1)])]); settle();
+    eq(byId(2).sd, '2026-11-06', 'reperul la finalul lui A'); eq(byId(3).sd, byId(4).sd, 'nu consumă o zi'); eq(byId(3).sd, '2026-11-09');
+    ok(cpm[2].crit && cpm[3].crit, 'reperul și B critice'); eq(cpm[2].float, 0);
+    const row = document.querySelector('.t-row[data-tid="2"] input[type=number]'); eq(row.value, '0', 'coloana Zile arată 0'); ok(row.disabled);
+  });
+
+  test('motor: SF — succesorul se termină în ziua dinaintea startului predecesorului; decalajul fracționar se rotunjește; startul nu rămâne în zi liberă', () => {
+    newTabWith('M5', [mk(1, 'A', 3, null, [], '2026-11-09'), mk(2, 'B', 2, null, [F(1, 'SF')])]); settle();
+    eq(fD(endDate(byId(2))), '2026-11-06', 'B se termină vineri'); ok(cpm[2], 'CPM calculat');
+    newTabWith('M6', [mk(1, 'A', 2, null, [], '2026-11-02'), mk(2, 'B', 1, null, [{ id: 1, type: 'FS', lag: 1.4 }])]); settle();
+    eq(byId(2).deps[0].lag, 1, 'lag rotunjit'); eq(depLabel(byId(2).deps[0]), 'FS+1d');
+    newTabWith('M7', [mk(1, 'A', 2, null, [], '2026-11-07')]); settle(); eq(byId(1).sd, '2026-11-09', 'sâmbăta → luni');
+  });
+
+  test('editare Start (tabel / Detalii): activitatea se mută, durata rămâne; cu legături → decalaj; cu legătură moștenită → restricție', () => {
+    newTabWith('M3', [mk(1, 'A', 5, null, [], '2026-11-02'), mk(2, 'B', 10, null, [F(1)])]); settle();
+    upd(2, 'sd', '2026-11-12'); eq(byId(2).sd, '2026-11-12'); eq(byId(2).dur, 10, 'durata rămâne'); eq(byId(2).deps[0].lag, 3, 'mutarea devine decalaj');
+    upd(1, 'sd', '2026-11-04'); eq(byId(1).sd, '2026-11-04'); eq(byId(1).dur, 5, 'fără legături: se mută cu durata');
+    newTabWith('M3b', [mk(1, 'A', 5, null, [], '2026-11-02'), mk(2, 'Cap', 1, null, [F(1)]), mk(3, 'X', 3, 2)]); settle();
+    upd(3, 'sd', '2026-11-16'); eq(byId(3).sd, '2026-11-16'); eq(byId(3).cons, { type: 'SNET', date: '2026-11-16' }, 'restricție');
+    openTaskInfo(3); dtSet('tiStart', '2026-11-18'); $('tiStart').dispatchEvent(new Event('change', { bubbles: true })); $('tiSaveBtn').click(); eq(byId(3).sd, '2026-11-18'); eq(byId(3).dur, 3, 'Detalii: durata rămâne');
+  });
+
+  test('editare: Lipește pune un rând nou sub cel selectat (nu-l face capitol); activitatea nouă intră sub rândul selectat', () => {
+    newTabWith('U1', [mk(1, 'A', 2), mk(2, 'B', 3), mk(3, 'C', 1)]); settle();
+    sel = 1; copyTask(); sel = 2; pasteTask(); eq(T.map(t => t.nm), ['A', 'B', 'A', 'C'], 'copia sub B'); ok(!hasK(2), 'B rămâne activitate'); eq(T[2].pid, null);
+    sel = 1; renderAll(); openAddTask(false); $('atName').value = 'Nou'; $('atDur').value = '2'; saveAddTask(); eq(T.map(t => t.nm), ['A', 'Nou', 'B', 'A', 'C'], 'activitatea nouă sub A');
+  });
+
+  test('editare: ștergerea unui capitol cere confirmare; istoricul Ctrl+Z rămâne pe proiect la schimbarea filei', () => {
+    const a = newTabWith('U4', [mk(1, 'Cap', 1), mk(2, 'X', 2, 1), mk(3, 'Y', 2)]); settle();
+    sel = 1; delSel(); ok($('confirmModal').classList.contains('open'), 'confirmare'); eq(T.length, 3, 'încă nu s-a șters'); confirmYes(); eq(T.length, 1, 'capitolul și copilul șterși');
+    sel = 3; delSel(); eq(T.length, 0, 'o activitate se șterge direct');
+    newTabWith('U5', [mk(1, 'Z', 1)]); switchTab(a.id); eq(T.length, 0); undo(); eq(T.length, 1, 'undo după întoarcerea pe filă'); undo(); eq(T.length, 3);
+  });
+
+  test('editare: „Taie" pe un capitol copiază abia după confirmare; XML fără caractere de control; reperul ignoră durata veche la FF', () => {
+    newTabWith('U6', [mk(1, 'Cap', 1), mk(2, 'X', 2, 1), mk(3, 'Y', 2)]); settle();
+    sel = 3; copyTask(); const clip = _clipboard;
+    sel = 1; cutTask(); eq(T.length, 3, 'încă nu s-a șters'); ok(_clipboard === clip, 'clipboard-ul nu se schimbă înainte de confirmare');
+    closeConfirm(); eq(T.length, 3, 'anulat: nimic tăiat'); ok(_clipboard === clip, 'clipboard-ul rămâne');
+    sel = 1; cutTask(); confirmYes(); eq(T.length, 1, 'tăiat după confirmare'); eq(_clipboard.rootId, 1, 'capitolul e în clipboard');
+    sel = 3; cutTask(); eq(T.length, 0, 'o activitate se taie direct'); eq(_clipboard.rootId, 3);
+    eq(_msXmlEscape('a\u0001b<c\u000Bd\te'), 'ab&lt;cd\te', 'caractere de control scoase, tab păstrat');
+    newTabWith('U7', [mk(1, 'A', 5, null, [], '2026-11-02'), mk(2, 'M', 3, null, [F(1, 'FF')], null, { isMilestone: true })]); settle();
+    eq(byId(2).sd, '2026-11-06', 'reperul FF cade în ultima zi a predecesorului, oricare ar fi durata salvată');
+  });
+
+  test('resurse: fiecare editare din foaia de resurse e un pas separat de anulare', () => {
+    newTabWith('R1', [mk(1, 'A', 2, null, [], '2026-11-02', { assign: [{ rid: 1, units: 100 }] })], null, { cur: 'RON', next: 2, list: [{ id: 1, name: 'E', type: 'work', rate: 10, max: 100 }] }); settle();
+    pushHistory(); byId(1).nm = 'A2'; syncTabData(); renderAll();
+    resEdit(1, 'rate', '50'); eq(RES.list[0].rate, 50); undo(); eq(RES.list[0].rate, 10, 'tariful revine'); eq(byId(1).nm, 'A2', 'redenumirea rămâne');
+    const h = _history.length; resEdit(1, 'rate', '10'); eq(_history.length, h, 'aceeași valoare: fără pas nou'); resAdd('material'); eq(RES.list.length, 2); undo(); eq(RES.list.length, 1);
+  });
+
+  test('urmărire: reperul se poate marca „atins"; un reper neatins cu data trecută e întârziat', () => {
+    newTabWith('T1', [mk(1, 'A', 2, null, [], '2026-10-26'), mk(2, 'M', 1, null, [F(1)], null, { isMilestone: true })]); META.sdate = '2026-11-09'; settle();
+    try { ok(isBehind(byId(2)), 'reper depășit = întârziat'); markDone(2); eq(byId(2).prog, 100); ok(!isBehind(byId(2)), 'atins'); undo(); eq(byId(2).prog, 0); } finally { META.sdate = null; }
+  });
+
+  test('performanță: click pe un rând schimbă selecția fără să redeseneze tabelul și Gantt-ul', () => {
+    newTabWith('P1', [mk(1, 'A', 2), mk(2, 'B', 2, null, [F(1)])]); settle(); sel = null; renderAll();
+    const row = document.querySelector('.t-row[data-tid="2"]'); row.click();
+    eq(sel, 2); ok(document.querySelector('.t-row[data-tid="2"]') === row, 'același element (fără redesenare)'); ok(row.classList.contains('selected')); ok(document.querySelector('.g-row[data-gid="2"]').classList.contains('selected'));
+    ok(document.querySelector('.gb[data-bid="2"]').classList.contains('active'), 'bara activă'); ok(getComputedStyle($('rtFormat')).display !== 'none', 'fila Format apare');
+    row.click(); eq(sel, null); ok(!row.classList.contains('selected'));
+  });
+
+  test('export MS Project: activități automate, durate, decalaj în zecimi de minut, reper cu durată 0, calendar, resurse, atribuiri, restricții, bază', () => {
+    const res = { cur: 'RON', next: 3, list: [{ id: 1, name: 'Echipă', type: 'work', rate: 60, max: 200 }, { id: 2, name: 'Ciment', type: 'material', rate: 35, unit: 'sac' }] };
+    newTabWith('XML', [mk(1, 'Cap', 1), mk(2, 'A', 5, 1, [], '2026-11-02', { assign: [{ rid: 1, units: 100 }, { rid: 2, units: 10 }] }), mk(3, 'B', 4, 1, [F(2, 'FS', 2)], null, { deadline: '2026-12-01' }), mk(4, 'M', 1, 1, [F(3)], null, { isMilestone: true }), mk(5, 'C', 2, null, [], '2026-11-03', { cons: { type: 'MSO', date: '2026-11-04' } })], { days: [0, 1, 1, 1, 1, 1, 0], hol: ['2026-11-30'] }, res); settle(); saveBaseline();
+    const doc = new DOMParser().parseFromString(_buildMSProjectXML('XML'), 'application/xml'); ok(!doc.getElementsByTagName('parsererror').length, 'XML valid');
+    const task = uid => [...doc.getElementsByTagName('Task')].find(x => x.getElementsByTagName('UID')[0].textContent === String(uid)), v = (el, tag) => (el.getElementsByTagName(tag)[0] || {}).textContent;
+    ok([...doc.getElementsByTagName('Task')].every(t => v(t, 'Manual') === '0'), 'toate automate');
+    eq(v(task(2), 'Duration'), 'PT40H0M0S'); eq(v(task(2), 'Finish'), '2026-11-06T17:00:00', 'finalul la 17:00'); eq(v(task(2), 'ConstraintType'), '4', 'fără legături: SNET la start');
+    eq(v(task(3), 'LinkLag'), '9600', '2 zile = 9600 zecimi de minut'); ok(v(task(3), 'Deadline'));
+    eq(v(task(4), 'Milestone'), '1'); eq(v(task(4), 'Duration'), 'PT0H0M0S'); eq(v(task(5), 'ConstraintType'), '2', 'MSO');
+    ok(v(task(2), 'Number') === '0' && v(task(2), 'Cost'), 'linie de bază cu cost');
+    ok([...doc.getElementsByTagName('WeekDay')].some(w => v(w, 'DayType') === '0' && v(w, 'FromDate') === '2026-11-30T00:00:00'), 'ziua liberă în calendar');
+    eq(doc.getElementsByTagName('Resource').length, 2); eq(doc.getElementsByTagName('Assignment').length, 2); eq(v(doc.getElementsByTagName('Resource')[0], 'MaxUnits'), '2');
+    const asg = [...doc.getElementsByTagName('Assignment')]; ok(asg.every(a => v(a, 'Start') && v(a, 'Finish')), 'atribuirile au Start / Finish (altfel MS Project mută activitatea)'); eq(v(asg[1], 'Work'), 'PT10H0M0S', 'materialul: cantitatea');
+    eq(v(task(3), 'ConstraintType'), '0', 'cu legături: „cât mai devreme" explicit');
+    byId(2).prog = 100; const d2 = new DOMParser().parseFromString(_buildMSProjectXML('XML'), 'application/xml'), t2 = [...d2.getElementsByTagName('Task')].find(x => v(x, 'UID') === '2');
+    eq(v(t2, 'ActualStart'), '2026-11-02T08:00:00', 'progres → dată reală de început'); eq(v(t2, 'ActualFinish'), '2026-11-06T17:00:00', '100% → dată reală de final');
+    eq(v(doc, 'CurrencySymbol'), 'RON');
   });
 
   // ---------- extensie pentru funcții viitoare ----------
