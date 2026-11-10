@@ -292,33 +292,113 @@ const C=[
   {k:"prog",l:"%",          w:40},
   {k:"deps",l:"După",       w:52}
 ];
-// Coloane EXTRA afișate doar când panel-ul e expanded (clase CSS gestionează vizibilitatea)
-const CX=[
-  {k:"var",   l:"Δ bază",  w:62, cls:"col-var"},
-  {k:"cost",  l:"Cost",    w:92, cls:"col-cost"},
-  {k:"status",l:"Status",  w:80, cls:"col-status"},
-  {k:"as",    l:"Început real", w:104, cls:"col-as"},
-  {k:"af",    l:"Final real",   w:104, cls:"col-af"}
-];
+// Coloane EXTRA afișate doar când panel-ul e expanded (clase CSS gestionează vizibilitatea).
+// Le alegi ca în MS Project („Insert Column"): click dreapta pe antetul tabelului sau butonul ⋯ din capătul lui (openColMenu).
+const CX_POOL={
+  var:   {l:"Δ bază",        w:62,  t:"Variația finalului față de linia de bază (zile; + = întârziere)"},
+  cost:  {l:"Cost",          w:92,  t:"Costul din resursele atribuite (la capitole: suma)"},
+  status:{l:"Status",        w:80,  t:"Nepornită / în lucru / finalizată / întârziată"},
+  as:    {l:"Început real",  w:104, t:"Data reală de început (se poate scrie)"},
+  af:    {l:"Final real",    w:104, t:"Data reală de final (se poate scrie)"},
+  ls:    {l:"Start târziu",  w:92,  t:"Cel mai târziu start fără să întârzie finalul proiectului"},
+  lf:    {l:"Final târziu",  w:92,  t:"Cel mai târziu final fără să întârzie finalul proiectului"},
+  tf:    {l:"Rezervă",       w:66,  t:"Rezerva totală (zile lucrătoare); 0 = critică"},
+  ff:    {l:"Rez. liberă",   w:86,  t:"Rezerva liberă: cât poate întârzia fără să miște vreun succesor"},
+  rem:   {l:"Zile rămase",   w:70,  t:"Durata rămasă după progres"},
+  bls:   {l:"Start bază",    w:92,  t:"Startul din linia de bază"},
+  blf:   {l:"Final bază",    w:92,  t:"Finalul din linia de bază"},
+  blc:   {l:"Cost bază",     w:92,  t:"Costul din linia de bază"},
+  acost: {l:"Cost real",     w:92,  t:"Costul real introdus (Detalii › Resurse și cost)"},
+  res:   {l:"Resurse",       w:140, t:"Resursele atribuite"},
+  cons:  {l:"Restricție",    w:120, t:"Restricția de dată pusă pe activitate"},
+  dl:    {l:"Termen limită", w:92,  t:"Termenul limită (deadline)"},
+  notes: {l:"Note",          w:160, t:"Notele activității"}
+};
+Object.keys(CX_POOL).forEach(k=>{ CX_POOL[k].k=k; CX_POOL[k].cls="col-x col-"+k; });
+const CX_DEFAULT=["var","cost","status","as","af"];
+let CX=[];
+function setCols(keys){
+  const ks=[...new Set((Array.isArray(keys)?keys:CX_DEFAULT).filter(k=>CX_POOL[k]))];
+  CX=ks.map(k=>CX_POOL[k]);
+  try{ localStorage.setItem("ganttCols",JSON.stringify(ks)); }catch(e){}
+}
+(function loadCols(){ let ks=null; try{ ks=JSON.parse(localStorage.getItem("ganttCols")||"null"); }catch(e){} CX=(Array.isArray(ks)?ks:CX_DEFAULT).filter(k=>CX_POOL[k]).map(k=>CX_POOL[k]); })();
 
 // Lățimi coloane salvate (redimensionate de utilizator)
 (function loadColWidths(){
   try {
     const s = JSON.parse(localStorage.getItem("ganttColW") || "{}");
-    [...C, ...CX].forEach(c => { if (s[c.k] >= 24) c.w = s[c.k]; });
+    [...C, ...Object.values(CX_POOL)].forEach(c => { if (s[c.k] >= 24) c.w = s[c.k]; });
   } catch(e) {}
 })();
+
+// Meniul de coloane (click dreapta pe antet sau ⋯): bifezi ce coloane suplimentare vrei; se văd cu tabelul extins
+function openColMenu(e){
+  if(e){ e.preventDefault(); e.stopPropagation(); }
+  if($("colMenu") && e && e.type==="click"){ closeColMenu(); return; }   // ⋯ apăsat din nou = închide
+  closeColMenu();
+  const on=new Set(CX.map(c=>c.k)), m=document.createElement("div");
+  m.className="rb-menu open col-menu"; m.id="colMenu"; m.setAttribute("role","menu");
+  let h='<div class="col-menu-t">Coloane suplimentare <small>(se văd cu tabelul extins)</small></div>';
+  Object.keys(CX_POOL).forEach(k=>{ const c=CX_POOL[k]; h+='<button type="button" role="menuitemcheckbox" aria-checked="'+on.has(k)+'" class="'+(on.has(k)?"active":"")+'" data-col="'+k+'" title="'+esc(c.t)+'"><span>'+esc(c.l)+'</span></button>'; });
+  h+='<hr><button type="button" data-col="__def" title="Revine la coloanele inițiale: Δ bază, Cost, Status, Început / Final real"><span>Coloanele implicite</span></button>';
+  m.innerHTML=h; document.body.appendChild(m);
+  const x=e&&e.clientX!=null?e.clientX:innerWidth/2, y=e&&e.clientY!=null?e.clientY:120;
+  m.style.left=Math.max(4,Math.min(x,innerWidth-m.offsetWidth-8))+"px"; m.style.top=Math.max(4,Math.min(y,innerHeight-m.offsetHeight-8))+"px";
+  m.addEventListener("click",ev=>{
+    const b=ev.target.closest("button[data-col]"); if(!b) return;
+    ev.stopPropagation(); toggleCol(b.dataset.col);
+    const now=new Set(CX.map(c=>c.k));                 // bifele se schimbă pe loc (meniul rămâne deschis, cu derularea și focusul)
+    m.querySelectorAll("button[data-col]").forEach(x=>{ if(!CX_POOL[x.dataset.col]) return; const a=now.has(x.dataset.col); x.classList.toggle("active",a); x.setAttribute("aria-checked",String(a)); });
+  });
+  setTimeout(()=>document.addEventListener("mousedown",_colMenuOut,true),0);
+}
+function _colMenuOut(ev){ const m=$("colMenu"); if(m&&!m.contains(ev.target)&&!(ev.target.closest&&ev.target.closest(".th-more"))) closeColMenu(); }
+function closeColMenu(){ const m=$("colMenu"); if(m) m.remove(); document.removeEventListener("mousedown",_colMenuOut,true); }
+function toggleCol(k){
+  let added=false;
+  if(k==="__def") setCols(CX_DEFAULT);
+  else { const ks=CX.map(c=>c.k), i=ks.indexOf(k); if(i>=0) ks.splice(i,1); else if(CX_POOL[k]){ ks.push(k); added=true; } setCols(ks); }
+  if(added && !$("paneL").classList.contains("expanded") && typeof togglePaneL==="function") togglePaneL();   // o coloană nouă se vede doar cu tabelul extins
+  renderAll();
+}
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&$("colMenu")) closeColMenu(); });
+
+// Valorile coloanelor calculate (doar citire); la capitole: cel mai devreme / târziu sau suma copiilor
+const _leafKids=t=>allD(t.id).map(taskById).filter(x=>x&&!hasK(x.id));
+const _zile=n=>n+" "+(n===1?"zi":"zile");
+function colVal(k,t){
+  const isSumm=hasK(t.id), L=isSumm?_leafKids(t):[t], c=cpm[t.id], fdd=d=>fmtDate(d), m=v=>'<span style="color:var(--muted)">'+v+'</span>';
+  switch(k){
+    case "ls": { const v=L.filter(x=>cpm[x.id]).map(x=>addWorkDays(pD(x.sd),cpm[x.id].float)); return v.length?fdd(new Date(Math.min(...v))):m("—"); }
+    case "lf": { const v=L.filter(x=>cpm[x.id]).map(x=>addWorkDays(endDate(x),cpm[x.id].float)); return v.length?fdd(new Date(Math.max(...v))):m("—"); }
+    case "tf": { const v=L.filter(x=>cpm[x.id]).map(x=>cpm[x.id].float); if(!v.length) return m("—"); const n=Math.min(...v); return n<=0?'<b style="color:#d94040">0</b>':_zile(n); }
+    case "ff": return (!isSumm&&c)?(c.free?_zile(c.free):m("0")):m("—");
+    case "rem": return isSumm?m("—"):(t.isMilestone?"0":String(Math.round(Math.max(1,t.dur)*(100-(t.prog||0))/100)));
+    case "bls": { const v=L.filter(x=>x.bl).map(x=>pD(x.bl.sd)); return v.length?fdd(new Date(Math.min(...v))):m("—"); }
+    case "blf": { const v=L.filter(x=>x.bl).map(x=>endDate({sd:x.bl.sd,dur:x.bl.dur})); return v.length?fdd(new Date(Math.max(...v))):m("—"); }
+    case "blc": { const v=L.filter(x=>x.bl&&x.bl.cost!=null); return v.length?fmtMoney(v.reduce((s,x)=>s+(+x.bl.cost||0),0)):m("—"); }
+    case "acost": { const v=L.filter(x=>x.acost!=null); return v.length?fmtMoney(v.reduce((s,x)=>s+(+x.acost||0),0)):m("—"); }
+    case "res": { if(isSumm) return m("—"); const a=(t.assign||[]).map(x=>{ const r=resById(x.rid); return r?esc(r.name)+(r.type==="work"&&x.units!==100?" ["+x.units+"%]":r.type==="material"?" ["+x.units+" "+esc(r.unit||"buc")+"]":""):""; }).filter(Boolean); return a.length?'<span title="'+a.join(", ")+'">'+a.join(", ")+'</span>':m("—"); }
+    case "cons": { if(isSumm||!t.cons||t.cons.type==="ASAP") return m("—"); const s=esc(t.cons.type)+(t.cons.date?" "+fdd(pD(t.cons.date)):""); return '<span title="'+esc(CONS_LABELS[t.cons.type]||t.cons.type)+'">'+s+'</span>'; }
+    case "dl": return t.deadline?(fD(endDate(t))>t.deadline?'<b style="color:#d94040" title="Termen depășit">'+fdd(pD(t.deadline))+'</b>':fdd(pD(t.deadline))):m("—");
+    case "notes": { const n=String(t.notes||"").trim(); return n?'<span title="'+esc(n.slice(0,600))+'">'+esc(n.split("\n")[0].slice(0,120))+'</span>':m("—"); }
+  }
+  return m("—");
+}
 
 // Coloana „Activitate” e elastică: când panoul din stânga e mai îngust decât coloanele, ea se strânge (până la 110 px), iar celelalte rămân vizibile — „După” nu mai dispare
 const NAME_MIN=110, _cmin=(i,c)=>i===1?Math.min(c.w,NAME_MIN):c.w;
 function renderTH(){
   let h="";
   C.forEach((c,i)=>h+='<div class="th" style="width:'+c.w+'px;min-width:'+_cmin(i,c)+'px">'+c.l+'<span class="col-rs" data-ci="'+i+'"></span></div>');
-  CX.forEach((c,i)=>h+='<div class="th '+c.cls+'" style="width:'+c.w+'px;min-width:'+c.w+'px">'+c.l+'<span class="col-rs" data-ci="'+(C.length+i)+'"></span></div>');
+  CX.forEach((c,i)=>h+='<div class="th '+c.cls+'" title="'+esc(c.t||'')+'" style="width:'+c.w+'px;min-width:'+c.w+'px">'+esc(c.l)+'<span class="col-rs" data-ci="'+(C.length+i)+'"></span></div>');
+  h+='<button type="button" class="th-more" onclick="openColMenu(event)" title="Alege coloanele tabelului (start / final târziu, rezervă, zile rămase, bază, cost real, resurse, restricție, termen, note); click dreapta pe antet face același lucru" aria-label="Coloane">⋯</button>';
   $("thRow").innerHTML=h;
 }
 
 // Redimensionare coloane: trage de marginea dreaptă a header-ului
+$("thRow").addEventListener("contextmenu", e => openColMenu(e));   // click dreapta pe antet = alegerea coloanelor (ca în MS Project)
 $("thRow").addEventListener("mousedown", e => {
   const handle = e.target.closest(".col-rs"); if (!handle) return;
   e.preventDefault(); e.stopPropagation();
@@ -343,7 +423,7 @@ $("thRow").addEventListener("mousedown", e => {
     document.removeEventListener("mouseup", up);
     document.body.style.cursor = "";
     try {
-      const s = {}; all.forEach(c => s[c.k] = c.w);
+      const s = JSON.parse(localStorage.getItem("ganttColW") || "{}"); all.forEach(c => s[c.k] = c.w);   // păstrăm și lățimile coloanelor ascunse
       localStorage.setItem("ganttColW", JSON.stringify(s));
     } catch(e) {}
     if (isAutoZoom) renderGantt();
@@ -447,30 +527,29 @@ function renderTBody(){
        + 'style="font-weight:800;font-size:11px;color:'+(depCount?'var(--accent)':'var(--muted)')+'">'
        + depCountLbl + '</span></div>';
 
-    // ===== COLOANE EXTRA (vizibile doar când .pane-l.expanded) =====
-
-    // Variație față de linia de bază (zile calendaristice)
-    const vd = varDays(t);
-    h += '<div class="c col-var" style="width:'+CX[0].w+'px;min-width:'+CX[0].w+'px;justify-content:center;font-size:11px;font-weight:800;color:'+(vd>0?'#d94040':(vd<0?'#2f9e6a':'var(--muted)'))+'">'
-       + (vd===null?'—':(vd===0?'0':(vd>0?'+':'')+vd)) + '</div>';
-
-    // Cost (din resursele atribuite; la capitole = suma copiilor)
-    const cc = costMap[t.id] || 0;
-    h += '<div class="c col-cost" style="width:'+CX[1].w+'px;min-width:'+CX[1].w+'px;justify-content:flex-end;font-size:11px;font-weight:700;color:'+(cc?'var(--text)':'var(--muted)')+'">'
-       + (cc?fmtMoney(cc):'—') + '</div>';
-
-    // Status
-    const st = _statusOf(t);
-    h += '<div class="c col-status" style="width:'+CX[2].w+'px;min-width:'+CX[2].w+'px;justify-content:center">'
-       + '<span class="status-badge '+st.k+'">'+st.lbl+'</span>'
-       + '</div>';
-
-    // Început real / Final real (doar activități; la capitole și repere rămân goale)
+    // ===== COLOANE EXTRA (vizibile doar când .pane-l.expanded; le alegi din meniul antetului) =====
     const realOk = !isSumm && !isMs;
-    h += '<div class="c col-as" style="width:'+CX[3].w+'px;min-width:'+CX[3].w+'px;justify-content:center">'
-       + (realOk ? dtField(t.as||'', {onchange:"updActual("+t.id+",'as',this.value)"}) : '<span style="color:var(--muted)">—</span>') + '</div>';
-    h += '<div class="c col-af" style="width:'+CX[4].w+'px;min-width:'+CX[4].w+'px;justify-content:center">'
-       + (realOk ? dtField(t.af||'', {onchange:"updActual("+t.id+",'af',this.value)"}) : '<span style="color:var(--muted)">—</span>') + '</div>';
+    CX.forEach(c=>{
+      const st0='width:'+c.w+'px;min-width:'+c.w+'px;';
+      if(c.k==="var"){                              // variație față de linia de bază (zile calendaristice)
+        const vd = varDays(t);
+        h += '<div class="c '+c.cls+'" style="'+st0+'justify-content:center;font-size:11px;font-weight:800;color:'+(vd>0?'#d94040':(vd<0?'#2f9e6a':'var(--muted)'))+'">'
+           + (vd===null?'—':(vd===0?'0':(vd>0?'+':'')+vd)) + '</div>';
+      } else if(c.k==="cost"){                      // cost (din resursele atribuite; la capitole = suma copiilor)
+        const cc = costMap[t.id] || 0;
+        h += '<div class="c '+c.cls+'" style="'+st0+'justify-content:flex-end;font-size:11px;font-weight:700;color:'+(cc?'var(--text)':'var(--muted)')+'">'
+           + (cc?fmtMoney(cc):'—') + '</div>';
+      } else if(c.k==="status"){
+        const st = _statusOf(t);
+        h += '<div class="c '+c.cls+'" style="'+st0+'justify-content:center"><span class="status-badge '+st.k+'">'+st.lbl+'</span></div>';
+      } else if(c.k==="as"||c.k==="af"){            // început / final real (doar activități; la capitole și repere rămân goale)
+        h += '<div class="c '+c.cls+'" style="'+st0+'justify-content:center">'
+           + (realOk ? dtField(t[c.k]||'', {onchange:"updActual("+t.id+",'"+c.k+"',this.value)"}) : '<span style="color:var(--muted)">—</span>') + '</div>';
+      } else {
+        const right = c.k==="blc"||c.k==="acost", left = c.k==="res"||c.k==="notes"||c.k==="cons";
+        h += '<div class="c col-val '+c.cls+'" style="'+st0+'justify-content:'+(right?'flex-end':left?'flex-start':'center')+'">'+colVal(c.k,t)+'</div>';
+      }
+    });
 
     h += '</div>';
   });

@@ -834,8 +834,22 @@ function updDeps(id, wbsStr) {
   syncTabData(); renderAll();
 }
 
+// Rândurile selectate fără cele aflate în interiorul unui capitol selectat (acelea se mută oricum cu el)
+const selRoots = () => { const ids=selIds(); return ids.filter(id=>!ids.some(o=>o!==id&&isD(id,o))); };
+// Indent / outdent pe mai multe rânduri: un singur pas de anulare; rândurile se mută pe rând, de sus în jos (ca în MS Project)
+function _multiStruct(one, msg) {
+  const roots=selRoots(); if(roots.length<2) return false;
+  if(structLocked()) return true;
+  pushHistory();
+  let n=0;
+  const ok=_tryHierarchyChange(()=>{ roots.forEach(id=>{ if(one(T.find(x=>x.id===id))) n++; }); });
+  if(!ok||!n){ _history.pop(); updateUndoRedoBtns(); renderAll(); if(ok) toast('ℹ️ Rândurile selectate nu se pot muta așa'); return true; }
+  syncTabData(); renderAll(); toast(msg+' ('+n+' rânduri)');
+  return true;
+}
 function indentSel() {
   if(!sel) return;
+  if(_multiStruct(t=>{ const sibs=t.pid?kids(t.pid):T.filter(x=>!x.pid), i=sibs.findIndex(s=>s.id===t.id); if(i<=0) return false; t.pid=sibs[i-1].id; coll.delete(t.pid); return true; }, 'Subcapitol')) return;
   if(structLocked()) return;
   const t=T.find(x=>x.id===sel); if(!t) return;
   const sibs=t.pid?kids(t.pid):T.filter(x=>!x.pid);
@@ -849,6 +863,7 @@ function indentSel() {
 
 function outdentSel() {
   if(!sel) return;
+  if(_multiStruct(t=>{ if(!t.pid) return false; const par=T.find(y=>y.id===t.pid); t.pid=par?par.pid:null; return true; }, 'Scos un nivel')) return;
   if(structLocked()) return;
   const t=T.find(x=>x.id===sel); if(!t||!t.pid) return;
   pushHistory();

@@ -37,7 +37,7 @@
   const newTabWith = (name, tasks, cal, res) => addNewTab(name, JSON.parse(JSON.stringify(tasks)), Math.max(0, ...tasks.map(t => t.id)) + 1, cal, res);
 
   // ---------- salvăm starea ----------
-  const LS_KEYS = ['ganttSideNames', 'ganttBase', 'ganttCrit', 'ganttDark', 'ganttColW', 'ganttRibbonCollapsed', 'ganttTourDone'];
+  const LS_KEYS = ['ganttSideNames', 'ganttBase', 'ganttCrit', 'ganttDark', 'ganttColW', 'ganttRibbonCollapsed', 'ganttTourDone', 'ganttCols'];
   const env = {
     tabs: JSON.stringify(tabs), active: activeTabId, next: nextTabId, view, dark: document.body.classList.contains('dark'),
     showSideNames: typeof showSideNames !== 'undefined' ? showSideNames : null,
@@ -1559,6 +1559,15 @@
     newTabWith('L2', [mk(1, 'Cap', 1), mk(2, 'X', 2, 1)]); settle(); sel = 2; msel = new Set([1, 2]); linkSelected(); eq(byId(2).deps.length + byId(1).deps.length, 0, 'capitolul și activitatea lui nu se leagă');
   });
 
+  test('structură: indent / outdent pe mai multe rânduri selectate, într-un singur pas de anulare', () => {
+    newTabWith('IN', [mk(1, 'A', 2), mk(2, 'B', 2), mk(3, 'C', 2), mk(4, 'D', 2)]); settle();
+    sel = 3; msel = new Set([2, 3]); indentSel(); eq([byId(2).pid, byId(3).pid], [1, 1], 'B și C sub A'); eq(byId(4).pid, null);
+    sel = 3; msel = new Set([2, 3]); outdentSel(); eq([byId(2).pid, byId(3).pid], [null, null]);
+    undo(); eq([byId(2).pid, byId(3).pid], [1, 1], 'un singur pas'); undo(); eq([byId(2).pid, byId(3).pid], [null, null]);
+    sel = 2; msel = new Set([1, 2]); const h = _history.length; indentSel(); eq(byId(1).pid, null, 'primul rând nu are deasupra un frate'); eq(byId(2).pid, 1);
+    eq(_history.length, h + 1);
+  });
+
   test('ștergere: mai multe rânduri selectate cer confirmare și pleacă împreună (cu activitățile capitolelor)', () => {
     newTabWith('D1', [mk(1, 'Cap', 1), mk(2, 'X', 2, 1), mk(3, 'Y', 2), mk(4, 'Z', 2, null, [F(3)])]); settle();
     sel = 3; msel = new Set([1, 2, 3]); delSel(); ok($('confirmModal').classList.contains('open'), 'confirmare'); eq(T.length, 4);
@@ -1648,6 +1657,29 @@
     ok(ev.cal.hol.length <= 20000 && ev.warn.some(w => /zile libere/.test(w)), 'plafonul de zile libere');
     importMSProjectText(evil, 'ostil'); settle();
     ok(T.every(t => t.prog >= 0 && t.prog <= 100), 'progresul plafonat'); ok(validISO(byId(1).sd), 'data invalidă înlocuită'); eq(byId(1).deps.length, 0, 'legătura spre sine scoasă');
+  });
+
+  test('coloane: alegi coloanele suplimentare (start / final târziu, rezervă totală / liberă, zile rămase, bază, resurse, restricție, termen, note); rezerva liberă ca în MS Project', () => {
+    const prevCols = CX.map(c => c.k), prevExp = $('paneL').classList.contains('expanded');
+    newTabWith('CO', [mk(1, 'A', 2), mk(2, 'X', 1), mk(3, 'B', 3, null, [F(1), F(2)], null, { prog: 50, assign: [{ rid: 1, units: 50 }], notes: 'prima linie\na doua <b>' }), mk(4, 'D', 1, null, [], null, { cons: { type: 'SNET', date: '2026-10-26' }, deadline: '2026-10-20' })], null, { cur: 'RON', next: 2, list: [{ id: 1, name: 'Ion <i>', type: 'work', rate: 10, max: 100 }] }); settle();
+    eq([cpm[1].free, cpm[2].free, cpm[3].free, cpm[4].free], [0, 1, 0, 4], 'rezerva liberă'); eq(cpm[2].float, 1); eq(cpm[4].float, 4);
+    eq(colVal('ls', byId(2)), '27.10.2026'); eq(colVal('lf', byId(2)), '27.10.2026'); eq(colVal('rem', byId(3)), '2', '3 zile la 50% → 2');
+    ok(/Ion &lt;i&gt; \[50%\]/.test(colVal('res', byId(3))), 'resursa, scăpată'); ok(/prima linie/.test(colVal('notes', byId(3))) && !/<b>/.test(colVal('notes', byId(3))), 'notele scăpate');
+    ok(/SNET 26\.10\.2026/.test(colVal('cons', byId(4)))); ok(/Termen depășit/.test(colVal('dl', byId(4))), 'termenul depășit, în roșu'); ok(/color:#d94040">0</.test(colVal('tf', byId(1))), 'rezerva 0 (critic)');
+    // rezerva liberă pe SS / FF / SF (cu decalaj), când succesorul e împins de altă legătură
+    newTabWith('FF', [mk(1, 'Z', 4), mk(2, 'P1', 2), mk(3, 'P2', 2), mk(4, 'P3', 2), mk(5, 'S', 1, null, [F(2, 'SS', 1), F(1)]), mk(6, 'G', 1, null, [F(3, 'FF'), F(1)]), mk(7, 'H', 1, null, [F(4, 'SF'), F(1)])]); settle();
+    eq(byId(5).sd, '2026-10-30'); eq([cpm[2].free, cpm[3].free, cpm[4].free], [3, 3, 3], 'SS / FF / SF'); eq(cpm[1].free, 0, 'Z împinge succesorii');
+    // la capitole: cel mai devreme start târziu, cel mai târziu final târziu, rezerva minimă
+    newTabWith('CC', [mk(1, 'Cap', 1), mk(2, 'X', 2, 1), mk(3, 'Y', 3, 1), mk(4, 'W', 5)]); settle(); saveBaseline();
+    eq(colVal('tf', byId(1)), '2 zile'); eq(colVal('ls', byId(1)), '28.10.2026'); eq(colVal('lf', byId(1)), '30.10.2026'); eq(colVal('bls', byId(1)), '26.10.2026'); ok(/RON/.test(colVal('blc', byId(1))));
+    ok(/—/.test(colVal('ff', byId(1))), 'rezerva liberă nu are sens pe capitol');
+    setCols(['ls', 'tf', 'ff', 'notes']); if (!$('paneL').classList.contains('expanded')) togglePaneL(); renderAll();
+    eq([...document.querySelectorAll('#thRow .th.col-x')].map(e => e.textContent.trim()), ['Start târziu', 'Rezervă', 'Rez. liberă', 'Note']);
+    eq(document.querySelectorAll('.t-row[data-tid="2"] .c.col-x').length, 4, 'celulele rândului'); eq(JSON.parse(localStorage.getItem('ganttCols')), ['ls', 'tf', 'ff', 'notes'], 'alegerea se păstrează');
+    openColMenu({ clientX: 200, clientY: 150, preventDefault() {}, stopPropagation() {} }); ok($('colMenu'), 'meniul de coloane'); eq($('colMenu').querySelectorAll('button[data-col].active').length, 4);
+    $('colMenu').querySelector('button[data-col="rem"]').click(); eq(CX.map(c => c.k), ['ls', 'tf', 'ff', 'notes', 'rem'], 'bifă nouă = coloană la coadă'); ok($('colMenu'), 'meniul rămâne deschis');
+    toggleCol('tf'); eq(CX.map(c => c.k), ['ls', 'ff', 'notes', 'rem']); toggleCol('__def'); eq(CX.map(c => c.k), CX_DEFAULT); closeColMenu(); ok(!$('colMenu'));
+    setCols(prevCols); if ($('paneL').classList.contains('expanded') !== prevExp) togglePaneL(); renderAll();
   });
 
   // ---------- extensie pentru funcții viitoare ----------

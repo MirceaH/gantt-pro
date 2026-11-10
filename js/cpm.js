@@ -62,9 +62,27 @@ function computeCPM() {
     n.lf = lf; n.ls = lf - n.d;
   }
 
+  // Rezerva liberă (ca „Free Slack" din MS Project): cât poate întârzia activitatea fără să miște vreun succesor
+  // (fără succesori: până la finalul proiectului); niciodată peste rezerva totală.
+  const freeOf = id => {
+    const n = node[id]; let f = projEnd - n.ef;
+    (succ[id] || []).forEach(s => {
+      const m = node[s.id]; if (!m) return;
+      let v;
+      switch (s.type) {
+        case 'FS': v = m.es - s.lag - n.ef; break;
+        case 'SS': v = m.es - s.lag - n.es; break;
+        case 'FF': v = m.ef - s.lag - n.ef; break;
+        case 'SF': v = m.ef - s.lag - n.es; break;   // inversul formulei din backward pass
+        default: return;
+      }
+      if (v < f) f = v;
+    });
+    return Math.max(0, f);
+  };
   leaves.forEach(t => {
     const n = node[t.id], fl = n.lf - n.ef;
-    cpm[t.id] = { float: fl, crit: fl <= 0 };
+    cpm[t.id] = { float: fl, crit: fl <= 0, free: Math.min(Math.max(0, fl), freeOf(t.id)) };
     if (fl <= 0) cpmInfo.count++;
   });
   cpmInfo.end = fD(leaves.map(endDate).reduce((a, b) => (b > a ? b : a)));

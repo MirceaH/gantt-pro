@@ -974,3 +974,16 @@ body.dark .g-info .gi-res.over{background:#3a1a22;color:#ff9a9a}
 /* Fila Format › Progres: butoane rapide 0–100% și „Pe drum" */
 .rb-pcts .rb-pct{padding:0 6px;font-size:11.5px;font-weight:800;gap:4px;font-variant-numeric:tabular-nums}
 .rb-pcts .rb-pct .ic{width:14px;height:14px}
+
+/* Coloane suplimentare alese de utilizator (meniul de coloane al antetului) */
+.col-x{display:none}
+.pane-l.expanded .col-x{display:flex}
+.t-row .c.col-val{font-size:11px;font-weight:700;overflow:hidden;white-space:nowrap}
+.t-row .c.col-val > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.th-row{position:relative}
+.th-more{position:absolute;right:2px;top:50%;transform:translateY(-50%);z-index:3;height:20px;min-width:20px;padding:0 4px;border:1px solid transparent;border-radius:5px;background:var(--card);color:var(--muted);font:800 13px/1 var(--font);cursor:pointer;opacity:0;transition:opacity .12s}
+.th-row:hover .th-more{opacity:.8}
+.th-more:hover,.th-more:focus-visible{opacity:1;color:var(--accent);border-color:var(--accent)}
+.col-menu{display:block;max-height:80vh;overflow:auto}
+.col-menu-t{padding:6px 10px 4px;font-size:11.5px;font-weight:800;color:var(--text2)}
+.col-menu-t small{font-weight:600;color:var(--muted)}

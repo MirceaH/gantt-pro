@@ -395,7 +395,7 @@ function togglePaneL() {
     pl.style.width = Math.min(Math.max(colsW, innerWidth * 0.5), innerWidth * 0.88) + "px";
     if (btn) btn.classList.add("expanded-on");
     if (splBtn) splBtn.classList.add("expanded-on");
-    toast("⇔ Panel extins (50% ecran) — coloane noi: Note, Status, ID");
+    toast("⇔ Tabel extins — alegi coloanele cu click dreapta pe antet (sau ⋯)");
   }
   if (typeof renderGantt === "function" && isAutoZoom) renderGantt();
 }

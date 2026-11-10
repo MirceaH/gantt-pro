@@ -577,7 +577,7 @@ body.bars-new .g-body.zoom-micro .gb.task .rs{width:3px}
 @media (max-width:1250px){.sbar .sb-opt1{display:none}}
 @media (max-width:1050px){.sbar .sb-opt2{display:none}.sbar .save-indicator{display:none}}
 /* coloanele suplimentare (Δ bază, Cost, Status, real) apar DOAR când panoul e extins (butonul din separator) — nu doar fiindcă a rămas loc */
-.pane-l:not(.expanded) :is(.col-var,.col-cost,.col-status,.col-as,.col-af){display:none!important}
+.pane-l:not(.expanded) :is(.col-x,.col-var,.col-cost,.col-status,.col-as,.col-af){display:none!important}
 /* panou îngust (zoom de pagină mare / fereastră mică): prefixul WBS dispare ca numele activităților să aibă loc */
 .pane-l{container-type:inline-size;container-name:pl}
 @container pl (max-width:540px){.t-row .t-wbs{display:none}}
