@@ -1770,6 +1770,35 @@
     eq([fD(endDate(by('Betonare 7/7'))), by('Decofrare').sd, fD(endDate(by('Zidarie Ion'))), fD(endDate(by('Tencuiala')))], ['2026-11-10', '2026-11-11', '2026-11-09', '2026-11-10'], 'aceleași finaluri ca în MS Project');
   });
 
+  test('rapoarte: prezentare, flux de numerar pe luni (plan / bază / real), următoarele săptămâni, comparare cu baza și cu altă versiune', () => {
+    const res = { cur: 'RON', next: 2, list: [{ id: 1, name: 'Echipa', type: 'work', rate: 12.5, max: 100 }] };
+    const tasks = [mk(1, 'Cap <b>x</b>', 1), mk(2, 'A', 10, 1, [], '2026-10-26', { assign: [{ rid: 1, units: 100 }], prog: 50, as: '2026-10-26', acost: 300 }), mk(3, 'B', 2, 1, [F(2)]), mk(4, 'M', 1, null, [F(3)], null, { isMilestone: true }), mk(5, 'Vechi', 3, null, [], '2026-11-02')];
+    const a = newTabWith('RP', tasks, null, res); settle(); META.sdate = '2026-10-28'; saveBaseline(); renderAll();
+    eq(costMap[2], 1000, '10 zile × 8 h × 12,5 RON');
+    const cf = cashFlow(); eq(cf.rows.map(r => r.label), ['octombrie 2026', 'noiembrie 2026']);
+    eq(cf.rows.map(r => Math.round(r.plan)), [500, 500], 'costul împărțit pe zilele lucrătoare: 5 în oct., 5 în nov.'); eq(Math.round(cf.rows[1].cPlan), 1000, 'cumulat');
+    ok(cf.anyBase && cf.anyReal, 'bază + real: ' + cf.anyBase + '/' + cf.anyReal); eq(Math.round(cf.rows[0].real), 300, 'costul real pe intervalul real (26–28 oct.)');
+    openReports('ov'); ok($('repModal').classList.contains('open'), 'fereastra deschisă'); ok(!$('repBody').querySelector('b b, td b'), 'numele scăpate'); ok($('repBody').textContent.includes('Cap <b>x</b>'), 'numele capitolului ca text');
+    ok(/Progres/.test($('repBody').textContent) && /Repere următoare/.test($('repBody').textContent), 'secțiunile prezentării');
+    repTab('cash'); ok($('repBody').querySelector('svg.rep-chart'), 'graficul'); ok(/Total/.test($('repBody').textContent));
+    const U = upcomingTasks(2); eq(fD(U.weeks[0].a), '2026-10-26', 'săptămâna datei de status începe luni'); ok(U.weeks[0].tasks.some(t => t.id === 2), 'A în lucru'); eq(U.overdue.length, 0);
+    repTab('next'); ok(/Săptămâna aceasta/.test($('repBody').textContent), 'săptămâna aceasta');
+    // comparare cu baza: B mutat cu un decalaj
+    pushHistory(); byId(3).deps = [F(2, 'FS', 3)]; settle();
+    const cb = compareProjects('bl'); ok(cb.some(r => r.t && r.t.id === 3 && r.kind === 'start'), 'B: start mutat față de bază'); ok(cb.some(r => r.t && r.t.id === 4 && r.kind === 'fin'), 'reperul: final mutat');
+    // comparare cu altă versiune (alt proiect deschis): o activitate ștearsă, una nouă, una redenumită (după număr)
+    const v2 = JSON.parse(JSON.stringify(T)); v2.find(t => t.id === 5).nm = 'Vechi 2'; v2.push(mk(9, 'Nouă', 2, null, [], '2026-11-10'));
+    const b = newTabWith('RP v2', v2, null, res); settle();
+    switchTab(a.id); settle(); const cv = compareProjects(b.id);
+    ok(cv.some(r => r.kind === 'del' && r.nm === 'Nouă'), '„Nouă” lipsește din versiunea curentă'); ok(cv.some(r => r.kind === 'nm' && r.a === 'Vechi 2' && r.b === 'Vechi'), 'redenumită');
+    repTab('cmp'); repSetCmp(String(b.id)); ok(/Redenumită/.test($('repBody').textContent), 'tabelul de comparare: ' + $('repBody').textContent.slice(0, 200));
+    // proiect fără costuri / fără bază: mesaje clare; numele resurselor și ale proiectelor scăpate
+    newTabWith('RP0', [mk(1, 'A', 2), mk(2, 'B', 1, null, [F(1)], null, { assign: [{ rid: 1, units: 100 }] })], null, { cur: 'RON', next: 2, list: [{ id: 1, name: 'Ion <i>', type: 'work', rate: 0, max: 100 }] }); settle();
+    openReports('cash'); ok(/nu are costuri/.test($('repBody').textContent), 'fără costuri'); repTab('cmp'); repSetCmp('bl'); ok(/nu are linie de bază/.test($('repBody').textContent), 'fără bază'); ok($('repBody').innerHTML.includes('RP v2'), 'celelalte proiecte în listă');
+    repTab('next'); ok($('repBody').innerHTML.includes('Ion &lt;i&gt;') && !$('repBody').querySelector('td i'), 'numele resursei scăpat');
+    closeReports(); META.sdate = null;
+  });
+
   // ---------- extensie pentru funcții viitoare ----------
   const extra = window.__regressionExtra;
   if (typeof extra === 'function') extra({ test, ok, eq, near, skip, wait, F, mk, settle, snap, setProject, confirmYes, key, newTabWith, noTransitions, toasts });
