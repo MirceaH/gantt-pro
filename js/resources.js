@@ -156,7 +156,7 @@ function tiDelAssign(i) { _tiAssign.splice(i, 1); tiRenderAssign(); }
 function tiRenderCost() {
   const el = $('tiCost'); if (!el) return;
   const t = T.find(x => x.id === _tiTaskId); if (!t) return;
-  const durEl = $('tiDur'), dur = durEl && +durEl.value >= 1 ? +durEl.value : t.dur;
+  const durEl = $('tiDur'), dur = (durEl && parseDur(durEl.value)) || t.dur;
   const tmp = { dur, isMilestone: t.isMilestone };
   const c = _tiAssign.reduce((s, a) => s + assignCost(tmp, a), 0);
   const h = _tiAssign.reduce((s, a) => { const r = resById(a.rid); return s + (r && r.type === 'work' ? assignHours(tmp, a) : 0); }, 0);

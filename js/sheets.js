@@ -196,7 +196,7 @@ function importRowsAsTab(rows, name) {
     const t = T.find(x => x.id === +id), list = [];
     p.depText[id].split(/[;,]/).map(s => s.trim()).filter(Boolean).forEach(tok => {
       const d = _parseDepToken(tok), pid = d ? p.refMap[d.wbs] : undefined;
-      if (pid !== undefined && pid !== t.id) list.push({ id: pid, type: d.type, lag: d.lag }); else ignored++;
+      if (pid !== undefined && pid !== t.id) list.push(Object.assign({ id: pid, type: d.type, lag: d.lag }, d.pct ? { pct: true } : {})); else ignored++;
     });
     if (list.length) { _applyDepsSafely(t, list); linked += t.deps.length; }
   });

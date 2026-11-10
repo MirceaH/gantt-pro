@@ -66,6 +66,24 @@ function updateUndoRedoBtns() {
 // HELPERS
 // ============================================================
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+// Durată scrisă cu unitate (ca în MS Project): „5" / „5z" = zile lucrătoare, „2s" / „2 săpt" / „2w" = săptămâni (zilele lucrătoare
+// dintr-o săptămână a calendarului proiectului), „1l" / „1 lună" / „1mo" = luni (20 zile lucrătoare), „16h" / „16 ore" = ore (8 h / zi, rotunjit în sus).
+// Întoarce zile lucrătoare întregi (≥ 1) sau null dacă textul nu e o durată.
+function parseDur(v) {
+  const s = String(v == null ? '' : v).trim().toLowerCase().replace(',', '.').normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const m = s.match(/^(\d+(?:\.\d+)?)\s*(z|zi|zile|d|day|days|s|sapt|saptamana|saptamani|w|wk|week|weeks|l|luna|luni|mo|month|months|h|ora|ore|hr|hrs|hour|hours)?\.?$/);
+  if (!m) return null;
+  const n = parseFloat(m[1]), u = m[2] || 'z';
+  const perWeek = (typeof CAL !== 'undefined' && CAL.days) ? CAL.days.filter(Boolean).length || 5 : 5;
+  let d;
+  if (/^(s|sapt|saptamana|saptamani|w|wk|week|weeks)$/.test(u)) d = n * perWeek;
+  else if (/^(l|luna|luni|mo|month|months)$/.test(u)) d = n * 20;
+  else if (/^(h|ora|ore|hr|hrs|hour|hours)$/.test(u)) d = Math.ceil(n / 8 - 1e-9);
+  else d = n;
+  d = Math.round(d);
+  return d >= 1 && d <= 36500 ? d : null;
+}
 const pD = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
 const fD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const aD = (d,n) => { const r = new Date(d); r.setDate(r.getDate()+n); return r; };
@@ -112,7 +130,18 @@ function _normalizeDep(d) {
   if (!Number.isFinite(id)) return null;
   const type = DEP_TYPES.includes(d.type) ? d.type : 'FS';
   const lag = Number.isFinite(+d.lag) ? Math.round(+d.lag) : 0;   // decalaj în zile lucrătoare întregi (fracțiunile nu sunt suportate)
-  return { id, type, lag };
+  // pct: decalajul e în PROCENTE din durata predecesorului (ex. FS+50%, ca în MS Project); lag între −1000 și 1000
+  if (d.pct === true) return { id, type, lag: clamp(lag, -1000, 1000), pct: true };
+  return { id, type, lag: clamp(lag, -36500, 36500) };
+}
+
+// Decalajul legăturii în zile lucrătoare (cel în procente se calculează din durata predecesorului; reperul are durata 0)
+function lagDays(d) {
+  if (!d) return 0;
+  if (!d.pct) return +d.lag || 0;
+  const p = taskById(d.id); if (!p) return 0;
+  const pd = (p.isMilestone && !hasK(p.id)) ? 0 : Math.max(1, p.dur);
+  return Math.round(pd * (+d.lag || 0) / 100);
 }
 
 function _ensureDeps() {
@@ -126,18 +155,20 @@ function _ensureDeps() {
 function depLabel(d) {
   const lag = +d.lag || 0;
   if (!lag) return d.type;
-  return d.type + (lag > 0 ? '+' : '') + lag + 'd';
+  return d.type + (lag > 0 ? '+' : '') + lag + (d.pct ? '%' : 'd');
 }
 
-// Parsare token WBS avansat: "1.1", "1.1FS", "2.3SS+2", "3.4FF-1d"
-// Returnează { wbs, type, lag } sau null
+// Parsare token WBS avansat: "1.1", "1.1FS", "2.3SS+2", "3.4FF-1d", "1.2FS+50%" (decalaj în procente din durata predecesorului)
+// Returnează { wbs, type, lag, pct } sau null
 function _parseDepToken(tok) {
-  const m = String(tok).trim().match(/^([\d.]+)\s*(FS|SS|FF|SF)?\s*([+\-]\s*\d+(?:\.\d+)?)?\s*d?$/i);
+  const m = String(tok).trim().match(/^([\d.]+)\s*(FS|SS|FF|SF)?\s*([+\-]\s*\d+(?:\.\d+)?)?\s*(d|z|%)?$/i);
   if (!m) return null;
   const wbs = m[1];
   const type = (m[2] || 'FS').toUpperCase();
   const lag = m[3] ? parseFloat(m[3].replace(/\s+/g,'')) : 0;
-  return { wbs, type, lag };
+  const r = { wbs, type, lag };
+  if (m[4] === '%' && lag) r.pct = true;
+  return r;
 }
 
 // ============================================================
@@ -269,12 +300,12 @@ function _lagFromMove(t) {
   if (!t || !(t.deps && t.deps.length) || hasK(t.id) || t.isMilestone) return null;
   if (t.cons && t.cons.type && t.cons.type !== 'ASAP') return null;      // restricția dictează startul, nu legătura
   let drv = null, best = null;
-  t.deps.forEach(d => { const s = depStart(t, d, +d.lag || 0); if (s && (!best || s > best)) { best = s; drv = d; } });
+  t.deps.forEach(d => { const s = depStart(t, d, lagDays(d)); if (s && (!best || s > best)) { best = s; drv = d; } });
   if (!drv) return null;
   const start0 = depStart(t, drv, 0), target = nextWork(pD(t.sd));
-  const lag = Math.max(workDaysBetween(start0, target), Math.min(0, +drv.lag || 0));
-  if (lag === (+drv.lag || 0)) return null;
-  drv.lag = lag;
+  const lag = Math.max(workDaysBetween(start0, target), Math.min(0, lagDays(drv)));
+  if (lag === lagDays(drv)) return null;
+  drv.lag = lag; delete drv.pct;                  // mutarea cu mâna fixează decalajul în zile
   return drv;
 }
 
@@ -323,7 +354,7 @@ function _schedOne(t) {
 
     let bestStart = null;
     for (const d of deps) {
-      const newStart = depStart(t, d, +d.lag || 0);
+      const newStart = depStart(t, d, lagDays(d));
       if (newStart && (!bestStart || newStart > bestStart)) bestStart = newStart;
     }
     // Constrângeri: pornim de la data dată de legături (sau data curentă, dacă nu are legături)
@@ -797,10 +828,12 @@ function delSel(before) {
 function upd(id, f, v) {
   const t = T.find(x => x.id === id); if (!t) return;
   if (f === "nm") { t.nm = v; syncTabData(); return; }
+  if (f === "dur" && parseDur(v) == null) { renderAll(); toast("⚠️ Durată invalidă — scrie zile (5), săptămâni (2s), luni (1l) sau ore (16h)"); return; }
   pushHistory();
   if (f === "dur") {
-    if (v === "" || +v < 1) { toast("⚠️ Durată invalidă!"); return; }
-    t.dur = parseInt(v, 10);
+    const d = parseDur(v);
+    if (d == null) return;                     // verificat mai sus, înainte de pasul de anulare
+    t.dur = d;
   }
   else if (f === "prog") {
     if (v === "") return;
@@ -834,7 +867,7 @@ function updDeps(id, wbsStr) {
     const p = _parseDepToken(tok); if (!p) return;
     const predId = rev[p.wbs];
     if (predId === undefined || predId === id) return;
-    out.push({ id: predId, type: p.type, lag: p.lag });
+    out.push(Object.assign({ id: predId, type: p.type, lag: p.lag }, p.pct ? { pct: true } : {}));
   });
   _applyDepsSafely(t, out);
   syncTabData(); renderAll();

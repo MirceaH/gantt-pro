@@ -37,7 +37,7 @@ function computeCPM() {
   //   FS / FF (se leagă de FINALUL capitolului) → toate frunzele lui (fiecare trebuie să se termine la timp);
   //   SS / SF (se leagă de STARTUL capitolului) → frunzele care încep primele (ele dau startul capitolului).
   const succ = {};
-  const addSucc = (pid, t, dp) => (succ[pid] = succ[pid] || []).push({ id: t.id, type: dp.type, lag: +dp.lag || 0 });
+  const addSucc = (pid, t, dp) => (succ[pid] = succ[pid] || []).push({ id: t.id, type: dp.type, lag: lagDays(dp) });   // decalajul în procente → zile
   leaves.forEach(t => schedDeps(t).forEach(dp => {          // inclusiv legăturile moștenite de la capitolele activității
     if (node[dp.id]) { addSucc(dp.id, t, dp); return; }
     if (!hasK(dp.id)) return;

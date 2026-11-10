@@ -1449,7 +1449,7 @@
     newTabWith('M2', [mk(1, 'A', 5, null, [], '2026-11-02'), mk(2, 'M', 1, null, [F(1)], null, { isMilestone: true }), mk(3, 'B', 3, null, [F(2)]), mk(4, 'B2', 3, null, [F(1)])]); settle();
     eq(byId(2).sd, '2026-11-06', 'reperul la finalul lui A'); eq(byId(3).sd, byId(4).sd, 'nu consumă o zi'); eq(byId(3).sd, '2026-11-09');
     ok(cpm[2].crit && cpm[3].crit, 'reperul și B critice'); eq(cpm[2].float, 0);
-    const row = document.querySelector('.t-row[data-tid="2"] input[type=number]'); eq(row.value, '0', 'coloana Zile arată 0'); ok(row.disabled);
+    const row = document.querySelector('.t-row[data-tid="2"] input.in-dur'); eq(row.value, '0', 'coloana Zile arată 0'); ok(row.disabled);
   });
 
   test('motor: SF — succesorul se termină în ziua dinaintea startului predecesorului; decalajul fracționar se rotunjește; startul nu rămâne în zi liberă', () => {
@@ -1739,6 +1739,23 @@
     openCalendar(); calPick(3); calDel(); confirmYes(); saveCalendar(); ok(!byId(3).cal, 'calendarul șters: activitatea trece pe al proiectului');
     openResources('res'); resOffToggle(1); ok($('roFrom'), 'rândul de concediu'); dtSet('roFrom', '2026-11-16'); dtSet('roTo', '2026-11-17'); resOffAdd(1); eq(RES.list[0].off, ['2026-11-04', '2026-11-05', '2026-11-16', '2026-11-17']);
     resOffDel(1, '2026-11-04', '2026-11-05'); eq(RES.list[0].off, ['2026-11-16', '2026-11-17']); undo(); eq(RES.list[0].off.length, 4, 'concediul se anulează cu Ctrl+Z'); closeResources();
+  });
+
+  test('durate cu unitate (2s, 1l, 16h) și decalaj în procente (SS+50%): programare, text, Detalii, export', () => {
+    newTabWith('UN', [mk(1, 'A', 10, null, [], '2026-11-02'), mk(2, 'B', 3, null, [{ id: 1, type: 'SS', lag: 50, pct: true }]), mk(3, 'C', 2)]); settle();
+    eq(['5', '5z', '2s', '2 săpt', '2w', '1l', '1 luna', '16h', '17 ore', '1,5s', 'abc', '0', '', '-3'].map(parseDur), [5, 5, 10, 10, 10, 20, 20, 2, 3, 8, null, null, null, null]);
+    eq(byId(2).sd, '2026-11-09', 'SS+50% din 10 zile = 5 zile'); eq(lagDays(byId(2).deps[0]), 5); eq(depLabel(byId(2).deps[0]), 'SS+50%');
+    pushHistory(); byId(1).dur = 4; settle(); eq(byId(2).sd, '2026-11-04', 'decalajul urmează durata predecesorului'); undo();
+    eq(_parseDepToken('1.2SS+50%'), { wbs: '1.2', type: 'SS', lag: 50, pct: true }); eq(_parseDepToken('3FS+2'), { wbs: '3', type: 'FS', lag: 2 });
+    eq(_normalizeDep({ id: 1, type: 'FS', lag: 5000, pct: true }).lag, 1000, 'procentul plafonat');
+    const h = _history.length; upd(3, 'dur', '2s'); eq(byId(3).dur, 10, '2 săptămâni = 10 zile lucrătoare'); upd(3, 'dur', 'xyz'); eq(byId(3).dur, 10); eq(_history.length, h + 1, 'durata greșită nu lasă pas de anulare');
+    openTaskInfo(3); $('tiDur').value = '1l'; $('tiDur').dispatchEvent(new Event('input')); eq($('tiEnd').value, fD(endDate({ sd: byId(3).sd, dur: 20 })), 'Detalii: 1 lună'); $('tiSaveBtn').click(); eq(byId(3).dur, 20);
+    const doc = new DOMParser().parseFromString(_buildMSProjectXML('UN'), 'application/xml');
+    eq([...doc.getElementsByTagName('LinkLag')].map(x => x.textContent), ['24000'], 'exportul: 5 zile = 24000 zecimi de minut');
+    renderAll(); const row = document.querySelector('.t-row[data-tid="2"] .dep-count'); ok(/SS\+50%/.test(row.getAttribute('title')), 'tabelul arată SS+50%');
+    eq(_parseDepToken('1.2' + depLabel({ type: 'SS', lag: 50, pct: true })), { wbs: '1.2', type: 'SS', lag: 50, pct: true }, 'textul din Excel / CSV se citește înapoi');
+    moveStartTo(byId(2), '2026-11-11'); eq(byId(2).deps[0], { id: 1, type: 'SS', lag: 7 }, 'mutarea cu mâna transformă procentul în zile');
+    newTabWith('UN2', [mk(1, 'A', 10, null, [], '2026-11-02'), mk(2, 'Cap', 1, null, [{ id: 1, type: 'SS', lag: 50, pct: true }]), mk(3, 'X', 2, 2)]); settle(); eq(byId(3).sd, '2026-11-09', 'procentul și pe legătura moștenită de la capitol');
   });
 
   // ---------- extensie pentru funcții viitoare ----------

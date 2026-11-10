@@ -526,9 +526,15 @@
     </div>
 
     <div style="text-align:left;font-size:11px;color:var(--muted);font-weight:700;margin-top:10px;margin-bottom:4px">
-      Lag / Lead (zile) — pozitiv = așteptare, negativ = devansare
+      Decalaj — pozitiv = așteptare, negativ = devansare; în zile lucrătoare sau în % din durata predecesorului
     </div>
-    <input class="modal-input" id="depEditLag" type="number" step="1" value="0" style="text-align:center">
+    <div style="display:flex;gap:6px">
+      <input class="modal-input" id="depEditLag" type="number" step="1" value="0" style="text-align:center;flex:1">
+      <select class="modal-input" id="depEditLagU" style="width:auto" title="Zile lucrătoare, sau procent din durata predecesorului (ex. FS+50%: începe după jumătate din el)">
+        <option value="d">zile</option>
+        <option value="%">% din predecesor</option>
+      </select>
+    </div>
 
     <div class="modal-actions" style="margin-top:14px">
       <button class="modal-btn danger" id="depEditDel">🗑️ Șterge</button>
@@ -703,7 +709,7 @@
       </div>
       <div class="ti-row ti-2col">
         <div><label>Data Start</label><input type="date" id="atStart"></div>
-        <div><label>Durată (zile lucrătoare)</label><input type="number" min="1" id="atDur" placeholder="ex: 10" oninput="document.getElementById('atErr').style.display='none';this.classList.remove('err')"></div>
+        <div><label>Durată (zile lucrătoare)</label><input type="text" autocomplete="off" id="atDur" placeholder="ex: 10 sau 2s" title="Zile lucrătoare; poți scrie și 2s (săptămâni), 1l (luni), 16h (ore)" oninput="document.getElementById('atErr').style.display='none';this.classList.remove('err')"></div>
       </div>
       <div id="atErr" class="at-err" style="display:none">⚠️ Completează durata (număr de zile lucrătoare), sau bifează „Reper".</div>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;margin:6px 0">

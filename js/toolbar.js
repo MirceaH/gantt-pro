@@ -81,7 +81,7 @@ function pasteTask() {
     // Re-mapăm doar dependențele interne clipboard-ului (cele externe se pierd)
     if (cp.deps && cp.deps.length) {
       cp.deps = cp.deps
-        .map(d => (idMap[d.id] !== undefined ? { id: idMap[d.id], type: d.type || 'FS', lag: +d.lag || 0 } : null))
+        .map(d => (idMap[d.id] !== undefined ? Object.assign({ id: idMap[d.id], type: d.type || 'FS', lag: +d.lag || 0 }, d.pct ? { pct: true } : {}) : null))
         .filter(Boolean);
     } else {
       cp.deps = [];
@@ -161,8 +161,8 @@ function saveAddTask() {
   const isMs = $('atMs').checked;
   const nm = $('atName').value.trim() || (isMs ? 'Reper' : 'Activitate nouă');
   const sd = $('atStart').value || defaultNewStart();
-  const durIn = parseInt($('atDur').value, 10);
-  if (!isMs && !(durIn >= 1)) {   // durata e obligatorie: nu punem o valoare în locul utilizatorului
+  const durIn = parseDur($('atDur').value);            // zile, sau cu unitate: 2s / 1l / 16h
+  if (!isMs && !durIn) {   // durata e obligatorie: nu punem o valoare în locul utilizatorului
     $('atErr').style.display = 'block';
     $('atDur').classList.add('err');
     $('atDur').focus();
@@ -177,7 +177,7 @@ function saveAddTask() {
   $('atDeps').value.split(/[;,]/).map(s => s.trim()).filter(Boolean).forEach(tok => {
     const p = _parseDepToken(tok); if (!p) return;
     const predId = rev[p.wbs];
-    if (predId !== undefined) deps.push({ id: predId, type: p.type, lag: p.lag });
+    if (predId !== undefined) deps.push(Object.assign({ id: predId, type: p.type, lag: p.lag }, p.pct ? { pct: true } : {}));
   });
 
   pushHistory();
@@ -432,7 +432,7 @@ function openTaskInfo(id) {
       <div><label>Data final</label>${dtField(fD(p._e), {id:'tiEnd', dis:isSumm})}</div>
     </div>
     <div class="ti-row ti-2col">
-      <div><label>Durată (zile)</label><input type="number" min="1" id="tiDur" value="${t.dur}" ${isSumm ? 'disabled' : ''}></div>
+      <div><label>Durată (zile)</label><input type="text" autocomplete="off" id="tiDur" value="${t.dur}" title="Zile lucrătoare; poți scrie și 2s (săptămâni), 1l (luni), 16h (ore)" ${isSumm ? 'disabled' : ''}></div>
       <div><label>Progres (%)</label><input type="number" min="0" max="100" id="tiProg" value="${t.prog}" ${isSumm ? 'disabled' : ''}></div>
     </div>`);
 
@@ -520,7 +520,7 @@ function openTaskInfo(id) {
     // schimbi startul sau durata → se recalculează finalul; schimbi finalul → se recalculează durata.
     // Calendarul după care se numără zilele: cel ales în fereastră + concediile resurselor atribuite acum în fereastră
     const tmp = extra => Object.assign({ cal: ($('tiCal') && +$('tiCal').value) || undefined, assign: _tiAssign }, extra);
-    const syncEnd = () => { const sd = $('tiStart').value, d = parseInt($('tiDur').value, 10); if (sd && d >= 1) dtSet('tiEnd', fD(endDate(tmp({ sd, dur: d })))); };
+    const syncEnd = () => { const sd = $('tiStart').value, d = parseDur($('tiDur').value); if (sd && d) dtSet('tiEnd', fD(endDate(tmp({ sd, dur: d })))); };
     $('tiStart').addEventListener('change', syncEnd);
     $('tiDur').addEventListener('input', syncEnd);
     if ($('tiCal')) $('tiCal').addEventListener('change', syncEnd);
@@ -557,8 +557,9 @@ function saveTaskInfo(id) {
   { const sn = $('tiShort').value.trim(); if (sn) t.sn = sn; else delete t.sn; }
   if (!hasK(t.id)) {
     t.sd = $('tiStart').value || t.sd;
-    const newDur = parseInt($('tiDur').value, 10);
-    if (newDur >= 1) t.dur = newDur;
+    const newDur = parseDur($('tiDur').value);       // zile, sau cu unitate: 2s / 1l / 16h
+    if (newDur == null && $('tiDur').value.trim()) toast('⚠️ Durată invalidă „' + $('tiDur').value.trim().slice(0, 20) + '” — am păstrat ' + t.dur + ' zile (scrie 5, 2s, 1l sau 16h)');
+    if (newDur) t.dur = newDur;
     const oldProg = t.prog;
     t.prog = clamp(parseInt($('tiProg').value, 10) || 0, 0, 100);
     // durata vine din câmpul Durată (finalul scris de tine o recalculează deja, în calendarul activității)
@@ -595,7 +596,7 @@ function saveTaskInfo(id) {
       const p = _parseDepToken(tok); if (!p) return;
       const predId = rev[p.wbs];
       if (predId === undefined || predId === id) return;
-      out.push({ id: predId, type: p.type, lag: p.lag });
+      out.push(Object.assign({ id: predId, type: p.type, lag: p.lag }, p.pct ? { pct: true } : {}));
     });
     _applyDepsSafely(t, out);
   } else {
@@ -867,7 +868,7 @@ function _buildMSProjectXML(projectName) {
       // Datele reale: MS Project le cere pentru progres > 0 (altfel le inventează și raportează conflicte de planificare)
       const aS = !isSumm ? (t.as || (t.prog > 0 ? t.sd : '')) : '', aF = !isSumm ? (t.af || (t.prog >= 100 ? end : '')) : '';
       const bl = (!isSumm && t.bl) ? `<Baseline><Number>0</Number><Start>${_msXmlDate(t.bl.sd)}</Start><Finish>${_msFin(fD(endDate({ sd: t.bl.sd, dur: t.bl.dur })))}</Finish><Duration>${_msDur(isMs ? 0 : t.bl.dur)}</Duration>${t.bl.cost != null ? `<Cost>${Math.round(t.bl.cost * 100)}</Cost>` : ''}</Baseline>` : '';
-      const links = (t.deps || []).map(d => `<PredecessorLink><PredecessorUID>${d.id}</PredecessorUID><Type>${typeMap[d.type] ?? 1}</Type><CrossProject>0</CrossProject><LinkLag>${Math.round((+d.lag || 0) * 4800)}</LinkLag><LagFormat>7</LagFormat></PredecessorLink>`).join('');
+      const links = (t.deps || []).map(d => `<PredecessorLink><PredecessorUID>${d.id}</PredecessorUID><Type>${typeMap[d.type] ?? 1}</Type><CrossProject>0</CrossProject><LinkLag>${Math.round(lagDays(d) * 4800)}</LinkLag><LagFormat>7</LagFormat></PredecessorLink>`).join('');   // decalajul în procente iese în zile (sigur la import în MS Project)
       tasksXml += `
     <Task><UID>${t.id}</UID><ID>${ids[t.id] || t.id}</ID><Name>${X(t.nm)}</Name><Type>${ttMap[t.ttype] ?? 0}</Type><IsNull>0</IsNull><CreateDate>${now}</CreateDate>
       <WBS>${X(w[t.id] || '')}</WBS><OutlineNumber>${X(w[t.id] || '')}</OutlineNumber><OutlineLevel>${dep(t.id) + 1}</OutlineLevel><Priority>500</Priority>

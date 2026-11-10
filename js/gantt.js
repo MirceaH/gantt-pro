@@ -519,7 +519,7 @@ function renderTBody(){
 
     // Zile
     h += '<div class="c" style="width:'+C[2].w+'px;min-width:'+C[2].w+'px">'
-       + '<input type="number" min="1" value="'+(isMs?0:t.dur)+'" style="width:42px" '+(isMs?'disabled title="Reperul are durată 0"':dis)
+       + '<input type="text" class="in-dur" autocomplete="off" value="'+(isMs?0:t.dur)+'" style="width:42px" '+(isMs?'disabled title="Reperul are durată 0"':'title="Zile lucrătoare; poți scrie și 2s (săptămâni), 1l (luni), 16h (ore)" '+dis)
        + ' onchange="upd('+t.id+',\'dur\',this.value)"'
        + ' '+onkeyNum
        + ' onclick="event.stopPropagation()" ondblclick="event.stopPropagation()">'
@@ -774,7 +774,7 @@ function renderGantt(){
       // Label (tip + lag) — plasat pe segmentul vertical cel mai lung
       const plainLbl = (type === 'FS' && lag === 0);
       const needsLabel = true; // etichetele se afișează prin CSS (la hover/selecție sau la zoom mare)
-      const lblText = depLabel({type, lag});
+      const lblText = depLabel({type, lag, pct: d.pct});
       const lc = plainLbl ? ' lbl-plain' : '';
       const lblPos = _labelAnchor(points);
       const lblX = lblPos.x, lblY = lblPos.y;

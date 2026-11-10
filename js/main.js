@@ -165,7 +165,7 @@ function renderSidePanel() {
     </div>
     <div class="sp-2col">
       <div class="sp-group"><label class="sp-lbl">Durată (zile)</label>
-        <input type="number" min="1" class="sp-in" value="${t.dur}" ${dis} onchange="upd(${t.id},'dur',this.value)" ${key}></div>
+        <input type="text" autocomplete="off" class="sp-in" value="${t.dur}" title="Zile lucrătoare; poți scrie și 2s (săptămâni), 1l (luni), 16h (ore)" ${dis} onchange="upd(${t.id},'dur',this.value)" ${key}></div>
       <div class="sp-group"><label class="sp-lbl">Progres (%)</label>
         <input type="number" min="0" max="100" step="5" class="sp-in" value="${t.prog}" ${dis} onchange="upd(${t.id},'prog',this.value)" ${key}></div>
     </div>

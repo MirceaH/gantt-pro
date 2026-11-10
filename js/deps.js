@@ -382,24 +382,24 @@ function _attachArrowDrag() {
           pushHistory();
 
           // Preluăm linkul vechi (păstrăm doar lag-ul; tipul se recalculează din noile anchor-uri)
-          let oldLag = 0;
+          let oldLag = 0, oldPct = false;
           const oldTask = T.find(x => x.id === toId);
           if (oldTask && oldTask.deps) {
             const old = oldTask.deps.find(d => d.id === fromId);
-            if (old) oldLag = old.lag || 0;
+            if (old) { oldLag = old.lag || 0; oldPct = !!old.pct; }
             oldTask.deps = oldTask.deps.filter(d => d.id !== fromId);
           }
 
           if (wouldCreateCycle(fromId, newToId)) {
             // Rulăm back: restaurăm linkul vechi
-            if (oldTask) oldTask.deps.push({ id: fromId, type: curType, lag: oldLag });
+            if (oldTask) oldTask.deps.push(Object.assign({ id: fromId, type: curType, lag: oldLag }, oldPct ? { pct: true } : {}));
             toast('🚫 Ciclu detectat — mutare respinsă');
           } else {
             const newTask = T.find(x => x.id === newToId);
             if (newTask) {
               if (!newTask.deps) newTask.deps = [];
               if (!newTask.deps.some(d => d.id === fromId)) {
-                newTask.deps.push({ id: fromId, type: newType, lag: oldLag });
+                newTask.deps.push(Object.assign({ id: fromId, type: newType, lag: oldLag }, oldPct ? { pct: true } : {}));
               }
             }
             const w = wbs();
@@ -430,6 +430,7 @@ function openDepEditor(fromId, toId) {
   const overlay = $('depEditModal'); if (!overlay) return;
   $('depEditTitle').textContent = label;
   $('depEditLag').value = link.lag || 0;
+  if ($('depEditLagU')) $('depEditLagU').value = link.pct ? '%' : 'd';
 
   document.querySelectorAll('#depEditModal .dep-type-opt').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.type === link.type);
@@ -453,9 +454,11 @@ function openDepEditor(fromId, toId) {
   $('depEditSave').addEventListener('click', () => {
     const activeBtn = document.querySelector('#depEditModal .dep-type-opt.active');
     const newType = activeBtn ? activeBtn.dataset.type : link.type;
-    const newLag  = parseFloat($('depEditLag').value) || 0;
+    const pct = $('depEditLagU') && $('depEditLagU').value === '%';
+    const newLag  = pct ? clamp(Math.round(parseFloat($('depEditLag').value) || 0), -1000, 1000) : Math.round(parseFloat($('depEditLag').value) || 0);
     pushHistory();
     link.type = newType; link.lag = newLag;
+    if (pct) link.pct = true; else delete link.pct;
     closeDepEditor(); syncTabData(); renderAll();
     toast('💾 ' + label + ' (' + depLabel(link) + ')');
   });
