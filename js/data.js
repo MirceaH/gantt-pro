@@ -240,7 +240,8 @@ function _applyDepsSafely(t, list) {
 // Reperul are durată 0 (ca în MS Project): stă la FINALUL zilei lui. Ca succesor FS / FF al lui A, cade în ultima zi a lui A
 // (nu în ziua următoare), iar ca predecesor FS, succesorul începe în ziua lucrătoare de după el — deci nu consumă o zi din plan.
 //   SF (start → final): succesorul se termină în ziua lucrătoare dinaintea startului predecesorului (+lag), nu în aceeași zi.
-function depStart(t, d, lag) {
+const depStart = (t, d, lag) => withCal(calOf(t), () => _depStart(t, d, lag));   // în calendarul succesorului (decalajul se numără în zilele lui)
+function _depStart(t, d, lag) {
   const pred = taskById(d.id); if (!pred) return null;
   const ms = !!t.isMilestone && !hasK(t.id), sucDur = ms ? 1 : Math.max(1, t.dur);
   switch (d.type) {
@@ -263,7 +264,8 @@ function workDaysBetween(a, b) {
 // O activitate cu legături a fost mutată cu mouse-ul la t.sd: mutarea se păstrează ca LAG pe legătura care îi dictează startul
 // (altfel programarea automată o readuce imediat la data legăturii). Nu coboară sub lag 0 (nu creează suprapuneri din greșeală).
 // Returnează legătura modificată sau null dacă nu s-a schimbat nimic.
-function lagFromMove(t) {
+const lagFromMove = t => withCal(calOf(t), () => _lagFromMove(t));
+function _lagFromMove(t) {
   if (!t || !(t.deps && t.deps.length) || hasK(t.id) || t.isMilestone) return null;
   if (t.cons && t.cons.type && t.cons.type !== 'ASAP') return null;      // restricția dictează startul, nu legătura
   let drv = null, best = null;
@@ -308,11 +310,15 @@ function recalcSchedule() {
   for (const tid of order) {
     const t = taskById(tid); if (!t) continue;
     if (hasK(t.id)) { _calcSummaryDates(t); continue; } // capitolele se derivă din copii (deja calculați în ordine)
+    withCal(calOf(t), () => _schedOne(t));               // fiecare activitate se programează în calendarul ei (al ei / al proiectului, minus concediile resurselor)
+  }
+}
+function _schedOne(t) {
     const deps = schedDeps(t), hasDeps = deps.length > 0;
     const hasCons = !!(t.cons && t.cons.type && t.cons.type !== 'ASAP' && (t.cons.type === 'ALAP' || t.cons.date));
     if (!hasDeps && !hasCons) {               // fără legături / restricții: startul introdus de mână, dar mereu într-o zi lucrătoare
       const nw = fD(nextWork(pD(t.sd))); if (nw !== t.sd) t.sd = nw;
-      continue;
+      return;
     }
 
     let bestStart = null;
@@ -327,7 +333,6 @@ function recalcSchedule() {
     const r = _applyCons(t, s, bestStart);
     s = r.s; if (r.w) consWarn[t.id] = r.w;
     if (bestStart || hasCons) t.sd = fD(nextWork(s));
-  }
 }
 
 // ============================================================
@@ -457,6 +462,7 @@ function _sanitizeTasks() {
     }
     if (t.acost !== undefined && !(t.acost !== null && t.acost !== '' && Number.isFinite(+t.acost) && +t.acost >= 0)) delete t.acost; else if (t.acost !== undefined) t.acost = +t.acost;   // cost real (EVM)
     if (t.ttype != null && !['fu', 'fd', 'fw'].includes(t.ttype)) delete t.ttype;
+    if (t.cal != null && !(Number.isInteger(+t.cal) && +t.cal > 0)) delete t.cal; else if (t.cal != null) t.cal = +t.cal;   // calendarul activității (CAL.cals); unul inexistent = al proiectului (calOf)
     if (t.sn != null) t.sn = String(t.sn).slice(0, 24);
     if (t.notes != null) t.notes = String(t.notes);
     if (t.isMilestone != null) t.isMilestone = !!t.isMilestone;
@@ -805,11 +811,11 @@ function upd(id, f, v) {
   else if (f === "sd" && v) {
     const msg = moveStartTo(t, v);                 // startul nou mută activitatea; durata rămâne
     syncTabData(); renderAll();
-    if (t.sd !== fD(nextWork(pD(v)))) toast('ℹ️ Startul rămâne ' + fmtDate(pD(t.sd)) + ': îl dictează legăturile sau o restricție');
+    if (t.sd !== fD(withCal(calOf(t), () => nextWork(pD(v))))) toast('ℹ️ Startul rămâne ' + fmtDate(pD(t.sd)) + ': îl dictează legăturile sau o restricție');
     else if (msg) toast(msg);
     return;
   }
-  else if (f === "ed" && v) { t.dur = workDur(pD(t.sd), pD(v)); }
+  else if (f === "ed" && v) { t.dur = withCal(calOf(t), () => workDur(pD(t.sd), pD(v))); }
   else if (f === "pid") { t.pid = v; }
   syncTabData(); renderAll();
 }

@@ -1629,7 +1629,7 @@
     eq(by('A').assign, [{ rid: 1, units: 100 }], 'Echipa 100%'); eq(by('C').assign, [{ rid: 2, units: 20 }], 'Ciment: 20 sac'); ok(!by('B').assign, 'atribuirile goale ale MS Project (resursa -65535) se ignoră');
     ok(!T.some(t => hasK(t.id) && t.cons), 'capitolele fără restricții'); ok(!by('A').cons, 'SNET-ul de la start (felul în care MS Project fixează data) nu devine restricție');
     const p2 = _parseMSProjectXML(await (await fetch('tests/fixtures/msproject-saved-2.xml', { cache: 'no-store' })).text());   // exportat fără calendar pe resurse: MS Project păstrează „Standard” + calendare derivate
-    eq(p2.cal, { days: [0, 1, 1, 1, 1, 1, 0], hol: CAL.hol }, 'calendarul de bază, cu zilele libere'); eq(p2.tasks.map(t => [t.nm, t.sd, t.dur]), p.tasks.map(t => [t.nm, t.sd, t.dur]));
+    eq(p2.cal, { days: [0, 1, 1, 1, 1, 1, 0], hol: CAL.hol, cals: [] }, 'calendarul de bază, cu zilele libere'); ok(p2.res.list.every(r => !r.off), 'calendarele resurselor fără zile în plus = fără concediu'); eq(p2.tasks.map(t => [t.nm, t.sd, t.dur]), p.tasks.map(t => [t.nm, t.sd, t.dur]));
   });
 
   test('import MS Project: dus-întors export → import păstrează structura, legăturile, restricțiile, progresul, baza, resursele; fișierele stricate dau eroare clară', () => {
@@ -1710,6 +1710,35 @@
     const gr = document.querySelector('#tBody .t-row.grp-row'); ok(!gr.querySelector('b'), 'eticheta scăpată'); eq(gr.dataset.grp, 'c:1'); ok(gr.textContent.includes(evilNm));
     sel = 2; toggleGroupRow('c:1'); eq(sel, null, 'închiderea grupului scoate din selecție rândurile ascunse'); toggleGroupRow('c:1');
     META.sdate = null; setGroup(null); eq(document.querySelectorAll('#tBody .t-row.grp-row').length, 0);
+  });
+
+  test('calendare: activitate pe calendar propriu (7 din 7), concediul resursei sare zilele, legăturile, CPM și încărcarea le respectă', () => {
+    const cal = { days: [0, 1, 1, 1, 1, 1, 0], hol: ['2026-11-30'], cals: [{ id: 1, nm: '7 din 7', days: [1, 1, 1, 1, 1, 1, 1], hol: [], inh: false }, { id: 2, nm: '6 din 7 <b>', days: [0, 1, 1, 1, 1, 1, 1], hol: ['2026-11-10'], inh: true }] };
+    const res = { cur: 'RON', next: 2, list: [{ id: 1, name: 'Ion', type: 'work', rate: 10, max: 100, off: ['2026-11-04', '2026-11-05', 'nu-e-data'] }] };
+    newTabWith('CL', [mk(1, 'Betonare', 5, null, [], '2026-10-30', { cal: 1 }), mk(2, 'Decofrare', 2, null, [F(1)]), mk(3, 'Zidărie', 3, null, [], '2026-11-03', { assign: [{ rid: 1, units: 100 }] }), mk(4, 'X', 2, null, [], '2026-11-27', { cal: 1 }), mk(5, 'Y', 3, null, [], '2026-11-09', { cal: 2 }), mk(6, 'Z', 1, null, [], '2026-11-02', { cal: 99 })], cal, res); settle();
+    eq(CAL.cals.map(c => c.nm), ['7 din 7', '6 din 7 b'], 'numele curățat'); eq(RES.list[0].off, ['2026-11-04', '2026-11-05'], 'doar date valide');
+    eq(fD(endDate(byId(1))), '2026-11-03', '5 zile pe 7 din 7: vineri → marți'); eq(byId(2).sd, '2026-11-04', 'succesorul (calendarul proiectului) începe miercuri');
+    eq(fD(endDate(byId(3))), '2026-11-09', 'Ion e în concediu 4–5.11: 3 zile = 3, 6, 9 nov.');
+    eq(fD(endDate(byId(4))), '2026-11-28', 'X lucrează și sâmbăta'); ok(!hasTaskCal(byId(6)), 'calendar inexistent = al proiectului');
+    eq(fD(endDate(byId(5))), '2026-11-12', 'Y: 9, 11, 12 nov. (10.11 liberă în calendarul lui)');
+    ok(!loadMap[1].days['2026-11-04'] && loadMap[1].days['2026-11-06'] === 100, 'încărcarea sare concediul');
+    ok(cpm[1] && cpm[2] && cpm[1].float >= 0, 'CPM pe activitatea cu calendar propriu');
+    // fișierul de proiect păstrează calendarele și concediile
+    syncTabData(); const tab = tabs.find(t => t.id === activeTabId); eq(tab.cal.cals.length, 2); eq(tab.res.list[0].off, ['2026-11-04', '2026-11-05']);
+    pushHistory(); CAL.cals[0].days = [0, 1, 1, 1, 1, 1, 0]; setCal(CAL); renderAll(); eq(fD(endDate(byId(1))), '2026-11-05', 'fără weekend: vineri + 4 zile lucrătoare'); undo(); eq(fD(endDate(byId(1))), '2026-11-03', 'undo readuce calendarul');
+    openTaskInfo(1); eq($('tiEnd').value, '2026-11-03', 'Detalii: finalul în calendarul activității'); $('tiSaveBtn').click(); eq(byId(1).dur, 5, 'salvarea fără schimbări păstrează durata (7 din 7)');
+    openTaskInfo(1); $('tiCal').value = ''; $('tiCal').dispatchEvent(new Event('change')); eq($('tiEnd').value, '2026-11-05', 'alt calendar ales → finalul se recalculează'); closeTaskInfo();
+    openTaskInfo(3); dtSet('tiEnd', '2026-11-10'); $('tiEnd').dispatchEvent(new Event('change')); eq($('tiDur').value, '4', 'finalul scris: zilele numărate fără concediul lui Ion'); closeTaskInfo();
+    // dus-întors prin MS Project XML: calendarele suplimentare, calendarul activității și concediile resurselor se păstrează
+    const ends = T.map(t => fD(endDate(t))); importMSProjectText(_buildMSProjectXML('Cal RT')); settle();
+    eq(CAL.cals.map(c => [c.nm, c.days.join(''), c.inh]), [['7 din 7', '1111111', false], ['6 din 7 b', '0111111', true]]); eq(CAL.cals[1].hol, ['2026-11-10']);
+    eq(byId(1).cal, 1); eq(byId(5).cal, 2); eq(RES.list[0].off, ['2026-11-04', '2026-11-05']); eq(T.map(t => fD(endDate(t))), ends, 'aceleași finaluri după import');
+    // interfața: fereastra Calendar (calendar nou), Detalii › Calendar, concediul din foaia de resurse
+    openCalendar(); calNew(); calRename('Noapte'); $('calDays').querySelector('input[data-day="0"]').click(); saveCalendar(); eq(CAL.cals.map(c => c.nm), ['7 din 7', '6 din 7 b', 'Noapte']);
+    openTaskInfo(3); $('tiCal').value = '3'; saveTaskInfo(3); eq(byId(3).cal, 3, 'calendarul ales în Detalii');
+    openCalendar(); calPick(3); calDel(); confirmYes(); saveCalendar(); ok(!byId(3).cal, 'calendarul șters: activitatea trece pe al proiectului');
+    openResources('res'); resOffToggle(1); ok($('roFrom'), 'rândul de concediu'); dtSet('roFrom', '2026-11-16'); dtSet('roTo', '2026-11-17'); resOffAdd(1); eq(RES.list[0].off, ['2026-11-04', '2026-11-05', '2026-11-16', '2026-11-17']);
+    resOffDel(1, '2026-11-04', '2026-11-05'); eq(RES.list[0].off, ['2026-11-16', '2026-11-17']); undo(); eq(RES.list[0].off.length, 4, 'concediul se anulează cu Ctrl+Z'); closeResources();
   });
 
   // ---------- extensie pentru funcții viitoare ----------

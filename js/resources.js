@@ -23,6 +23,7 @@ function setRes(r) {
     const n = { ...x, id, type, name: String(x.name == null ? '' : x.name).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 80) || 'Resursă', rate: Math.max(0, +x.rate || 0) };
     if (type === 'work') n.max = Math.max(0, +x.max || 100); else n.max = null;
     if (x.unit != null) n.unit = plainText(x.unit, 12);
+    if (type === 'work' && Array.isArray(x.off)) { const off = [...new Set(x.off.filter(validISO))].sort().slice(0, 2000); if (off.length) n.off = off; else delete n.off; } else delete n.off;   // zilele de concediu ale resursei
     list.push(n);
   });
   RES = { list, next: Math.max((r && +r.next) || 1, ...list.map(x => x.id + 1), 1), cur: plainText(r && r.cur, 8) || 'RON' };
@@ -71,10 +72,12 @@ function computeResources() {
     (t.assign || []).forEach(a => {
       const L = loadMap[a.rid]; if (!L) return;
       const end = endDate(t);
-      for (let d = pD(t.sd); d <= end; d = aD(d, 1)) {
-        if (!isWork(d)) continue;
-        const k = fD(d); L.days[k] = (L.days[k] || 0) + (a.units || 0);
-      }
+      withCal(calOf(t), () => {                     // zilele lucrate de activitate (în calendarul ei)
+        for (let d = pD(t.sd); d <= end; d = aD(d, 1)) {
+          if (!isWork(d)) continue;
+          const k = fD(d); L.days[k] = (L.days[k] || 0) + (a.units || 0);
+        }
+      });
     });
   });
   Object.keys(loadMap).forEach(rid => {
@@ -221,8 +224,10 @@ function _resSheetHtml() {
       <td>${r.type === 'cost' ? '<span class="res-na">—</span>' : `<input type="number" min="0" step="any" value="${r.rate || 0}" onchange="resEdit(${r.id},'rate',this.value)"> <small>${esc(rateLbl)}</small>`}</td>
       <td>${r.type === 'work' ? `<input type="number" min="25" step="25" value="${r.max || 100}" onchange="resEdit(${r.id},'max',this.value)"> <small>%</small>` : '<span class="res-na">—</span>'}</td>
       <td>${r.type === 'material' ? `<input style="width:70px" value="${esc(r.unit || '')}" onchange="resEdit(${r.id},'unit',this.value)">` : '<span class="res-na">—</span>'}</td>
+      <td>${r.type === 'work' ? `<button type="button" class="res-off-btn${_resOffOpen === r.id ? ' on' : ''}" onclick="resOffToggle(${r.id})" title="Zilele în care resursa nu lucrează (concediu, alt șantier): activitățile ei le sar">🏖 ${r.off && r.off.length ? r.off.length + (r.off.length === 1 ? ' zi' : ' zile') : 'Adaugă'}</button>` : '<span class="res-na">—</span>'}</td>
       <td class="res-num">${byResCost[r.id] ? fmtMoney(byResCost[r.id]) : '—'}</td>
-      <td><button class="ti-res-del" onclick="resDel(${r.id})" title="Șterge resursa">✕</button></td></tr>`;
+      <td><button class="ti-res-del" onclick="resDel(${r.id})" title="Șterge resursa">✕</button></td></tr>`
+      + (_resOffOpen === r.id && r.type === 'work' ? _resOffRow(r) : '');
   }).join('');
   return `<div class="res-top">
       <span>Monedă: <input class="res-cur" value="${esc(RES.cur)}" onchange="resSetCur(this.value)"></span>
@@ -230,7 +235,7 @@ function _resSheetHtml() {
       <button class="modal-btn primary" onclick="resAdd('work')">＋ Muncă</button>
       <button class="modal-btn primary" onclick="resAdd('material')">＋ Material</button>
       <button class="modal-btn primary" onclick="resAdd('cost')">＋ Cost fix</button></div>
-    ${RES.list.length ? `<table class="res-table"><thead><tr><th>Nume</th><th>Tip</th><th>Tarif</th><th>Capacitate max</th><th>Unitate</th><th>Cost total</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="res-empty">Nu ai nicio resursă. Adaugă oameni sau utilaje („Muncă"), materiale sau costuri fixe (taxe, avize).</div>'}
+    ${RES.list.length ? `<table class="res-table"><thead><tr><th>Nume</th><th>Tip</th><th>Tarif</th><th>Capacitate max</th><th>Unitate</th><th>Concediu</th><th>Cost total</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="res-empty">Nu ai nicio resursă. Adaugă oameni sau utilaje („Muncă"), materiale sau costuri fixe (taxe, avize).</div>'}
     <div class="res-help"><b>Muncă</b>: oameni/utilaje, cost pe oră; capacitatea 100% = o persoană, 500% = o echipă de 5. Se atribuie în „Task Info" cu un procent din timp (Muncă = Durată × Unități × 8 h/zi).<br>
     <b>Material</b>: cantitate × preț pe unitate. <b>Cost fix</b>: o sumă (taxă, aviz).</div>`;
 }
@@ -317,10 +322,12 @@ function _usageHtml() {
     const gh = periods.map(() => 0), go = periods.map(() => false), trows = [];
     tasks.forEach(t => {
       const u = _unitsOn(t, r.id), h = periods.map(() => 0);
-      for (let d = pD(t.sd), e = endDate(t); d <= e; d = aD(d, 1)) {
-        if (!isWork(d)) continue;
-        const i = idxOf.get(keyOf(d)); if (i !== undefined) h[i] += u / 100 * 8;
-      }
+      withCal(calOf(t), () => {
+        for (let d = pD(t.sd), e = endDate(t); d <= e; d = aD(d, 1)) {
+          if (!isWork(d)) continue;
+          const i = idxOf.get(keyOf(d)); if (i !== undefined) h[i] += u / 100 * 8;
+        }
+      });
       h.forEach((v, i) => { gh[i] += v; });
       trows.push({ t, h, u });
     });
@@ -389,9 +396,10 @@ function _levelRun(limitMs) {
     ancUsers.set(t.id, [...seen].filter(id => userIds.has(id) && id !== t.id));
   });
 
-  const daysOf = (startDate, dur) => { const out = []; let d = nextWork(startDate); for (let i = 0; i < dur; i++) { out.push(fD(d)); d = addWorkDays(d, 1); } return out; };
-  const addLoad = (use, t) => { const days = daysOf(pD(t.sd), Math.max(1, t.dur)); work(t).forEach(a => { const m = use[a.rid] || (use[a.rid] = {}); days.forEach(k => { m[k] = (m[k] || 0) + a.units; }); }); };
-  const fits = (use, t, start) => { const days = daysOf(start, Math.max(1, t.dur)); return work(t).every(a => days.every(k => ((use[a.rid] && use[a.rid][k]) || 0) + a.units <= cap[a.rid] + 0.01)); };
+  // zilele lucrate de activitatea t dacă ar începe la startDate (în calendarul ei)
+  const daysOf = (t, startDate) => withCal(calOf(t), () => { const out = []; let d = nextWork(startDate); for (let i = 0; i < Math.max(1, t.dur); i++) { out.push(fD(d)); d = addWorkDays(d, 1); } return out; });
+  const addLoad = (use, t) => { const days = daysOf(t, pD(t.sd)); work(t).forEach(a => { const m = use[a.rid] || (use[a.rid] = {}); days.forEach(k => { m[k] = (m[k] || 0) + a.units; }); }); };
+  const fits = (use, t, start) => { const days = daysOf(t, start); return work(t).every(a => days.every(k => ((use[a.rid] && use[a.rid][k]) || 0) + a.units <= cap[a.rid] + 0.01)); };
 
   const placed = new Set(), moved = []; let stopped = false;
   while (placed.size < users.length) {
@@ -403,8 +411,8 @@ function _levelRun(limitMs) {
     if (!movable.has(t.id)) continue;
     const use = {};
     users.forEach(u => { if (u.id !== t.id && (placed.has(u.id) || !movable.has(u.id))) addLoad(use, u); });
-    const natural = nextWork(pD(t.sd)); let s = natural;
-    for (let g = 0; g < 2000 && !fits(use, t, s); g++) s = addWorkDays(s, 1);
+    const tc = calOf(t), natural = withCal(tc, () => nextWork(pD(t.sd))); let s = natural;
+    for (let g = 0; g < 2000 && !fits(use, t, s); g++) s = withCal(tc, () => addWorkDays(s, 1));
     if (s > natural) { t.cons = { type: 'SNET', date: fD(s), lv: true, o: t.sd }; moved.push(t.id); recomputeAll(); }
   }
   recomputeAll();
@@ -441,4 +449,40 @@ function clearLeveling() {
     if ($('resModal').classList.contains('open')) renderResModal();
     toast('↩️ Nivelare anulată (' + n + ' activități)');
   });
+}
+
+// ----- Concediile unei resurse de tip muncă (r.off = zile ISO): activitățile la care lucrează le sar (calOf) -----
+let _resOffOpen = null;
+function resOffToggle(id) { _resOffOpen = _resOffOpen === id ? null : id; renderResModal(); }
+// Zilele consecutive se arată ca intervale: [[de la, până la], ...]
+function _offRanges(off) {
+  const out = [];
+  (off || []).forEach(d => { const last = out[out.length - 1]; if (last && fD(aD(pD(last[1]), 1)) === d) last[1] = d; else out.push([d, d]); });
+  return out;
+}
+function resOffAdd(id) {
+  const r = resById(id); if (!r || r.type !== 'work') return;
+  const a = $('roFrom') ? $('roFrom').value : '', b = ($('roTo') && $('roTo').value) || a;
+  if (!validISO(a) || !validISO(b)) { toast('⚠️ Alege data de început a concediului'); return; }
+  if (b < a) { toast('⚠️ „Până la” e înaintea lui „De la”'); return; }
+  const days = []; for (let d = pD(a), n = 0; fD(d) <= b && n < 366; d = aD(d, 1), n++) days.push(fD(d));
+  pushHistory();
+  r.off = [...new Set([...(r.off || []), ...days])].sort().slice(0, 2000);
+  _resCommit();
+  toast('🏖 Concediu ' + r.name + ': ' + fmtDate(pD(a)) + (b !== a ? ' – ' + fmtDate(pD(b)) : '') + ' · activitățile lui se reprogramează');
+}
+function resOffDel(id, a, b) {
+  const r = resById(id); if (!r || !r.off) return;
+  pushHistory();
+  r.off = r.off.filter(d => d < a || d > b); if (!r.off.length) delete r.off;
+  _resCommit();
+}
+function _resOffRow(r) {
+  const ch = _offRanges(r.off).map(([a, b]) => `<span class="cal-chip">${fmtDate(pD(a))}${b !== a ? ' – ' + fmtDate(pD(b)) : ''}<button type="button" onclick="resOffDel(${r.id},'${a}','${b}')" title="Șterge intervalul">✕</button></span>`).join('');
+  return `<tr class="res-off-row"><td colspan="8"><div class="res-off">
+      <b>Concediu / zile indisponibile — ${esc(r.name)}</b>
+      <span>De la ${dtField('', { id: 'roFrom' })} până la ${dtField('', { id: 'roTo' })}</span>
+      <button type="button" class="modal-btn primary" onclick="resOffAdd(${r.id})">Adaugă</button>
+      <div class="cal-hols">${ch || '<span style="color:var(--muted);font-size:11px">Nicio zi de concediu</span>'}</div>
+    </div></td></tr>`;
 }

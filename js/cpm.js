@@ -18,7 +18,7 @@ function computeCPM() {
   // Indexăm în ZILE LUCRĂTOARE (calendarul proiectului)
   const base = nextWork(pD(T.map(t => t.sd).sort()[0]));
   // număr de zile lucrătoare de la `base` până la d (exclusiv) — tabel cumulat calculat o singură dată, nu câte o buclă pe zile pentru fiecare activitate
-  const lastD = leaves.reduce((m, t) => { const d = nextWork(pD(t.sd)); return d > m ? d : m; }, base);
+  const lastD = leaves.reduce((m, t) => { const d = aD(endDate(t), 1); return d > m ? d : m; }, base);   // până după ultimul final (activitățile cu calendar propriu își măsoară finalul în zilele proiectului)
   const span = Math.min(36600, Math.max(0, dD(base, lastD)));
   const cum = new Int32Array(span + 1);
   for (let i = 0, r = base; i < span; i++, r = aD(r, 1)) cum[i + 1] = cum[i] + (isWork(r) ? 1 : 0);
@@ -26,7 +26,9 @@ function computeCPM() {
   const node = {};
   leaves.forEach(t => {
     // reperul are durată 0 și stă la finalul zilei lui (ca în MS Project)
-    const ms = !!t.isMilestone, d = ms ? 0 : Math.max(1, t.dur), es = workIdx(nextWork(pD(t.sd))) + (ms ? 1 : 0);
+    const ms = !!t.isMilestone, es = workIdx(nextWork(pD(t.sd))) + (ms ? 1 : 0);
+    // activitate cu calendar propriu (ex. 7 din 7, concediu de resursă): durata se măsoară în zilele proiectului dintre start și final
+    const d = ms ? 0 : (hasTaskCal(t) ? Math.max(0, workIdx(aD(endDate(t), 1)) - es) : Math.max(1, t.dur));
     node[t.id] = { es, ef: es + d, d, ls: 0, lf: 0 };
   });
   const projEnd = Math.max(...Object.values(node).map(n => n.ef));

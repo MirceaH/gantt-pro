@@ -215,7 +215,7 @@ function _scanActuals(mutate) {
       r.pinned++;
       if (mutate) t.cons = { type: 'MSO', date: t.as, ac: true };
       if (t.af) {
-        const nd = Math.max(1, workDur(pD(t.as), pD(t.af)));
+        const nd = Math.max(1, withCal(calOf(t), () => workDur(pD(t.as), pD(t.af))));
         if (nd !== t.dur) r.durChanged++;
         if (mutate) { t.dur = nd; t.prog = 100; }
       }
@@ -227,8 +227,8 @@ function _scanActuals(mutate) {
       r.extended++;
       if (mutate) {
         const remaining = Math.max(1, Math.ceil(t.dur * (100 - t.prog) / 100));
-        const newEnd = addWorkDays(nextWork(sdD), remaining - 1);
-        t.dur = Math.max(t.dur, workDur(startD, newEnd));
+        const newEnd = withCal(calOf(t), () => addWorkDays(nextWork(sdD), remaining - 1));
+        t.dur = Math.max(t.dur, withCal(calOf(t), () => workDur(startD, newEnd)));
       }
     }
   });
@@ -310,7 +310,7 @@ function onTrackPct(t) {
   const s = pD(t.sd), e = endDate(t), st = pD(statusDay());
   if (st < s) return 0;
   if (st >= e) return 100;
-  return clamp(Math.round(workDur(s, st) / Math.max(1, t.dur) * 100), 0, 100);
+  return clamp(Math.round(withCal(calOf(t), () => workDur(s, st)) / Math.max(1, t.dur) * 100), 0, 100);
 }
 function markOnTrack() {
   const list = _progTargets();

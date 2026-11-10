@@ -312,7 +312,8 @@ const CX_POOL={
   res:   {l:"Resurse",       w:140, t:"Resursele atribuite"},
   cons:  {l:"Restricție",    w:120, t:"Restricția de dată pusă pe activitate"},
   dl:    {l:"Termen limită", w:92,  t:"Termenul limită (deadline)"},
-  notes: {l:"Note",          w:160, t:"Notele activității"}
+  notes: {l:"Note",          w:160, t:"Notele activității"},
+  cal:   {l:"Calendar",      w:110, t:"Calendarul activității (dacă nu e al proiectului) și concediile resurselor ei"}
 };
 Object.keys(CX_POOL).forEach(k=>{ CX_POOL[k].k=k; CX_POOL[k].cls="col-x col-"+k; });
 const CX_DEFAULT=["var","cost","status","as","af"];
@@ -382,6 +383,7 @@ function colVal(k,t){
     case "res": { if(isSumm) return m("—"); const a=(t.assign||[]).map(x=>{ const r=resById(x.rid); return r?esc(r.name)+(r.type==="work"&&x.units!==100?" ["+x.units+"%]":r.type==="material"?" ["+x.units+" "+esc(r.unit||"buc")+"]":""):""; }).filter(Boolean); return a.length?'<span title="'+a.join(", ")+'">'+a.join(", ")+'</span>':m("—"); }
     case "cons": { if(isSumm||!t.cons||t.cons.type==="ASAP") return m("—"); const s=esc(t.cons.type)+(t.cons.date?" "+fdd(pD(t.cons.date)):""); return '<span title="'+esc(CONS_LABELS[t.cons.type]||t.cons.type)+'">'+s+'</span>'; }
     case "dl": return t.deadline?(fD(endDate(t))>t.deadline?'<b style="color:#d94040" title="Termen depășit">'+fdd(pD(t.deadline))+'</b>':fdd(pD(t.deadline))):m("—");
+    case "cal": { if(isSumm) return m("—"); const c=t.cal?(CAL.cals||[]).find(x=>x.id===t.cal):null, off=(t.assign||[]).some(a=>{ const r=resById(a.rid); return r&&r.type==="work"&&r.off&&r.off.length; }); return c||off?esc(c?c.nm:"Proiect")+(off?' <span title="O resursă atribuită are zile de concediu">+ concediu</span>':""):m("Proiect"); }
     case "notes": { const n=String(t.notes||"").trim(); return n?'<span title="'+esc(n.slice(0,600))+'">'+esc(n.split("\n")[0].slice(0,120))+'</span>':m("—"); }
   }
   return m("—");
@@ -953,13 +955,13 @@ function attachBars(cs,td,dw){
       const mv=ev=>{
         const days=Math.round((ev.clientX-sx)/(dw*ZF));
         bar.style.width=Math.max(dw,origW+days*dw)+"px";
-        liveBadge(ev,_liveText(t2,pD(t2.sd),workDur(pD(t2.sd),aD(origEnd,days))));
+        liveBadge(ev,_liveText(t2,pD(t2.sd),withCal(calOf(t2),()=>workDur(pD(t2.sd),aD(origEnd,days)))));
       };
       const up=ev=>{
         bar.classList.remove("dragging"); hideLive();
         document.removeEventListener("mousemove",mv);
         document.removeEventListener("mouseup",up);
-        const nd=workDur(pD(t2.sd),aD(origEnd,Math.round((ev.clientX-sx)/(dw*ZF))));
+        const nd=withCal(calOf(t2),()=>workDur(pD(t2.sd),aD(origEnd,Math.round((ev.clientX-sx)/(dw*ZF)))));
         if(nd!==t2.dur){ pushHistory(); t2.dur=nd; }
         syncTabData(); renderAll();
       };
@@ -980,7 +982,7 @@ function attachBars(cs,td,dw){
         if(days<od){
           bar.style.left=(origL+days*dw)+"px";
           bar.style.width=Math.max(dw,origW-days*dw)+"px";
-          const ns=aD(orig,days); liveBadge(ev,_liveText(t2,ns,workDur(ns,endD)));
+          const ns=aD(orig,days); liveBadge(ev,_liveText(t2,ns,withCal(calOf(t2),()=>workDur(ns,endD))));
         } else liveBadge(ev,_liveText(t2,endD,1));
       };
       const up=ev=>{
@@ -990,7 +992,7 @@ function attachBars(cs,td,dw){
         const d=Math.round((ev.clientX-sx)/(dw*ZF));
         let nsd, ndur;
         if(d>=od){nsd=fD(endD); ndur=1}
-        else{const ns=aD(orig,d); nsd=fD(ns); ndur=workDur(ns,endD)}
+        else{const ns=aD(orig,d); nsd=fD(ns); ndur=withCal(calOf(t2),()=>workDur(ns,endD))}
         if(nsd!==t2.sd||ndur!==t2.dur){ pushHistory(); t2.sd=nsd; t2.dur=ndur; }
         syncTabData(); renderAll();
       };

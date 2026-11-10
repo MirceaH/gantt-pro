@@ -1000,3 +1000,13 @@ body.dark .g-info .gi-res.over{background:#3a1a22;color:#ff9a9a}
 .gb-grp{position:absolute;top:11px;height:8px;border-radius:2px;background:var(--text2);opacity:.75}
 .gb-grp.crit{background:#d94040}
 .gb-grp .gb-grp-p{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:2px}
+
+/* Foaia de resurse: concediile unei resurse */
+.res-off-btn{border:1px solid var(--grid);background:var(--card);color:var(--text2);border-radius:6px;padding:3px 8px;font:700 11.5px var(--font);cursor:pointer;white-space:nowrap}
+.res-off-btn:hover,.res-off-btn.on{border-color:var(--accent);color:var(--accent);background:var(--accentL)}
+.res-off-row td{background:var(--grid2)}
+.res-off{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 4px;font-size:12px}
+.res-off > span{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.res-off .cal-hols{flex-basis:100%}
+.ti-row label.cal-inh{display:flex;align-items:center;justify-content:flex-start;gap:6px;margin:8px 0 0;text-transform:none;letter-spacing:0;font-size:12px;font-weight:700;color:var(--text)}
+.ti-row label.cal-inh input{width:auto;height:auto;margin:0;flex:none}

@@ -244,6 +244,7 @@ function renderStatus(){
 // Folosită de renderAll() și de funcțiile care testează mai multe variante de plan (ex: nivelarea resurselor).
 function recomputeAll(){ withIndex(_recomputeAll); }   // indexul (id → activitate, părinte → copii) face căutările din recalculare O(1)
 function _recomputeAll(){
+  if (typeof calCacheClear === "function") calCacheClear();   // calendarele combinate (activitate + concediile resurselor) se refac la fiecare recalculare
   // Iterăm schedule + summaries până la stabilizare (dep-urile pe
   // capitole folosesc durata derivată din copii, care se poate schimba).
   for (let i = 0; i < 20; i++) {

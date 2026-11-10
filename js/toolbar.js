@@ -499,6 +499,13 @@ function openTaskInfo(id) {
         ${Object.keys(TASK_TYPES).map(k => `<option value="${k}" ${(t.ttype || 'fu') === k ? 'selected' : ''}>${TASK_TYPES[k]}</option>`).join('')}
       </select>
       <div class="dep-hint">Durată fixă: la mai multe resurse crește munca. Muncă fixă: la mai multe resurse scade durata. Unități fixe: la altă durată se schimbă munca.</div>
+    </div>
+    <div class="ti-row">
+      <label>Calendar <span class="ti-opt">(zilele în care se lucrează la ea; calendarele se fac în Proiect › Calendar)</span></label>
+      <select id="tiCal">
+        <option value="">Calendarul proiectului</option>
+        ${(CAL.cals || []).map(c => `<option value="${c.id}" ${t.cal === c.id ? 'selected' : ''}>${esc(c.nm)}</option>`).join('')}
+      </select>
     </div>`, isSumm ? ' style="display:none"' : '');
 
   $('tiBody').innerHTML = `<div class="ti-grid"><div class="ti-col">${cGeneral}${cPlan}${cReal}${cNotes}</div><div class="ti-col">${cLinks}${cCons}${cRes}</div></div>`;
@@ -511,13 +518,16 @@ function openTaskInfo(id) {
   if (!isSumm) {
     // Start, durată și final sunt legate între ele (la salvare, finalul ar anula altfel durata scrisă de tine):
     // schimbi startul sau durata → se recalculează finalul; schimbi finalul → se recalculează durata.
-    const syncEnd = () => { const sd = $('tiStart').value, d = parseInt($('tiDur').value, 10); if (sd && d >= 1) dtSet('tiEnd', fD(endDate({ sd, dur: d }))); };
+    // Calendarul după care se numără zilele: cel ales în fereastră + concediile resurselor atribuite acum în fereastră
+    const tmp = extra => Object.assign({ cal: ($('tiCal') && +$('tiCal').value) || undefined, assign: _tiAssign }, extra);
+    const syncEnd = () => { const sd = $('tiStart').value, d = parseInt($('tiDur').value, 10); if (sd && d >= 1) dtSet('tiEnd', fD(endDate(tmp({ sd, dur: d })))); };
     $('tiStart').addEventListener('change', syncEnd);
     $('tiDur').addEventListener('input', syncEnd);
+    if ($('tiCal')) $('tiCal').addEventListener('change', syncEnd);
     $('tiEnd').addEventListener('change', () => {
       const sd = $('tiStart').value, ed = $('tiEnd').value; if (!sd || !ed) return;
       if (ed < sd) { toast('⚠️ Finalul nu poate fi înaintea startului'); syncEnd(); return; }
-      $('tiDur').value = workDur(pD(sd), pD(ed)); tiRenderCost();
+      $('tiDur').value = withCal(calOf(tmp({})), () => workDur(pD(sd), pD(ed))); tiRenderCost();
     });
   }
   $('tiWbs').textContent = w[t.id] || '';
@@ -551,8 +561,7 @@ function saveTaskInfo(id) {
     if (newDur >= 1) t.dur = newDur;
     const oldProg = t.prog;
     t.prog = clamp(parseInt($('tiProg').value, 10) || 0, 0, 100);
-    const ed = $('tiEnd').value;
-    if (ed) t.dur = workDur(pD(t.sd), pD(ed));
+    // durata vine din câmpul Durată (finalul scris de tine o recalculează deja, în calendarul activității)
     if (asEl && afEl) {                       // început / final real: întâi ce ai scris tu, apoi completarea automată
       const oldAf = t.af;
       if (asV) t.as = asV; else delete t.as;
@@ -599,6 +608,8 @@ function saveTaskInfo(id) {
   if (!hasK(t.id)) {
     const tt = $('tiType').value;
     if (tt === 'fu') delete t.ttype; else t.ttype = tt;
+    const cv = $('tiCal') ? +$('tiCal').value : 0;                     // calendarul activității
+    if (cv && (CAL.cals || []).some(c => c.id === cv)) t.cal = cv; else delete t.cal;
     t.assign = _tiAssign.filter(a => resById(a.rid) && a.units > 0).map(a => ({ rid: a.rid, units: +a.units }));
     if (!t.assign.length) delete t.assign;
     applyTaskType(t, _tiOld.dur, _tiOld.assign);
@@ -654,32 +665,45 @@ function _parseMSProjectXML(text) {
   const hours = s => { const m = /^-?P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(s || ''); return m ? (+m[1] || 0) * 24 + (+m[2] || 0) + (+m[3] || 0) / 60 + (+m[4] || 0) / 3600 : null; };
   const warn = [];
 
-  // --- calendarul proiectului ---
+  // --- calendarele ---
   const cals = kidsOf(one(root, 'Calendars'), 'Calendar'), calUid = val(root, 'CalendarUID');
   const first = cals.find(c => val(c, 'UID') === calUid) || cals.find(c => val(c, 'IsBaseCalendar') === '1') || cals[0];
-  const cal = { days: [0, 1, 1, 1, 1, 1, 0], hol: [] }, hol = new Set();
-  let holCap = false;                                        // fișier ostil: plafon de zile libere
-  const addRange = (from, to) => { const a = day(from), b = day(to) || a; if (!a) return; for (let d = pD(a), n = 0; fD(d) <= b && n < 3660; d = aD(d, 1), n++) { if (hol.size >= 20000) { holCap = true; return; } hol.add(fD(d)); } };
-  // un calendar derivat moștenește din calendarul lui de bază: aplicăm întâi baza, apoi ce schimbă el
-  const chain = [];
-  for (let c = first; c && !chain.includes(c) && chain.length < 10; c = cals.find(x => val(x, 'UID') === val(c, 'BaseCalendarUID') && x !== c)) chain.unshift(c);
-  let rec = 0;
-  chain.forEach(base => {
-    kidsOf(one(base, 'WeekDays'), 'WeekDay').forEach(w => {
-      const t = num(w, 'DayType', -1), work = val(w, 'DayWorking') === '1';
-      if (t >= 1 && t <= 7) cal.days[t - 1] = work ? 1 : 0;
-      else if (t === 0 && !work) { const tp = one(w, 'TimePeriod'); if (tp) addRange(val(tp, 'FromDate'), val(tp, 'ToDate')); }
+  let holCap = false, holTotal = 0, rec = 0;                 // fișier ostil: plafon de zile libere (pe tot fișierul)
+  // zilele lucrătoare + zilele libere ale unui calendar; un calendar derivat moștenește din calendarul lui de bază (întâi baza, apoi ce schimbă el)
+  const calData = (c0, ownOnly) => {
+    const out = { days: [0, 1, 1, 1, 1, 1, 0] }, hol = new Set();
+    const addRange = (from, to) => { const a = day(from), b = day(to) || a; if (!a) return; for (let d = pD(a), n = 0; fD(d) <= b && n < 3660; d = aD(d, 1), n++) { if (holTotal >= 20000) { holCap = true; return; } if (!hol.has(fD(d))) { hol.add(fD(d)); holTotal++; } } };
+    const chain = [];
+    for (let c = c0; c && !chain.includes(c) && chain.length < 10; c = cals.find(x => val(x, 'UID') === val(c, 'BaseCalendarUID') && x !== c)) chain.unshift(c);
+    (ownOnly ? [c0] : chain).forEach(base => {
+      if (!base) return;
+      kidsOf(one(base, 'WeekDays'), 'WeekDay').forEach(w => {
+        const t = num(w, 'DayType', -1), work = val(w, 'DayWorking') === '1';
+        if (t >= 1 && t <= 7) out.days[t - 1] = work ? 1 : 0;
+        else if (t === 0 && !work) { const tp = one(w, 'TimePeriod'); if (tp) addRange(val(tp, 'FromDate'), val(tp, 'ToDate')); }
+      });
+      // formatul nou (Project 2007+): <Exceptions><Exception> — doar excepțiile nelucrătoare pe un interval (fără recurență)
+      kidsOf(one(base, 'Exceptions'), 'Exception').forEach(x => {
+        if (val(x, 'DayWorking') === '1') return;
+        const tp = one(x, 'TimePeriod'); if (!tp) return;
+        if (!val(x, 'Type') || num(x, 'Type', 1) === 1) addRange(val(tp, 'FromDate'), val(tp, 'ToDate')); else rec++;
+      });
     });
-    // formatul nou (Project 2007+): <Exceptions><Exception> — doar excepțiile nelucrătoare pe un interval (fără recurență)
-    kidsOf(one(base, 'Exceptions'), 'Exception').forEach(x => {
-      if (val(x, 'DayWorking') === '1') return;
-      const tp = one(x, 'TimePeriod'); if (!tp) return;
-      if (!val(x, 'Type') || num(x, 'Type', 1) === 1) addRange(val(tp, 'FromDate'), val(tp, 'ToDate')); else rec++;
-    });
+    if (!out.days.some(Boolean)) out.days = [0, 1, 1, 1, 1, 1, 0];
+    out.hol = [...hol].sort();
+    return out;
+  };
+  const cal = calData(first);
+  // celelalte calendare de bază (ex. „7 din 7") → calendare suplimentare, pe care activitățile le folosesc prin CalendarUID
+  const calMap = {}; cal.cals = [];
+  const used = new Set(kidsOf(one(root, 'Tasks'), 'Task').map(x => val(x, 'CalendarUID')));   // doar calendarele folosite de activități (nu „24 Hours" / „Night Shift" nefolosite)
+  cals.filter(c => c !== first && val(c, 'IsBaseCalendar') === '1' && used.has(val(c, 'UID'))).slice(0, 20).forEach(c => {
+    const d = calData(c), id = cal.cals.length + 1, ph = new Set(cal.hol);
+    const own = d.hol.filter(h => !ph.has(h)), inh = cal.hol.every(h => d.hol.includes(h));   // dacă are toate zilele libere ale proiectului, le moștenește
+    cal.cals.push({ id, nm: (val(c, 'Name') || 'Calendar ' + id).replace(/[\u0000-\u001f]/g, ' ').slice(0, 40), days: d.days, hol: inh ? own : d.hol, inh });
+    calMap[val(c, 'UID')] = id;
   });
   if (rec) warn.push(rec + ' excepții recurente din calendar ignorate (adaugă-le din Calendar)');
-  if (!cal.days.some(Boolean)) cal.days = [0, 1, 1, 1, 1, 1, 0];
-  cal.hol = [...hol].sort();
   if (holCap) warn.push('prea multe zile libere în calendar: s-au păstrat primele 20 000');
 
   // --- activitățile ---
@@ -703,6 +727,7 @@ function _parseMSProjectXML(text) {
     if (ms) { t.isMilestone = true; if (finish) t.sd = finish; }     // reperul (durată 0) stă la finalul zilei lui
     fileStart[id] = t.sd;
     const tt = ttRev[val(x, 'Type')]; if (tt && tt !== 'fu') t.ttype = tt;
+    const tc = calMap[val(x, 'CalendarUID')]; if (tc) t.cal = tc;                 // calendarul activității (alt calendar de bază)
     const notes = val(x, 'Notes'); if (notes) t.notes = notes.slice(0, 5000);
     const dl = day(val(x, 'Deadline')); if (dl) t.deadline = dl;
     const ct = consRev[val(x, 'ConstraintType')], cd = day(val(x, 'ConstraintDate'));
@@ -735,7 +760,7 @@ function _parseMSProjectXML(text) {
   const hasKid = new Set(tasks.map(t => t.pid).filter(p => p != null));
   tasks.forEach(t => {
     // capitolele își iau datele din activități; pe ele rămân doar legăturile FS / SS (ca la noi)
-    if (hasKid.has(t.id)) { ['cons', 'as', 'af', 'bl', 'ttype', 'isMilestone', 'deadline'].forEach(k => delete t[k]); t.dur = 1; t.deps = t.deps.filter(d => d.type === 'FS' || d.type === 'SS'); return; }
+    if (hasKid.has(t.id)) { ['cons', 'as', 'af', 'bl', 'ttype', 'isMilestone', 'deadline', 'cal'].forEach(k => delete t[k]); t.dur = 1; t.deps = t.deps.filter(d => d.type === 'FS' || d.type === 'SS'); return; }
     // fără legături, „nu începe înainte de" exact la start e doar felul în care MS Project fixează data (la noi startul rămâne oricum)
     if (t.cons && t.cons.type === 'SNET' && !t.deps.length && t.cons.date <= t.sd) delete t.cons;
   });
@@ -749,6 +774,8 @@ function _parseMSProjectXML(text) {
     const n = { id, name: val(r, 'Name'), type, rate: type === 'cost' ? 0 : Math.max(0, num(r, 'StandardRate', 0)) };
     if (type === 'work') n.max = Math.round(Math.max(0, num(r, 'MaxUnits', 1)) * 100);
     if (type === 'material' && val(r, 'MaterialLabel')) n.unit = val(r, 'MaterialLabel');
+    const rc = type === 'work' ? cals.find(c => val(c, 'UID') === val(r, 'CalendarUID')) : null;   // calendarul resursei: zilele ei libere în plus = concediu
+    if (rc && rc !== first) { const ph = new Set(cal.hol), off = calData(rc, true).hol.filter(h => !ph.has(h)); if (off.length) n.off = off.slice(0, 2000); }
     list.push(n);
   });
   const byUid = new Map(tasks.map(t => [t.id, t]));
@@ -814,12 +841,16 @@ function _buildMSProjectXML(projectName) {
   const ttMap = { fu: 0, fd: 1, fw: 2 };
   const starts = T.map(t => t.sd).sort(), projStart = starts.length ? starts[0] : fD(new Date());
 
-  // calendarul proiectului: zilele lucrătoare (8–12, 13–17) și zilele libere
+  // calendarul proiectului (UID 1): zilele lucrătoare (8–12, 13–17) și zilele libere; calendarele suplimentare = alte calendare de bază (UID 2…);
+  // resursele cu concediu primesc un calendar derivat din „Standard" cu zilele lor libere (UID 1000+id)
   const wt = '<WorkingTimes><WorkingTime><FromTime>08:00:00</FromTime><ToTime>12:00:00</ToTime></WorkingTime><WorkingTime><FromTime>13:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes>';
-  let weekDays = '';
-  for (let i = 0; i < 7; i++) weekDays += `<WeekDay><DayType>${i + 1}</DayType><DayWorking>${CAL.days[i] ? 1 : 0}</DayWorking>${CAL.days[i] ? wt : ''}</WeekDay>`;
-  CAL.hol.forEach(h => { weekDays += `<WeekDay><DayType>0</DayType><DayWorking>0</DayWorking><TimePeriod><FromDate>${h}T00:00:00</FromDate><ToDate>${h}T23:59:00</ToDate></TimePeriod></WeekDay>`; });
-  const calendars = `<Calendars><Calendar><UID>1</UID><Name>Standard</Name><IsBaseCalendar>1</IsBaseCalendar><BaseCalendarUID>-1</BaseCalendarUID><WeekDays>${weekDays}</WeekDays></Calendar></Calendars>`;
+  const offDays = hs => hs.map(h => `<WeekDay><DayType>0</DayType><DayWorking>0</DayWorking><TimePeriod><FromDate>${h}T00:00:00</FromDate><ToDate>${h}T23:59:00</ToDate></TimePeriod></WeekDay>`).join('');
+  const weekOf = days => { let s = ''; for (let i = 0; i < 7; i++) s += `<WeekDay><DayType>${i + 1}</DayType><DayWorking>${days[i] ? 1 : 0}</DayWorking>${days[i] ? wt : ''}</WeekDay>`; return s; };
+  const calUidOf = id => 1 + id;                     // CAL.cals: id 1 → UID 2
+  let calendars = `<Calendar><UID>1</UID><Name>Standard</Name><IsBaseCalendar>1</IsBaseCalendar><BaseCalendarUID>-1</BaseCalendarUID><WeekDays>${weekOf(CAL.days)}${offDays(CAL.hol)}</WeekDays></Calendar>`;
+  (CAL.cals || []).forEach(c => { const hs = [...new Set([...(c.inh ? CAL.hol : []), ...c.hol])].sort(); calendars += `<Calendar><UID>${calUidOf(c.id)}</UID><Name>${X(c.nm)}</Name><IsBaseCalendar>1</IsBaseCalendar><BaseCalendarUID>-1</BaseCalendarUID><WeekDays>${weekOf(c.days)}${offDays(hs)}</WeekDays></Calendar>`; });
+  RES.list.filter(r => r.type === 'work' && r.off && r.off.length).forEach(r => { calendars += `<Calendar><UID>${1000 + r.id}</UID><Name>${X(r.name)}</Name><IsBaseCalendar>0</IsBaseCalendar><BaseCalendarUID>1</BaseCalendarUID><WeekDays>${offDays(r.off)}</WeekDays></Calendar>`; });
+  calendars = `<Calendars>${calendars}</Calendars>`;
 
   let tasksXml = '';
   (function walk(list) {
@@ -832,6 +863,7 @@ function _buildMSProjectXML(projectName) {
         else if (!schedDeps(t).length) cons = `<ConstraintType>4</ConstraintType><ConstraintDate>${_msXmlDate(t.sd)}</ConstraintDate>`;
         else cons = '<ConstraintType>0</ConstraintType>';     // explicit „cât mai devreme" (fără el, MS Project poate pune altă restricție la import)
       }
+      if (!isSumm && t.cal && (CAL.cals || []).some(c => c.id === t.cal)) cons = cons.replace('</ConstraintType>', '</ConstraintType><CalendarUID>' + calUidOf(t.cal) + '</CalendarUID>');   // calendarul activității, la locul lui din schemă (după ConstraintType)
       // Datele reale: MS Project le cere pentru progres > 0 (altfel le inventează și raportează conflicte de planificare)
       const aS = !isSumm ? (t.as || (t.prog > 0 ? t.sd : '')) : '', aF = !isSumm ? (t.af || (t.prog >= 100 ? end : '')) : '';
       const bl = (!isSumm && t.bl) ? `<Baseline><Number>0</Number><Start>${_msXmlDate(t.bl.sd)}</Start><Finish>${_msFin(fD(endDate({ sd: t.bl.sd, dur: t.bl.dur })))}</Finish><Duration>${_msDur(isMs ? 0 : t.bl.dur)}</Duration>${t.bl.cost != null ? `<Cost>${Math.round(t.bl.cost * 100)}</Cost>` : ''}</Baseline>` : '';
@@ -853,7 +885,7 @@ function _buildMSProjectXML(projectName) {
     + (r.type === 'material' ? `<MaterialLabel>${X(r.unit || '')}</MaterialLabel>` : '')
     + (r.type === 'work' ? `<MaxUnits>${(r.max || 100) / 100}</MaxUnits>` : '')
     + (r.type !== 'cost' ? `<StandardRate>${r.rate || 0}</StandardRate><StandardRateFormat>${r.type === 'work' ? 2 : 7}</StandardRateFormat>` : '')
-    + `</Resource>`).join('');   // fără CalendarUID: MS Project îi face resursei calendarul ei (cu 1 ar redenumi calendarul proiectului)
+    + (r.type === 'work' && r.off && r.off.length ? `<CalendarUID>${1000 + r.id}</CalendarUID>` : '') + `</Resource>`).join('');   // fără concediu: fără CalendarUID (MS Project îi face calendarul; cu 1 ar redenumi calendarul proiectului)
   let aUid = 1;
   const asgXml = T.filter(t => !hasK(t.id)).flatMap(t => (t.assign || []).filter(a => resById(a.rid)).map(a => {
     const r = resById(a.rid);

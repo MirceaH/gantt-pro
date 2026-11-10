@@ -95,44 +95,79 @@ const calSpan = t => dD(pD(t.sd), endDate(t)) + 1;
 // ============================================================
 const _DAY_NAMES = ['Dum', 'Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sâm'];
 const _DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
-let _calDraft = null;
+// Ciorna ferestrei: calendarul proiectului + cele suplimentare; _calCur = 0 (proiectul) sau id-ul calendarului afișat
+let _calDraft = null, _calCur = 0;
+const _calEdit = () => _calCur ? _calDraft.cals.find(c => c.id === _calCur) : _calDraft;
 
 function openCalendar() {
-  _calDraft = { days: CAL.days.slice(), hol: CAL.hol.slice() };
-  $('calDays').innerHTML = _DAY_ORDER.map(i =>
-    `<label class="cal-day"><input type="checkbox" data-day="${i}" ${_calDraft.days[i] ? 'checked' : ''}><span>${_DAY_NAMES[i]}</span></label>`).join('');
-  $('calDays').querySelectorAll('input').forEach(cb => cb.addEventListener('change', () => { _calDraft.days[+cb.dataset.day] = cb.checked ? 1 : 0; }));
+  _calDraft = JSON.parse(JSON.stringify({ days: CAL.days, hol: CAL.hol, cals: CAL.cals || [] }));
+  _calDraft.next = Math.max(0, ..._calDraft.cals.map(c => c.id)) + 1;   // id-urile nu se refolosesc în fereastră (un calendar șters și unul nou nu se confundă)
+  _calCur = 0;
   dtSet('calHolDate', '');
-  renderCalHol();
+  _calRender();
   $('calModal').classList.add('open');
 }
+function _calRender() {
+  const c = _calEdit();
+  $('calWhich').innerHTML = '<option value="0">Calendarul proiectului</option>'
+    + _calDraft.cals.map(x => '<option value="' + x.id + '"' + (x.id === _calCur ? ' selected' : '') + '>' + esc(x.nm) + '</option>').join('');
+  $('calWhich').value = String(_calCur);
+  $('calExtraRow').style.display = _calCur ? '' : 'none';
+  $('calDelBtn').style.display = _calCur ? '' : 'none';
+  if (_calCur) { $('calName').value = c.nm; $('calInh').checked = c.inh !== false; }
+  $('calDays').innerHTML = _DAY_ORDER.map(i =>
+    `<label class="cal-day"><input type="checkbox" data-day="${i}" ${c.days[i] ? 'checked' : ''}><span>${_DAY_NAMES[i]}</span></label>`).join('');
+  $('calDays').querySelectorAll('input').forEach(cb => cb.addEventListener('change', () => { _calEdit().days[+cb.dataset.day] = cb.checked ? 1 : 0; }));
+  renderCalHol();
+}
+function calPick(v) { _calCur = +v || 0; _calRender(); }
+function calNew() {
+  if (_calDraft.cals.length >= MAX_CALS) { toast('⚠️ Cel mult ' + MAX_CALS + ' calendare'); return; }
+  const id = _calDraft.next++;
+  _calDraft.cals.push({ id, nm: _calDraft.cals.length ? 'Calendar ' + id : '7 din 7', days: _calDraft.cals.length ? _calEdit().days.slice() : [1, 1, 1, 1, 1, 1, 1], hol: [], inh: true });
+  _calCur = id; _calRender();
+  setTimeout(() => { $('calName').focus(); $('calName').select(); }, 30);
+}
+function calDel() {
+  if (!_calCur) return;
+  const n = T.filter(t => t.cal === _calCur).length, id = _calCur;
+  const go = () => { _calDraft.cals = _calDraft.cals.filter(c => c.id !== id); _calCur = 0; _calRender(); };
+  if (n) customConfirm('Calendarul e folosit de ' + (n === 1 ? 'o activitate' : n + ' activități') + '. Le treci pe calendarul proiectului?', go); else go();
+}
+function calRename(v) { const c = _calEdit(); if (_calCur && c) { c.nm = v; const o = $('calWhich').querySelector('option[value="' + _calCur + '"]'); if (o) o.textContent = v || 'Calendar'; } }
+function calSetInh(v) { const c = _calEdit(); if (_calCur && c) c.inh = !!v; }
 
 function renderCalHol() {
-  $('calHolList').innerHTML = _calDraft.hol.length
-    ? _calDraft.hol.map(h => `<span class="cal-chip">${fmtDate(pD(h))}<button type="button" onclick="removeCalHol('${h}')" title="Șterge">✕</button></span>`).join('')
+  const hol = _calEdit().hol;
+  $('calHolList').innerHTML = hol.length
+    ? hol.map(h => `<span class="cal-chip">${fmtDate(pD(h))}<button type="button" onclick="removeCalHol('${h}')" title="Șterge">✕</button></span>`).join('')
     : '<span style="color:var(--muted);font-size:11px">Nicio zi liberă adăugată</span>';
 }
 
 function addCalHol() {
-  const v = $('calHolDate').value;
-  if (!v) return;
-  if (!_calDraft.hol.includes(v)) { _calDraft.hol.push(v); _calDraft.hol.sort(); }
+  const v = $('calHolDate').value, c = _calEdit();
+  if (!validISO(v)) return;
+  if (!c.hol.includes(v)) { c.hol.push(v); c.hol.sort(); }
   dtSet('calHolDate', '');
   renderCalHol();
 }
 
-function removeCalHol(h) { _calDraft.hol = _calDraft.hol.filter(x => x !== h); renderCalHol(); }
+function removeCalHol(h) { const c = _calEdit(); c.hol = c.hol.filter(x => x !== h); renderCalHol(); }
 
 function closeCalendar() { $('calModal').classList.remove('open'); }
 
 function saveCalendar() {
-  if (!_calDraft.days.some(Boolean)) { toast('⚠️ Bifează cel puțin o zi lucrătoare'); return; }
+  if (!_calDraft.days.some(Boolean)) { toast('⚠️ Bifează cel puțin o zi lucrătoare în calendarul proiectului'); return; }
+  const bad = _calDraft.cals.find(c => !c.days.some(Boolean));
+  if (bad) { toast('⚠️ Calendarul „' + bad.nm + '” nu are nicio zi lucrătoare'); _calCur = bad.id; _calRender(); return; }
   pushHistory();
+  const ids = new Set(_calDraft.cals.map(c => c.id));
+  T.forEach(t => { if (t.cal && !ids.has(t.cal)) delete t.cal; });   // activitățile unui calendar șters trec pe al proiectului
   setCal(_calDraft);
   closeCalendar();
   syncTabData();
   renderAll();
-  toast('📅 Calendar salvat');
+  toast('📅 Calendar salvat' + (CAL.cals.length ? ' · ' + CAL.cals.length + (CAL.cals.length === 1 ? ' calendar suplimentar' : ' calendare suplimentare') : ''));
 }
 
 document.addEventListener('keydown', e => {
@@ -168,9 +203,9 @@ function addRoHolidays() {
   if (b) { y1 = b.mn.getFullYear(); y2 = b.mx.getFullYear(); }
   let n = 0;
   for (let y = y1; y <= y2; y++) roHolidays(y).forEach(h => {
-    if (_calDraft.days[pD(h).getDay()] && !_calDraft.hol.includes(h)) { _calDraft.hol.push(h); n++; }
+    const c = _calEdit(); if (c.days[pD(h).getDay()] && !c.hol.includes(h)) { c.hol.push(h); n++; }
   });
-  _calDraft.hol.sort();
+  _calEdit().hol.sort();
   renderCalHol();
   toast(n ? '🇷🇴 Adăugate ' + n + ' sărbători legale (' + y1 + (y2 > y1 ? '–' + y2 : '') + ')' : 'ℹ️ Sărbătorile legale pentru acești ani sunt deja adăugate');
 }

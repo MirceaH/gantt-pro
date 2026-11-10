@@ -653,6 +653,21 @@
     </div>
     <div class="ti-body">
       <div class="ti-row">
+        <label>Calendarul</label>
+        <div style="display:flex;gap:6px">
+          <select id="calWhich" style="flex:1" onchange="calPick(this.value)" title="Calendarul proiectului sau unul suplimentar (ex. „7 din 7” pentru betonări), pe care îl alegi pe activitate în Detalii"></select>
+          <button type="button" class="modal-btn cancel" style="padding:8px 10px" onclick="calNew()" title="Calendar nou, pornind de la zilele calendarului afișat">＋ Nou</button>
+          <button type="button" class="modal-btn cancel" id="calDelBtn" style="padding:8px 10px" onclick="calDel()" title="Șterge calendarul suplimentar; activitățile lui trec pe calendarul proiectului">🗑</button>
+        </div>
+      </div>
+      <div class="ti-row" id="calExtraRow" style="display:none">
+        <label>Nume</label>
+        <input id="calName" maxlength="40" oninput="calRename(this.value)" placeholder="ex. 7 din 7">
+        <label class="cal-inh">
+          <input type="checkbox" id="calInh" onchange="calSetInh(this.checked)"> Respectă și zilele libere ale proiectului
+        </label>
+      </div>
+      <div class="ti-row">
         <label>Zile lucrătoare</label>
         <div id="calDays" class="cal-days"></div>
       </div>
@@ -665,7 +680,7 @@
         <button type="button" class="modal-btn cancel" style="margin:8px 0 2px;width:100%" onclick="addRoHolidays()" title="Adaugă sărbătorile legale (inclusiv Paștele ortodox) pentru anii proiectului">🇷🇴 Adaugă sărbătorile legale ale României</button>
         <div id="calHolList" class="cal-hols"></div>
       </div>
-      <div class="ti-info">Durata activităților se numără în zile lucrătoare. Calendarul se salvează separat pentru fiecare proiect (tab).</div>
+      <div class="ti-info">Durata activităților se numără în zile lucrătoare. O activitate folosește calendarul proiectului sau unul suplimentar (Detalii › Calendar); concediile oamenilor se pun în foaia de resurse. Calendarele se salvează cu proiectul.</div>
     </div>
     <div class="ti-actions">
       <button class="modal-btn cancel" onclick="closeCalendar()">Anulează</button>
