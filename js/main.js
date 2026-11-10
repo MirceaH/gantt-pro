@@ -277,6 +277,7 @@ function renderAll(){
     if(view==="gantt") renderGantt();
     if(view==="tree"){ renderTree(); renderSidePanel(); }
     if(view==="timeline") renderTimeline();
+    if(typeof XVIEWS!=="undefined" && XVIEWS[view]) renderXView();   // Calendar / Rețea / Echipe (views.js)
     renderStatus();
   });
   saveAllTabs();
@@ -318,6 +319,8 @@ function setViewMode(v) {
   if (rbG) rbG.classList.toggle("active", v === "gantt");
   if (rbT) rbT.classList.toggle("active", v === "tree");
   if (rbL) rbL.classList.toggle("active", v === "timeline");
+  const rbM = $("rbViewMore"); if (rbM) rbM.classList.toggle("active", typeof XVIEWS !== "undefined" && !!XVIEWS[v]);
+  const xv = $("xviewLayout"); if (xv) xv.style.display = (typeof XVIEWS !== "undefined" && XVIEWS[v]) ? "flex" : "none";
   $("splitView").style.display  = v === "gantt" ? "flex" : "none";
   $("treeLayout").style.display = v === "tree"  ? "flex" : "none";
   $("timelineLayout").style.display = v === "timeline" ? "flex" : "none";

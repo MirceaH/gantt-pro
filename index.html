@@ -238,6 +238,14 @@
             <button class="rb-btn" id="rbViewGantt" onclick="setViewMode('gantt')" title="Gantt: tabelul de activități și barele pe axa timpului (vederea principală)"><svg class="ic"><use href="#i-gantt"/></svg><span class="rb-lbl">Gantt</span></button>
             <button class="rb-btn" id="rbViewTree" onclick="setViewMode('tree')" title="Arbore: structura proiectului"><svg class="ic"><use href="#i-tree"/></svg><span class="rb-lbl">Arbore</span></button>
             <button class="rb-btn" id="rbViewTimeline" onclick="setViewMode('timeline')" title="Cronologie: rezumatul proiectului pe o singură pagină, pentru prezentări"><svg class="ic"><use href="#i-timeline"/></svg><span class="rb-lbl">Cronologie</span></button>
+            <div class="rb-dd">
+              <button class="rb-btn" id="rbViewMore" onclick="toggleDD(this)" title="Alte vederi: Calendar (luna), Rețea (diagrama PERT), Echipe (resursele pe rânduri, Team Planner)" aria-label="Alte vederi"><svg class="ic"><use href="#i-layers"/></svg><svg class="ic ic-s"><use href="#i-chevdown"/></svg></button>
+              <div class="rb-menu" id="viewMoreMenu">
+                <button title="Luna, cu barele activităților pe săptămâni" onclick="closeDD();setViewMode('calendar')"><span>📅 Calendar</span></button>
+                <button title="Diagrama de rețea (PERT): casete legate în ordinea legăturilor, drumul critic în roșu" onclick="closeDD();setViewMode('network')"><span>🕸 Rețea (PERT)</span></button>
+                <button title="Team Planner: un rând pe resursă; tragi o activitate pe alt rând ca s-o dai altcuiva" onclick="closeDD();setViewMode('team')"><span>👥 Echipe (resurse)</span></button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -254,8 +262,8 @@
             <button class="rb-btn rb-btn-big" id="btnCrit" onclick="toggleCritical()" title="Evidențiază drumul critic (activități fără rezervă)">
               <svg class="ic"><use href="#i-flag"/></svg><span class="rb-lbl">Drum critic</span>
             </button>
-            <button class="rb-btn rb-btn-big" id="btnBase" onclick="toggleBaseline()" title="Arată / ascunde linia de bază (planificat vs. realizat)">
-              <svg class="ic"><use href="#i-ruler"/></svg><span class="rb-lbl">Linia de bază</span>
+            <button class="rb-btn rb-btn-big" id="btnBase" onclick="toggleBaseline()" title="Linia de bază: arată / ascunde barele subțiri ale planului inițial (planificat vs. realizat)">
+              <svg class="ic"><use href="#i-ruler"/></svg><span class="rb-lbl">Bază</span>
             </button>
             <button class="rb-btn rb-btn-big" id="btnWbs" onclick="toggleWbs()" title="Arată / ascunde codul WBS (1.2.3) dinaintea numelor activităților">
               <svg class="ic"><use href="#i-columns"/></svg><span class="rb-lbl">WBS</span>
@@ -481,6 +489,11 @@
       <div class="sp-header">✎ Detalii Activitate</div>
       <div class="sp-body" id="spBody"></div>
     </div>
+  </div>
+
+  <div class="timeline-layout xview-layout" id="xviewLayout" style="display:none">
+    <div class="tl-top xv-top"><b id="xvTitle"></b><span id="xvTools" class="xv-tools"></span><button type="button" class="modal-btn cancel" onclick="setViewMode('gantt')" title="Înapoi la Gantt">↩ Gantt</button></div>
+    <div class="xv-box" id="xvBox"></div>
   </div>
 
   <div class="timeline-layout" id="timelineLayout" style="display:none">
@@ -846,6 +859,7 @@
 <script src="js/print.js"></script>
 <script src="js/reports.js"></script>
 <script src="js/timeline.js"></script>
+<script src="js/views.js"></script>
 <script src="js/templates.js"></script>
 <script src="js/tour.js"></script>
 <script src="js/main.js"></script>

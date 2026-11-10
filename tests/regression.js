@@ -1818,6 +1818,32 @@
     showCritical = was; renderAll();
   });
 
+  test('vederi: Calendar (luna), Rețea (PERT) și Echipe (Team Planner, mutarea unei activități la altă resursă)', () => {
+    const res = { cur: 'RON', next: 3, list: [{ id: 1, name: 'Ion <i>', type: 'work', rate: 10, max: 100 }, { id: 2, name: 'Ana', type: 'work', rate: 10, max: 100 }] };
+    newTabWith('XV', [mk(1, 'Cap', 1), mk(2, 'A <b>', 3, 1, [], '2026-11-02', { assign: [{ rid: 1, units: 100 }] }), mk(3, 'B', 2, 1, [F(2)], null, { assign: [{ rid: 1, units: 50 }] }), mk(4, 'C', 2, null, [F(3, 'SS', 1)]), mk(5, 'D', 4, null, [], '2026-11-02', { assign: [{ rid: 1, units: 100 }] }), mk(6, 'M', 1, null, [F(4)], null, { isMilestone: true })], null, res); settle();
+    setViewMode('calendar'); eq($('xviewLayout').style.display, 'flex'); eq($('splitView').style.display, 'none'); ok($('rbViewMore').classList.contains('active'), 'butonul Alte vederi activ');
+    _xvMonth = new Date(2026, 10, 1); renderXView(); ok(/noiembrie 2026/.test($('xvTools').textContent));
+    ok(document.querySelectorAll('#xvBox .xv-seg').length >= 5, 'barele pe săptămâni'); ok(!document.querySelector('#xvBox .xv-seg b'), 'numele scăpate'); ok($('xvBox').textContent.includes('A <b>'));
+    xvMonth(1); ok(/decembrie 2026/.test($('xvTools').textContent)); xvMonth(-1);
+    const g = networkGraph(), col = id => g.nodes.find(n => n.t.id === id).c;
+    eq([col(2), col(3), col(4), col(6), col(5)], [0, 1, 2, 3, 0], 'coloanele urmează legăturile'); eq(g.edges.map(e => e.a + '>' + e.b + e.type).sort(), ['2>3FS', '3>4SS', '4>6FS']);
+    setViewMode('network'); eq(document.querySelectorAll('#xvBox .xv-node').length, 5, 'o casetă pe activitate (fără capitole)'); ok(document.querySelector('#xvBox .xv-elbl').textContent === 'SS', 'tipul legăturii scris');
+    ok(document.querySelector('#xvBox .xv-node.crit'), 'drumul critic în roșu');
+    byId(2).deps.push(F(4)); const gc = networkGraph(); eq(gc.nodes.length, 5, 'o buclă de legături (din fișier) nu blochează desenul'); byId(2).deps.pop();
+    setViewMode('team'); eq([...document.querySelectorAll('#xvBox .xv-tp-name b')].map(b => b.textContent), ['Ion <i>', 'Ana', 'Nealocate']);
+    eq(document.querySelectorAll('#xvBox .xv-tp-row[data-rid="1"] .xv-tp-bar').length, 3, 'Ion are 3 activități'); ok(document.querySelector('#xvBox .xv-tp-over'), 'supraalocarea lui Ion (A + D în aceleași zile)');
+    ok(reassignTask(5, 1, 2)); eq(byId(5).assign, [{ rid: 2, units: 100 }], 'D trece la Ana'); eq(document.querySelectorAll('#xvBox .xv-tp-row[data-rid="2"] .xv-tp-bar').length, 1);
+    ok(reassignTask(3, 1, 0)); ok(!byId(3).assign, 'B fără resursă'); eq(document.querySelectorAll('#xvBox .xv-tp-row[data-rid="0"] .xv-tp-bar').length, 2, 'B și C la Nealocate');
+    undo(); eq(byId(3).assign, [{ rid: 1, units: 50 }], 'Ctrl+Z'); ok(!reassignTask(2, 1, 1), 'pe același rând: nimic');
+    FILTER.text = 'D'; renderAll(); eq(document.querySelectorAll('#xvBox .xv-tp-bar').length, 1, 'filtrul se aplică'); FILTER.text = '';
+    setViewMode('gantt'); eq($('xviewLayout').style.display, 'none'); ok(!$('rbViewMore').classList.contains('active'));
+    // utilizarea pe activități (Task Usage): activitatea cu resursele ei, ore pe perioade
+    reassignTask(5, 2, 1);   // D înapoi la Ion: A și D în aceleași zile → supraalocare
+    openResources('usage'); usageBy('task'); const ru = $('resBody').textContent; ok(/Pe activități/.test(ru) && ru.includes('Activitate / resursă'), 'tabelul pe activități'); ok(ru.includes('Ion <i>'), 'resursele sub activități'); ok(!$('resBody').querySelector('td i'), 'nume scăpate');
+    const aRow = [...$('resBody').querySelectorAll('tr.ru-group')].find(r => /A <b>/.test(r.textContent)); ok(aRow && /24 h/.test(aRow.textContent), 'A: 3 zile × 8 h la 100% = 24 h');
+    usageBy('res'); ok($('resBody').textContent.includes('Resursă / activitate'), 'înapoi pe resurse'); ok($('resBody').querySelector('td.over'), 'pe resurse: supraalocarea lui Ion în roșu'); closeResources();
+  });
+
   // ---------- extensie pentru funcții viitoare ----------
   const extra = window.__regressionExtra;
   if (typeof extra === 'function') extra({ test, ok, eq, near, skip, wait, F, mk, settle, snap, setProject, confirmYes, key, newTabWith, noTransitions, toasts });

@@ -299,10 +299,12 @@ const _unitsOn = (t, rid) => (t.assign || []).filter(a => a.rid === rid).reduce(
 
 // Tabel: pentru fiecare resursă de tip „Muncă", orele ei pe perioade (zile / săptămâni / luni, după cât durează proiectul),
 // defalcate pe activități. Perioadele în care resursa depășește capacitatea apar în roșu.
-function _usageHtml() {
-  const work = RES.list.filter(r => r.type === 'work');
-  if (!work.length) return '<div class="res-empty">Adaugă resurse de tip „Muncă” și atribuie-le activităților ca să vezi utilizarea lor.</div>';
-  const b = ab(); if (!b) return '<div class="res-empty">Proiect gol.</div>';
+// Tab „Utilizare": ore de muncă pe perioade. Pe resurse (Resource Usage) sau pe activități (Task Usage din MS Project).
+let _usageBy = 'res';
+function usageBy(v) { _usageBy = v === 'task' ? 'task' : 'res'; renderResModal(); }
+// Perioadele tabelului (zile / săptămâni de luni / luni, după lungimea proiectului) și orele unei atribuiri pe perioade
+function _usagePeriods() {
+  const b = ab(); if (!b) return null;
   const span = dD(b.mn, b.mx) + 1, mode = span <= 70 ? 'day' : (span <= 400 ? 'week' : 'month');
   const keyOf = d => mode === 'day' ? fD(d) : (mode === 'week' ? fD(aD(d, -((d.getDay() + 6) % 7))) : fD(new Date(d.getFullYear(), d.getMonth(), 1)));
   const periods = [], idxOf = new Map();
@@ -314,33 +316,48 @@ function _usageHtml() {
     idxOf.set(k, periods.length);
     periods.push({ k, label: mode === 'month' ? MN(kd) + ' ' + String(kd.getFullYear()).slice(2) : kd.getDate() + ' ' + MN(kd).toLowerCase() });
   }
-  const body = [];
-  work.forEach(r => {
-    const tasks = T.filter(t => _isLeafTask(t) && _unitsOn(t, r.id) > 0);
-    if (!tasks.length) return;
-    const L = loadMap[r.id] || { days: {}, max: r.max || 100, over: [], peak: 0 };
-    const gh = periods.map(() => 0), go = periods.map(() => false), trows = [];
-    tasks.forEach(t => {
-      const u = _unitsOn(t, r.id), h = periods.map(() => 0);
-      withCal(calOf(t), () => {
-        for (let d = pD(t.sd), e = endDate(t); d <= e; d = aD(d, 1)) {
-          if (!isWork(d)) continue;
-          const i = idxOf.get(keyOf(d)); if (i !== undefined) h[i] += u / 100 * 8;
-        }
-      });
-      h.forEach((v, i) => { gh[i] += v; });
-      trows.push({ t, h, u });
-    });
-    L.over.forEach(day => { const i = idxOf.get(keyOf(pD(day))); if (i !== undefined) go[i] = true; });
-    const cell = (v, o) => '<td class="' + (o ? 'over' : '') + '">' + (v ? Math.round(v) : '') + '</td>';
-    body.push('<tr class="ru-group"><td class="ru-name"><b>' + esc(r.name) + '</b> <small>capacitate ' + L.max + '%' + (L.peak ? ' · vârf ' + Math.round(L.peak) + '%' : '') + '</small></td>' + gh.map((v, i) => cell(v, go[i])).join('') + '</tr>');
-    const w = wbs();
-    trows.forEach(x => body.push('<tr><td class="ru-name" title="' + esc(x.t.nm) + '">' + esc((w[x.t.id] || '') + ' ' + x.t.nm) + ' <small>' + x.u + '%</small></td>' + x.h.map(v => cell(v, false)).join('') + '</tr>'));
+  return { mode, keyOf, periods, idxOf };
+}
+function _usageHours(P, t, units) {
+  const h = P.periods.map(() => 0);
+  withCal(calOf(t), () => {
+    for (let d = pD(t.sd), e = endDate(t); d <= e; d = aD(d, 1)) {
+      if (!isWork(d)) continue;
+      const i = P.idxOf.get(P.keyOf(d)); if (i !== undefined) h[i] += units / 100 * 8;
+    }
   });
+  return h;
+}
+function _usageHtml() {
+  const work = RES.list.filter(r => r.type === 'work');
+  if (!work.length) return '<div class="res-empty">Adaugă resurse de tip „Muncă” și atribuie-le activităților ca să vezi utilizarea lor.</div>';
+  const P = _usagePeriods(); if (!P) return '<div class="res-empty">Proiect gol.</div>';
+  const cell = (v, o) => '<td class="' + (o ? 'over' : '') + '">' + (v ? Math.round(v) : '') + '</td>', w = wbs(), body = [];
+  if (_usageBy === 'task') {
+    // pe activități: rândul activității = totalul orelor, dedesubt câte un rând pe resursă
+    T.filter(t => _isLeafTask(t) && work.some(r => _unitsOn(t, r.id) > 0)).forEach(t => {
+      const rs = work.filter(r => _unitsOn(t, r.id) > 0).map(r => ({ r, u: _unitsOn(t, r.id), h: _usageHours(P, t, _unitsOn(t, r.id)) }));
+      const tot = P.periods.map((_, i) => rs.reduce((s, x) => s + x.h[i], 0)), sum = Math.round(tot.reduce((a, b) => a + b, 0));
+      body.push('<tr class="ru-group"><td class="ru-name" title="' + esc(t.nm) + '"><b>' + esc((w[t.id] || '') + ' ' + t.nm) + '</b> <small>' + sum + ' h</small></td>' + tot.map(v => cell(v, false)).join('') + '</tr>');
+      rs.forEach(x => body.push('<tr><td class="ru-name">' + esc(x.r.name) + ' <small>' + x.u + '%</small></td>' + x.h.map(v => cell(v, false)).join('') + '</tr>'));
+    });
+  } else {
+    work.forEach(r => {
+      const tasks = T.filter(t => _isLeafTask(t) && _unitsOn(t, r.id) > 0);
+      if (!tasks.length) return;
+      const L = loadMap[r.id] || { days: {}, max: r.max || 100, over: [], peak: 0 };
+      const gh = P.periods.map(() => 0), go = P.periods.map(() => false), trows = [];
+      tasks.forEach(t => { const u = _unitsOn(t, r.id), h = _usageHours(P, t, u); h.forEach((v, i) => { gh[i] += v; }); trows.push({ t, h, u }); });
+      L.over.forEach(day => { const i = P.idxOf.get(P.keyOf(pD(day))); if (i !== undefined) go[i] = true; });
+      body.push('<tr class="ru-group"><td class="ru-name"><b>' + esc(r.name) + '</b> <small>capacitate ' + L.max + '%' + (L.peak ? ' · vârf ' + Math.round(L.peak) + '%' : '') + '</small></td>' + gh.map((v, i) => cell(v, go[i])).join('') + '</tr>');
+      trows.forEach(x => body.push('<tr><td class="ru-name" title="' + esc(x.t.nm) + '">' + esc((w[x.t.id] || '') + ' ' + x.t.nm) + ' <small>' + x.u + '%</small></td>' + x.h.map(v => cell(v, false)).join('') + '</tr>'));
+    });
+  }
   if (!body.length) return '<div class="res-empty">Nicio activitate nu are resurse de tip „Muncă” atribuite.</div>';
-  const unit = mode === 'day' ? 'zi' : (mode === 'week' ? 'săptămână (de luni)' : 'lună');
-  return '<div class="res-help" style="margin:0 0 10px">Ore de muncă pe ' + unit + ' (o zi lucrătoare = 8 ore × % din timpul resursei). <b style="color:#d94040">Roșu</b> = în perioadă resursa depășește capacitatea.</div>'
-    + '<div class="ru-wrap"><table class="res-usage"><thead><tr><th class="ru-name">Resursă / activitate</th>' + periods.map(p => '<th>' + p.label + '</th>').join('') + '</tr></thead><tbody>' + body.join('') + '</tbody></table></div>';
+  const unit = P.mode === 'day' ? 'zi' : (P.mode === 'week' ? 'săptămână (de luni)' : 'lună');
+  const sw = '<span class="ru-switch" role="group" aria-label="Utilizare pe"><button type="button" class="' + (_usageBy === 'res' ? 'active' : '') + '" onclick="usageBy(\'res\')" title="Fiecare resursă, cu activitățile ei (Resource Usage)">Pe resurse</button><button type="button" class="' + (_usageBy === 'task' ? 'active' : '') + '" onclick="usageBy(\'task\')" title="Fiecare activitate, cu resursele ei (Task Usage)">Pe activități</button></span>';
+  return '<div class="res-help" style="margin:0 0 10px">' + sw + ' Ore de muncă pe ' + unit + ' (o zi lucrătoare = 8 ore × % din timpul resursei).' + (_usageBy === 'res' ? ' <b style="color:#d94040">Roșu</b> = în perioadă resursa depășește capacitatea.' : '') + '</div>'
+    + '<div class="ru-wrap"><table class="res-usage"><thead><tr><th class="ru-name">' + (_usageBy === 'task' ? 'Activitate / resursă' : 'Resursă / activitate') + '</th>' + P.periods.map(p => '<th>' + p.label + '</th>').join('') + '</tr></thead><tbody>' + body.join('') + '</tbody></table></div>';
 }
 
 // ----- nivelarea resurselor -----

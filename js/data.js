@@ -528,6 +528,7 @@ function loadTabData(tabId) {
   if (!tab) return;
   setCal(tab.cal); setRes(tab.res); setMeta(tab.meta);
   if (typeof clearFilter === 'function') clearFilter(true);   // filtrul aparține proiectului pe care îl părăsim
+  if (typeof _xvMonth !== 'undefined') _xvMonth = null;          // Calendarul se deschide pe luna proiectului nou
   if (typeof _levelNote !== 'undefined') _levelNote = '';      // la fel și rezumatul ultimei nivelări
   T   = JSON.parse(JSON.stringify(tab.T));
   _sanitizeTasks();

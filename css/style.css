@@ -1077,3 +1077,79 @@ body.bars-new .gb.task[class*=" bc-"]{--b-bg:var(--bc2)!important;--b-fill:var(-
 body.bars-new .gb-slack{top:25px}   /* sub nivelul barei și al numelui de lângă ea */
 /* Linkul unei activități (🔗 lângă nume) */
 .link-ico{text-decoration:none;font-size:11px;margin-right:2px;cursor:pointer;flex-shrink:0}
+
+/* ===== Vederi suplimentare: Calendar / Rețea / Echipe (views.js) ===== */
+body.no-project .xview-layout{display:none!important}
+.xv-top{gap:10px;color:var(--text)}
+.xv-top > b{font-size:13px;font-weight:900;white-space:nowrap}
+.xv-tools{display:flex;align-items:center;gap:6px;flex:1;min-width:0;flex-wrap:wrap}
+.xv-tools .modal-btn{padding:4px 10px;font-size:12px}
+.xv-tools > span{color:var(--muted);font-size:11.5px;font-weight:600}
+.xv-tools .xv-month{font-size:14px;min-width:150px;text-align:center;text-transform:capitalize}
+.xv-box{flex:1;min-height:0;overflow:auto;padding:10px 14px 18px}
+/* bare comune */
+.xv-todo{background:#e8ecfc;color:#2a3562;border-color:#9fb0ee}
+.xv-wip{background:#6b83f2;color:#fff;border-color:#3f58d8}
+.xv-done{background:#46b27f;color:#fff;border-color:#2f9566}
+.xv-crit{background:#ee7373;color:#fff;border-color:#cc4543}
+.xv-ms{background:transparent;color:var(--text);border-color:transparent;font-weight:800}
+.gb-x[class*=" bc-"]{background:var(--bc2);color:#fff;border-color:var(--bc3)}
+body.dark .xv-todo{background:#262d55;color:#cfd6ff;border-color:#4a56a0}
+/* Calendar */
+.xv-cal{border:1px solid var(--grid);border-radius:10px;overflow:hidden;background:var(--card)}
+.xv-cal-head{display:grid;grid-template-columns:repeat(7,1fr);background:var(--grid2);font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase}
+.xv-cal-head > div{padding:6px 8px;border-right:1px solid var(--grid)}
+.xv-week{position:relative;min-height:calc(30px + var(--lanes) * 20px + 6px);border-top:1px solid var(--grid)}
+.xv-days{position:absolute;inset:0;display:grid;grid-template-columns:repeat(7,1fr)}
+.xv-day{border-right:1px solid var(--grid);padding:3px 6px;font-size:11px;font-weight:800;color:var(--text2)}
+.xv-day.off{background:color-mix(in srgb,var(--grid) 35%,transparent)}
+.xv-day.out{color:var(--muted);opacity:.55}
+.xv-day.today span{background:#d94040;color:#fff;border-radius:9px;padding:0 6px}
+.xv-day.status span{outline:2px solid var(--accent);border-radius:9px;padding:0 5px}
+.xv-segs{position:relative;height:100%}
+.xv-seg{position:absolute;height:17px;line-height:15px;padding:0 6px;border:1px solid;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;box-sizing:border-box}
+.xv-seg.cut0{border-top-left-radius:0;border-bottom-left-radius:0;border-left-style:dashed}
+.xv-seg.cut1{border-top-right-radius:0;border-bottom-right-radius:0;border-right-style:dashed}
+.xv-seg.sel,.xv-tp-bar.sel{box-shadow:0 0 0 2px var(--accent)}
+.xv-more{position:absolute;right:6px;bottom:2px;font-size:10.5px;font-weight:700;color:var(--muted)}
+/* Rețea */
+.xv-net-wrap{min-width:min-content}
+.xv-net{display:block}
+.xv-net .xv-edge{fill:none;stroke-width:1.6}
+.xv-net .xv-edge.crit{stroke-width:2.2}
+.xv-net .xv-elbl{font:800 9.5px var(--font);fill:var(--muted)}
+.xv-node{cursor:pointer}
+.xv-node rect:first-of-type{fill:var(--card);stroke:var(--grid);stroke-width:1.5}
+.xv-node.crit rect:first-of-type{stroke:#d94040;stroke-width:2}
+.xv-node.done rect:first-of-type{fill:color-mix(in srgb,#46b27f 12%,var(--card))}
+.xv-node.sel rect:first-of-type{stroke:var(--accent);stroke-width:3}
+.xv-node .xv-np{fill:#46b27f}
+.xv-node .xv-n1{font:800 11.5px var(--font);fill:var(--text)}
+.xv-node .xv-n2{font:700 10.5px var(--font);fill:var(--text2)}
+.xv-node .xv-n3{font:700 10px var(--font);fill:var(--muted)}
+/* Echipe (Team Planner) */
+.xv-tp{display:flex;border:1px solid var(--grid);border-radius:10px;overflow:hidden;background:var(--card);min-height:0}
+.xv-tp-names{flex:0 0 200px;border-right:1px solid var(--grid);background:var(--grid2)}
+.xv-tp-corner{height:38px;border-bottom:1px solid var(--grid)}
+.xv-tp-name{display:flex;flex-direction:column;justify-content:center;padding:0 10px;border-bottom:1px solid var(--grid);font-size:12px;overflow:hidden}
+.xv-tp-name b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xv-tp-name small{color:var(--muted);font-weight:700;font-size:10.5px}
+.xv-tp-name.none b{color:var(--muted)}
+.xv-over-t{color:#d94040}
+.xv-tp-scroll{flex:1;overflow:auto}
+.xv-tp-inner{position:relative}
+.xv-tp-head{position:relative;height:38px;border-bottom:1px solid var(--grid)}
+.xv-tp-m{position:absolute;top:3px;font-size:10.5px;font-weight:800;color:var(--text2);white-space:nowrap;padding-left:3px;border-left:1px solid var(--grid)}
+.xv-tp-d{position:absolute;top:20px;font-size:9.5px;font-weight:700;color:var(--muted);text-align:center}
+.xv-tp-d.off{color:#d94040;opacity:.7}
+.xv-tp-body{position:relative}
+.xv-tp-off{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--grid) 35%,transparent);pointer-events:none}
+.xv-tp-row{position:relative;border-bottom:1px solid var(--grid)}
+.xv-tp-row.drop{background:var(--accentL)}
+.xv-tp-over{position:absolute;top:0;bottom:0;background:rgba(217,64,64,.18);pointer-events:none}
+.xv-tp-bar{position:absolute;height:19px;line-height:17px;padding:0 6px;border:1px solid;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:grab;box-sizing:border-box;user-select:none}
+.xv-tp-bar.dragging{opacity:.4}
+.xv-tp-bar.ghost{position:fixed;z-index:10060;pointer-events:none;opacity:.85;width:auto!important;max-width:240px}
+.ru-switch{display:inline-flex;margin-right:8px;border:1px solid var(--grid);border-radius:7px;overflow:hidden;vertical-align:middle}
+.ru-switch button{border:none;background:var(--card);color:var(--text2);padding:4px 10px;font:800 11.5px var(--font);cursor:pointer}
+.ru-switch button.active{background:var(--accent);color:#fff}

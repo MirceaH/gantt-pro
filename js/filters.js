@@ -176,7 +176,7 @@ function clearFilter(silent) {
 
 // Când schimbi structura (mută / indentează / trage rânduri) cu un filtru pornit, rândurile ascunse ar fi mutate „pe nevăzute"
 function structLocked() {
-  if (view !== 'gantt' || !(filterActive() || groupActive())) return false;
+  if (view === 'tree' || view === 'timeline' || !(filterActive() || groupActive())) return false;   // și în Calendar / Rețea / Echipe (folosesc filtrul)
   toast(groupActive() ? '🗂 Oprește gruparea ca să muți rânduri sau să schimbi structura' : '🔎 Oprește filtrul ca să muți rânduri sau să schimbi structura');
   return true;
 }
@@ -228,7 +228,7 @@ function updateFilterUI() {
   const g = groupActive(), gb = $('btnGroup'); if (gb) gb.classList.toggle('active', g);
   document.querySelectorAll('#groupMenu button[data-g]').forEach(x => x.classList.toggle('on', (x.dataset.g || null) === (GROUP.by || null) || (!x.dataset.g && !g)));
   if (!bar) return;
-  if (!(on || g) || view !== 'gantt' || !tabs.length) { bar.style.display = 'none'; return; }
+  if (!(on || g) || !(view === 'gantt' || (typeof XVIEWS !== 'undefined' && XVIEWS[view])) || !tabs.length) { bar.style.display = 'none'; return; }   // bara se vede și în vederile care folosesc filtrul
   const parts = [];
   if (on) parts.push('🔎 Filtru activ: <b>' + esc(describeFilter()) + '</b> — se arată ' + viewRows().length + ' din ' + T.length + ' rânduri');
   if (g) parts.push('🗂 Grupat după: <b>' + esc(GROUP_LABELS[GROUP.by]) + '</b>');
