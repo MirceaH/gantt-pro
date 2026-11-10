@@ -970,3 +970,7 @@ body.dark .g-info .gi-chip.warn{background:#3a2e14;color:#ffc66b}
 .g-info .gi-res{display:inline-block;padding:1px 8px;border-radius:10px;background:var(--grid2);font-size:11.5px;font-weight:700;margin:0 4px 2px 0}
 .g-info .gi-res.over{background:#fdecea;color:#c0392b}
 body.dark .g-info .gi-res.over{background:#3a1a22;color:#ff9a9a}
+
+/* Fila Format › Progres: butoane rapide 0–100% și „Pe drum" */
+.rb-pcts .rb-pct{padding:0 6px;font-size:11.5px;font-weight:800;gap:4px;font-variant-numeric:tabular-nums}
+.rb-pcts .rb-pct .ic{width:14px;height:14px}

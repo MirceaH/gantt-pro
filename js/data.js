@@ -766,19 +766,26 @@ function toggleMilestone() {
 // before (opțional): rulează după confirmare, chiar înainte de ștergere (ex. „Taie" copiază abia atunci)
 function delSel(before) {
   if(!sel) return;
-  if(filterActive() && view==='gantt' && hasK(sel)) { toast('🔎 Oprește filtrul ca să ștergi un capitol (ar șterge și rândurile ascunse)'); return; }
-  if(hasK(sel) && !delSel._ok) {                 // un capitol: confirmare, pentru că pleacă și tot ce conține
-    const id=sel, t=T.find(x=>x.id===id), n=allD(id).length;
-    customConfirm('Ștergi capitolul „'+t.nm+'" și '+(n===1?'activitatea':'cele '+n+' activități')+' din el? Poți anula cu Ctrl+Z.', ()=>{ sel=id; delSel._ok=true; try { delSel(before); } finally { delSel._ok=false; } });
+  const ids=selIds(), roots=ids.filter(id=>!ids.some(o=>o!==id&&isD(id,o)));   // un rând din interiorul unui capitol selectat pleacă oricum cu el
+  if(filterActive() && view==='gantt' && roots.some(hasK)) { toast('🔎 Oprește filtrul ca să ștergi un capitol (ar șterge și rândurile ascunse)'); return; }
+  if((roots.length>1 || hasK(roots[0])) && !delSel._ok) {     // un capitol sau mai multe rânduri: confirmare
+    const inner=roots.reduce((s,id)=>s+allD(id).length,0), t=T.find(x=>x.id===roots[0]);
+    const msg = roots.length===1
+      ? 'Ștergi capitolul „'+t.nm+'" și '+(inner===1?'activitatea':'cele '+inner+' activități')+' din el? Poți anula cu Ctrl+Z.'
+      : 'Ștergi cele '+roots.length+' rânduri selectate'+(inner?' (și '+(inner===1?'o activitate':inner+' activități')+' din capitolele lor)':'')+'? Poți anula cu Ctrl+Z.';
+    const keep=[sel,new Set(msel),_selAnchor];
+    customConfirm(msg, ()=>{ [sel,msel,_selAnchor]=keep; delSel._ok=true; try { delSel(before); } finally { delSel._ok=false; } });
     return;
   }
   if(typeof before==='function') before();
   pushHistory();
-  const d=allD(sel), rm=new Set([sel,...d]);
+  const rm=new Set();
+  roots.forEach(id=>{ rm.add(id); allD(id).forEach(x=>{ rm.add(x); coll.delete(x); }); });
   // Curățăm referințele de dependență către task-urile șterse
   T.forEach(t => { if (t.deps) t.deps = t.deps.filter(x => !rm.has(x.id)); });
-  T=T.filter(t=>!rm.has(t.id)); sel=null; d.forEach(x=>coll.delete(x));
+  T=T.filter(t=>!rm.has(t.id)); sel=null; clearMulti();
   syncTabData(); renderAll();
+  if(rm.size>1 && !before) toast('🗑 Șterse: '+rm.size+' rânduri');
 }
 
 function upd(id, f, v) {
@@ -868,7 +875,35 @@ function insertAfterBlock(rows, anchorId) {
 }
 
 function toggleC(id) { if(coll.has(id)) coll.delete(id); else coll.add(id); renderAll(); }
-function selTask(id) { sel=sel===id?null:id; refreshSelection(); if(typeof closeCtx==='function') closeCtx(); }
+// ---- Selecție: click = un rând (al doilea click îl deselectează); Ctrl+click = adaugă / scoate; Shift+click = interval (ca în MS Project) ----
+// `sel` = rândul activ (Detalii, tastatură, fila Format); `msel` = toate rândurile selectate, valabilă doar cât îl conține pe `sel`
+// (orice cod care schimbă doar `sel` revine astfel singur la selecția simplă).
+let msel = new Set(), _selAnchor = null;
+const _multiOn = () => sel != null && msel.size > 1 && msel.has(sel);
+function selIds() {
+  if (sel == null) return [];
+  if (!_multiOn()) return [sel];
+  const ord = rowIds();
+  return [...msel].filter(id => ord[id]).sort((a, b) => ord[a] - ord[b]);
+}
+const isSelId = id => id === sel || (_multiOn() && msel.has(id));
+function clearMulti() { msel = new Set(); }
+function selTask(id, e) {
+  if (e && (e.ctrlKey || e.metaKey)) {
+    const cur = new Set(selIds());
+    if (cur.has(id)) { cur.delete(id); if (sel === id) sel = cur.size ? [...cur].pop() : null; _selAnchor = sel; }
+    else { cur.add(id); sel = id; _selAnchor = id; }
+    msel = cur;
+  } else if (e && e.shiftKey && (_selAnchor ?? sel) != null) {
+    const o = viewRows().map(t => t.id), a = o.indexOf(_selAnchor ?? sel), b = o.indexOf(id);
+    if (a < 0 || b < 0) { sel = id; clearMulti(); _selAnchor = id; }
+    else { msel = new Set(o.slice(Math.min(a, b), Math.max(a, b) + 1)); sel = id; }
+    try { window.getSelection().removeAllRanges(); } catch (x) {}
+  } else {
+    sel = (sel === id && !_multiOn()) ? null : id; clearMulti(); _selAnchor = sel;
+  }
+  refreshSelection(); if(typeof closeCtx==='function') closeCtx();
+}
 
 function handleDrop(dragId, targetId, dropType) {
   if(!dragId||dragId===targetId||isD(targetId,dragId)) return;

@@ -54,6 +54,9 @@
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
     <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2.9-1.2 1.8M12 17v.2"/></symbol>
     <symbol id="i-unlink" viewBox="0 0 24 24"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/><path d="M3 3l18 18"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></symbol>
+    <symbol id="i-sort" viewBox="0 0 24 24"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></symbol>
+    <symbol id="i-move" viewBox="0 0 24 24"><rect x="3" y="5" width="12" height="14" rx="2"/><path d="M3 10h12M7 3v4M11 3v4M17 12h5M19.5 9.5L22 12l-2.5 2.5"/></symbol>
     <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/></symbol>
     <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></symbol>
@@ -189,6 +192,19 @@
             <button class="rb-btn" onclick="outdentSel()" title="Outdent: scoate activitatea selectată dintr-un capitol, cu un nivel mai sus (Shift+Tab sau ←)"><svg class="ic"><use href="#i-outdent"/></svg></button>
             <button class="rb-btn" onclick="moveSel(-1)" title="Mută activitatea selectată cu un rând mai sus (Alt+↑)"><svg class="ic"><use href="#i-up"/></svg></button>
             <button class="rb-btn" onclick="moveSel(1)" title="Mută activitatea selectată cu un rând mai jos (Alt+↓)"><svg class="ic"><use href="#i-down"/></svg></button>
+            <button class="rb-btn" onclick="linkSelected()" title="Leagă activitățile selectate în lanț, FS, în ordinea din tabel (Ctrl+F2). Mai multe rânduri: Ctrl+click sau Shift+click; toate: Ctrl+A" aria-label="Leagă activitățile selectate"><svg class="ic"><use href="#i-link"/></svg></button>
+            <div class="rb-dd">
+              <button class="rb-btn" id="btnSort" onclick="toggleDD(this)" title="Sortează rândurile în fiecare capitol (structura rămâne); Ctrl+Z anulează" aria-label="Sortare"><svg class="ic"><use href="#i-sort"/></svg></button>
+              <div class="rb-menu" id="sortMenu">
+                <button title="Cele care încep primele, sus" onclick="closeDD();sortTasks('sd')"><span>După start</span></button>
+                <button title="Cele care se termină primele, sus" onclick="closeDD();sortTasks('fin')"><span>După final</span></button>
+                <button title="Cele mai lungi, sus" onclick="closeDD();sortTasks('dur',true)"><span>După durată (cele mai lungi sus)</span></button>
+                <button title="Alfabetic, A–Z" onclick="closeDD();sortTasks('nm')"><span>După nume (A–Z)</span></button>
+                <button title="Cele mai puțin avansate, sus" onclick="closeDD();sortTasks('prog')"><span>După progres</span></button>
+                <button title="Cele cu cea mai mică rezervă (critice), sus" onclick="closeDD();sortTasks('fl')"><span>După rezervă (critice sus)</span></button>
+                <button title="Cele mai scumpe, sus" onclick="closeDD();sortTasks('cost',true)"><span>După cost (cele mai scumpe sus)</span></button>
+              </div>
+            </div>
             <button class="rb-btn rb-btn-danger" onclick="delSel()" title="Șterge activitatea selectată; la un capitol șterge și activitățile din el (Del)"><svg class="ic"><use href="#i-trash"/></svg></button>
           </div>
         </div>
@@ -298,6 +314,9 @@
             <button class="rb-btn rb-btn-big" onclick="openCalendar()" title="Zile lucrătoare și zile libere pentru acest proiect">
               <svg class="ic"><use href="#i-calendar"/></svg><span class="rb-lbl">Calendar</span>
             </button>
+            <button class="rb-btn rb-btn-big" onclick="openMoveProject()" title="Mută tot proiectul la o altă dată de început (cu restricțiile, termenele și datele reale); linia de bază rămâne">
+              <svg class="ic"><use href="#i-move"/></svg><span class="rb-lbl">Mută proiectul</span>
+            </button>
             <button class="rb-btn rb-btn-big" onclick="openResources('res')" title="Oameni, utilaje, materiale, costuri">
               <svg class="ic"><use href="#i-users"/></svg><span class="rb-lbl">Resurse</span>
             </button>
@@ -350,12 +369,26 @@
             <button class="rb-btn rb-btn-big" onclick="if(sel)openTaskInfo(sel);else toast('⚠️ Selectează o activitate')">
               <svg class="ic"><use href="#i-info"/></svg><span class="rb-lbl">Detalii</span>
             </button>
-            <button class="rb-btn rb-btn-big" onclick="unlinkSelected()" title="Șterge toate dependențele activității">
+            <button class="rb-btn rb-btn-big" onclick="linkSelected()" title="Leagă rândurile selectate în lanț, FS, în ordinea din tabel (Ctrl+F2). Selectezi mai multe cu Ctrl+click sau Shift+click">
+              <svg class="ic"><use href="#i-link"/></svg><span class="rb-lbl">Leagă</span>
+            </button>
+            <button class="rb-btn rb-btn-big" onclick="unlinkSelected()" title="Șterge legăturile: la un rând, toate legăturile lui; la mai multe rânduri, doar legăturile dintre ele (Ctrl+Shift+F2)">
               <svg class="ic"><use href="#i-unlink"/></svg><span class="rb-lbl">Șterge legături</span>
             </button>
             <button class="rb-btn rb-btn-big" onclick="toggleMilestone()" title="Transformă în / din reper">
               <svg class="ic"><use href="#i-diamond"/></svg><span class="rb-lbl">Reper</span>
             </button>
+          </div>
+        </div>
+
+        <div class="rb-group" data-cap="Progres">
+          <div class="rb-row rb-pcts">
+            <button class="rb-btn rb-pct" onclick="setProgSel(0)" title="Progres 0% pe activitățile selectate">0%</button>
+            <button class="rb-btn rb-pct" onclick="setProgSel(25)" title="Progres 25% pe activitățile selectate">25%</button>
+            <button class="rb-btn rb-pct" onclick="setProgSel(50)" title="Progres 50% pe activitățile selectate">50%</button>
+            <button class="rb-btn rb-pct" onclick="setProgSel(75)" title="Progres 75% pe activitățile selectate">75%</button>
+            <button class="rb-btn rb-pct" onclick="setProgSel(100)" title="Progres 100% (finalizat) pe activitățile selectate">100%</button>
+            <button class="rb-btn rb-pct" onclick="markOnTrack()" title="Pe drum: progresul devine cât ar fi trebuit lucrat până la data de status (ca „Mark on Track” din MS Project)"><svg class="ic"><use href="#i-target"/></svg>Pe drum</button>
           </div>
         </div>
       </div>
@@ -567,6 +600,31 @@
     <div class="ti-actions">
       <button class="modal-btn cancel" onclick="closeStatusDate()">Anulează</button>
       <button class="modal-btn primary" onclick="saveStatusDate()">💾 Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mută proiectul -->
+<div class="modal-overlay" id="moveModal">
+  <div class="modal-box ti-box" style="max-width:430px">
+    <div class="ti-header">
+      <span class="ti-title">📆 Mută proiectul</span>
+      <button class="modal-close" onclick="closeMoveProject()">✕</button>
+    </div>
+    <div class="ti-body">
+      <div class="ti-info">Proiectul începe acum pe <b id="mvCur">—</b>.</div>
+      <div class="ti-row">
+        <label>Noua dată de început</label>
+        <input type="date" id="mvDate">
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;margin:6px 0">
+        <input type="checkbox" id="mvDeadlines" checked> Mută și termenele limită
+      </label>
+      <div class="ti-info">Toate activitățile se mută cu același număr de zile lucrătoare, cu tot cu restricțiile și datele reale. Linia de bază și data de status rămân cum sunt. Poți anula cu Ctrl+Z.</div>
+    </div>
+    <div class="ti-actions">
+      <button class="modal-btn cancel" onclick="closeMoveProject()">Anulează</button>
+      <button class="modal-btn primary" onclick="saveMoveProject()">📆 Mută</button>
     </div>
   </div>
 </div>

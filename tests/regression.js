@@ -1533,6 +1533,71 @@
     eq(v(doc, 'CurrencySymbol'), 'RON');
   });
 
+  // ---------- funcții MS Project (lotul 1): selecție multiplă, legare, progres rapid, mutare proiect, sortare ----------
+  test('selecție multiplă: Ctrl+click adaugă / scoate, Shift+click = interval, Ctrl+A = tot; click simplu revine la un rând', () => {
+    newTabWith('S1', [mk(1, 'A', 2), mk(2, 'B', 2), mk(3, 'C', 2), mk(4, 'D', 2)]); settle(); sel = null; clearMulti(); renderAll();
+    const row = id => document.querySelector('.t-row[data-tid="' + id + '"]'), ctrl = { ctrlKey: true }, shift = { shiftKey: true };
+    selTask(1); selTask(3, ctrl); eq(selIds(), [1, 3]); ok(row(1).classList.contains('selected') && row(3).classList.contains('selected') && !row(2).classList.contains('selected'), 'clasele pe rânduri');
+    ok(document.querySelector('.gb[data-bid="3"]').classList.contains('active'), 'barele selectate');
+    selTask(1, ctrl); eq(selIds(), [3], 'Ctrl+click pe un rând selectat îl scoate'); eq(sel, 3);
+    selTask(4, shift); eq(selIds(), [3, 4], 'Shift+click: interval de la ancoră');
+    selTask(1, shift); eq(selIds(), [1, 2, 3], 'intervalul se reface de la aceeași ancoră');
+    selTask(2); eq(selIds(), [2], 'click simplu = un singur rând');
+    selectAllRows(); eq(selIds(), [1, 2, 3, 4]); setSel(4); eq(selIds(), [4], 'tastatura / setSel revin la un rând');
+    renderAll(); eq(document.querySelectorAll('.t-row.selected').length, 1);
+    const bar = id => document.querySelector('.gb[data-bid="' + id + '"]'); bar(2).dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true })); eq(selIds(), [2, 4], 'Ctrl+click pe bară');
+    sel = null; renderAll(); sel = 4; refreshSelection(); eq(selIds(), [4], 'după o deselectare (ex. Ctrl+Z) selecția multiplă veche nu reapare');
+  });
+
+  test('legare: „Leagă" face un lanț FS în ordinea din tabel, sare peste bucle; „Șterge legături" pe mai multe rânduri le scoate doar pe cele dintre ele', () => {
+    newTabWith('L1', [mk(1, 'A', 2), mk(2, 'B', 3), mk(3, 'C', 1), mk(4, 'D', 2, null, [F(1)])]); settle();
+    sel = 3; msel = new Set([3, 1, 2]); linkSelected(); settle();
+    eq(byId(2).deps.map(d => [d.id, d.type]), [[1, 'FS']]); eq(byId(3).deps.map(d => d.id), [2]); eq(byId(3).sd, '2026-11-02', 'C după B');
+    const h = _history.length; linkSelected(); eq(_history.length, h, 'deja legate: fără pas de anulare');
+    undo(); eq(byId(2).deps.length + byId(3).deps.length, 0, 'Ctrl+Z anulează legarea (un singur pas)');
+    sel = 1; msel = new Set([1, 4]); unlinkSelected(); eq(byId(4).deps.length, 0, 'legătura dintre selectate ștearsă');
+    newTabWith('L2', [mk(1, 'Cap', 1), mk(2, 'X', 2, 1)]); settle(); sel = 2; msel = new Set([1, 2]); linkSelected(); eq(byId(2).deps.length + byId(1).deps.length, 0, 'capitolul și activitatea lui nu se leagă');
+  });
+
+  test('ștergere: mai multe rânduri selectate cer confirmare și pleacă împreună (cu activitățile capitolelor)', () => {
+    newTabWith('D1', [mk(1, 'Cap', 1), mk(2, 'X', 2, 1), mk(3, 'Y', 2), mk(4, 'Z', 2, null, [F(3)])]); settle();
+    sel = 3; msel = new Set([1, 2, 3]); delSel(); ok($('confirmModal').classList.contains('open'), 'confirmare'); eq(T.length, 4);
+    confirmYes(); eq(T.map(t => t.id), [4], 'capitolul, copilul și Y șterse'); eq(byId(4).deps.length, 0, 'legătura către Y curățată'); eq(selIds(), []);
+    undo(); eq(T.length, 4);
+  });
+
+  test('progres rapid: 0–100% pe selecție, reperul doar 0 / 100, „Pe drum" la data de status', () => {
+    newTabWith('P2', [mk(1, 'A', 10, null, [], '2026-11-02'), mk(2, 'B', 5, null, [], '2026-11-02'), mk(3, 'M', 1, null, [F(2)], null, { isMilestone: true }), mk(4, 'Cap', 1), mk(5, 'X', 2, 4, [], '2026-11-02')]); settle();
+    META.sdate = '2026-11-06';
+    sel = 1; msel = new Set([1, 2, 3, 4]); setProgSel(50); eq([byId(1).prog, byId(2).prog, byId(3).prog], [50, 50, 0], 'reperul nu primește 50%'); eq(byId(1).as, '2026-11-06', 'început real completat');
+    setProgSel(100); eq(byId(3).prog, 100); eq(byId(2).af, '2026-11-06');
+    setProgSel(0); markOnTrack(); eq(byId(1).prog, 50, '5 din 10 zile lucrătoare până vineri 6.11'); eq(byId(2).prog, 100, 'B ar fi trebuit să fie gata');
+    eq(byId(3).prog, 100, 'reperul de vineri e atins'); eq(onTrackPct(byId(5)), 100);
+    sel = 4; clearMulti(); const p = byId(5).prog; setProgSel(25); eq(byId(5).prog, p, 'capitolul nu se schimbă');
+    META.sdate = null;
+  });
+
+  test('„Mută proiectul": totul se mută cu aceleași zile lucrătoare, restricțiile și termenele la fel; linia de bază rămâne', () => {
+    newTabWith('MV', [mk(1, 'A', 3, null, [], '2026-11-02', { deadline: '2026-11-20' }), mk(2, 'B', 2, null, [F(1)]), mk(3, 'C', 2, null, [], '2026-11-04', { cons: { type: 'SNET', date: '2026-11-04' } }), mk(4, 'D', 1, null, [], '2026-11-03', { as: '2026-11-03' })], { days: [0, 1, 1, 1, 1, 1, 0], hol: ['2026-11-30'] }); settle(); saveBaseline();
+    eq(projectStart(), '2026-11-02');
+    const n = moveProject('2026-11-25', true); settle();
+    eq(n, 17, '2.11 → 25.11 = 17 zile lucrătoare'); eq(byId(1).sd, '2026-11-25'); eq(byId(2).sd, '2026-12-01', 'B după A (30.11 e liberă)');
+    eq(byId(3).cons.date, '2026-11-27'); eq(byId(3).sd, '2026-11-27'); eq(byId(1).deadline, '2026-12-16', 'termenul: +17 zile lucrătoare, peste ziua liberă'); eq(byId(4).as, '2026-11-26');
+    eq(byId(1).bl.sd, '2026-11-02', 'linia de bază nu se mută');
+    undo(); eq(byId(1).sd, '2026-11-02'); moveProject('2026-10-26', false); eq(byId(1).sd, '2026-10-26'); eq(byId(1).deadline, '2026-11-20', 'termenul rămâne când nu se bifează');
+    eq(moveProject('2026-10-26', true), 0, 'aceeași dată: nimic');
+  });
+
+  test('sortare: rândurile se ordonează în fiecare capitol, structura rămâne; Ctrl+Z revine', () => {
+    newTabWith('SO', [mk(1, 'Cap B', 1), mk(2, 'zeta', 5, 1, [], '2026-11-09'), mk(3, 'Alfa', 2, 1, [], '2026-11-02'), mk(4, 'Cap A', 1), mk(5, 'beta', 1, 4, [], '2026-10-26'), mk(6, 'gama', 3, 4, [], '2026-11-03')]); settle();
+    const order = () => flat().map(t => t.id);
+    sortTasks('sd'); eq(order(), [4, 5, 6, 1, 3, 2], 'capitolul care începe primul, sus; în fiecare capitol după start');
+    eq(byId(2).pid, 1); eq(byId(5).pid, 4, 'părinții rămân');
+    sortTasks('nm'); eq(order(), [4, 5, 6, 1, 3, 2], 'alfabetic, fără să conteze literele mari');
+    sortTasks('dur', true); eq(order(), [1, 2, 3, 4, 6, 5], 'Cap B (10 zile) sus; în el zeta (5) înaintea Alfa (2)');
+    undo(); undo(); undo(); eq(order(), [1, 2, 3, 4, 5, 6]);
+  });
+
   // ---------- extensie pentru funcții viitoare ----------
   const extra = window.__regressionExtra;
   if (typeof extra === 'function') extra({ test, ok, eq, near, skip, wait, F, mk, settle, snap, setProject, confirmYes, key, newTabWith, noTransitions, toasts });

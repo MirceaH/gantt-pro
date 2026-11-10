@@ -267,6 +267,7 @@ function _recomputeAll(){
 }
 
 function renderAll(){
+  if (!_multiOn()) clearMulti();      // selecția multiplă rămasă de la undo / filtru / altă filă nu mai reapare
   updateEmptyState();
   recomputeAll();
   withIndex(() => {                    // desenarea nu schimbă structura lui T: căutările (kids, hasK, dep, taskById) devin O(1)
@@ -519,8 +520,8 @@ function updateEmptyState() {
 }
 
 // ======== SELECȚIE + TASTE ========
-function setSel(id) { sel = id; refreshSelection(); }
-function deselectAll() { if (sel === null) return; sel = null; refreshSelection(); }
+function setSel(id) { sel = id; clearMulti(); _selAnchor = id; refreshSelection(); }
+function deselectAll() { if (sel === null) return; sel = null; clearMulti(); refreshSelection(); }
 
 // Click pe spațiul gol de sub activități (tabel sau Gantt) = nimic selectat
 document.addEventListener("click", e => {
@@ -659,7 +660,7 @@ $("treeLayout").style.display = "none";
 view = "gantt";
 
 // Încarcă proiectele salvate; la prima rulare (sau după ce le închizi pe toate) apare ecranul de bun venit
-dtWrapStatic("atStart"); dtWrapStatic("calHolDate"); dtWrapStatic("stDate"); dtWrapStatic("flFrom"); dtWrapStatic("flTo");
+dtWrapStatic("atStart"); dtWrapStatic("calHolDate"); dtWrapStatic("stDate"); dtWrapStatic("mvDate"); dtWrapStatic("flFrom"); dtWrapStatic("flTo");
 const hadData = loadAllTabs();
 if (!hadData) { tabs = []; activeTabId = null; }
 

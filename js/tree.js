@@ -149,7 +149,7 @@ function renderTree(){
     const sub = n.isCol ? `${n.cnt} ${n.cnt===1?'activitate':'activități'}${critTxt} · ${dateStr}`
               : (n.ms ? `♦ reper · ${dateStr}` : `${n.du} ${n.du===1?'zi':'zile'} · ${dateStr}`);
 
-    svg+=`<g id="node-${n.id}" class="t-node${isSel}${n.crit?" crit":""}" onclick="selTask(${n.id})" ondblclick="treeDbl(${n.id})" oncontextmenu="showCtx(event,${n.id})" onmouseenter="treeTip(event,${n.id})" onmouseleave="hideTip()">`;
+    svg+=`<g id="node-${n.id}" class="t-node${isSel}${n.crit?" crit":""}" onclick="selTask(${n.id},event)" ondblclick="treeDbl(${n.id})" oncontextmenu="showCtx(event,${n.id})" onmouseenter="treeTip(event,${n.id})" onmouseleave="hideTip()">`;
     svg+=`<rect class="nc" x="${n.x}" y="${n.y}" width="${rW}" height="${rH}" rx="10" filter="url(#shadow)"/>`;
     svg+=`<path d="M${n.x+10},${n.y} H${n.x+4} Q${n.x},${n.y} ${n.x},${n.y+10} V${n.y+rH-10} Q${n.x},${n.y+rH} ${n.x+4},${n.y+rH} H${n.x+10} Z" fill="${cFg}" pointer-events="none" opacity=".95"/>`;
     svg+=`<rect x="${n.x}" y="${n.y}" width="6" height="${rH}" fill="${cFg}" rx="3" pointer-events="none"/>`;

@@ -212,13 +212,14 @@ function hideTip(){clearTimeout(tipTimer);tipTimer=null;$("tip").classList.remov
 // Selecția se schimbă fără redesenarea completă (în Gantt): doar clasele rândurilor / barei, săgețile evidențiate și fila Format.
 // La sute de rânduri, redesenarea completă la fiecare click dura 0,5–1,5 s. Arborele are nevoie de redesenare (panoul de detalii).
 function refreshSelection(){
+  if(!_multiOn()) clearMulti();
   if(view!=="gantt"){ renderAll(); return; }
   document.querySelectorAll(".t-row.selected,.g-row.selected").forEach(r=>r.classList.remove("selected"));
   document.querySelectorAll(".gb.active").forEach(b=>b.classList.remove("active"));
-  if(sel!=null){
-    document.querySelectorAll('.t-row[data-tid="'+sel+'"],.g-row[data-gid="'+sel+'"]').forEach(r=>r.classList.add("selected"));
-    const b=document.querySelector('.gb[data-bid="'+sel+'"]'); if(b) b.classList.add("active");
-  }
+  selIds().forEach(id=>{
+    document.querySelectorAll('.t-row[data-tid="'+id+'"],.g-row[data-gid="'+id+'"]').forEach(r=>r.classList.add("selected"));
+    const b=document.querySelector('.gb[data-bid="'+id+'"]'); if(b) b.classList.add("active");
+  });
   unfocusDeps();                                   // scoate evidențierea veche și o pune pe activitatea selectată
   updateInfoBar(sel!=null?T.find(x=>x.id===sel):null);
   if(typeof updateFormatTabVisibility==="function") updateFormatTabVisibility();
@@ -387,9 +388,9 @@ function renderTBody(){
     const onkeyNm  = `onkeydown="if(event.key==='Enter'){this.blur()}if(event.key==='Escape'){renderAll()}"`;
     const onkeyNum = `onkeydown="if(event.key==='Enter'){this.blur()}if(event.key==='Escape'){renderAll()}"`;
 
-    h += '<div class="t-row dp'+dp+(sel===t.id?" selected":"")+(isSumm?" summ":"")+(isMs?" milestone":"")+(!isSumm&&isCrit(t.id)?" crit":"")+'"'
+    h += '<div class="t-row dp'+dp+(isSelId(t.id)?" selected":"")+(isSumm?" summ":"")+(isMs?" milestone":"")+(!isSumm&&isCrit(t.id)?" crit":"")+'"'
        + ' data-tid="'+t.id+'" draggable="true"'
-       + ' onclick="selTask('+t.id+')"'
+       + ' onclick="selTask('+t.id+',event)"'
        + ' ondblclick="event.stopPropagation();if(!event.target.closest(\'input\'))openTaskInfo('+t.id+')"'
        + ' oncontextmenu="showCtx(event,'+t.id+')"'
        + ' onmouseenter="highlightRow('+t.id+')"'
@@ -585,7 +586,7 @@ function renderGantt(){
   o.forEach(t=>{
     const p=ps(t), dp=Math.min(dep(t.id),3), isSumm=hasK(t.id), isMs=!!t.isMilestone && !isSumm;
     const off=dD(cs,p._s), w=Math.max(calSpan(t)*dw,dw), l=off*dw;
-    const sc=sel===t.id?"selected":"", ac=sel===t.id?" active":"", bc=isMs?"milestone":(isSumm?"summ":"task");
+    const _isS=isSelId(t.id), sc=_isS?"selected":"", ac=_isS?" active":"", bc=isMs?"milestone":(isSumm?"summ":"task");
     let bi="", sideAuto=false;
     if(isMs){
       // Milestone: doar diamant + nume lângă
@@ -614,7 +615,7 @@ function renderGantt(){
       ? `left:${(off+1)*dw-9}px;width:auto;`          // reperul (durată 0) stă la finalul zilei lui; rombul de 18 px e centrat pe acel moment
       : `left:${l}px;width:${w}px`;
     rows+='<div class="g-row '+sc+'" data-gid="'+t.id+'" draggable="true"'
-        +' onclick="selTask('+t.id+')"'
+        +' onclick="selTask('+t.id+',event)"'
         +' oncontextmenu="showCtx(event,'+t.id+')"'
         +' onmouseenter="highlightRow('+t.id+')"'
         +' onmouseleave="clearHighlight()">'
@@ -791,7 +792,7 @@ function attachBars(cs,td,dw){
           document.removeEventListener("mouseup",up);
           const ns=fD(aD(orig,Math.round((ev.clientX-sx)/(dw*ZF))));
           if(ns!==t.sd){                                // mutarea unei bare intră în istoric (Ctrl+Z) doar dacă s-a mutat
-            pushHistory(); sel=tid;
+            pushHistory(); sel=tid; clearMulti(); _selAnchor=tid;
             const m=moveStartTo(t,ns);                  // cu legături: mutarea devine decalaj; cu legături moștenite de la capitol: restricție
             if(m) toast(m);
             syncTabData(); renderAll();
@@ -803,7 +804,7 @@ function attachBars(cs,td,dw){
     }
     bar.addEventListener("click",e=>{
       if(e.target.closest(".rs")||e.target.closest(".prog-handle")||e.target.closest(".dep-dot")) return;
-      e.stopPropagation(); sel=sel===tid?null:tid; refreshSelection();
+      e.stopPropagation(); selTask(tid,e);
     });
   });
 

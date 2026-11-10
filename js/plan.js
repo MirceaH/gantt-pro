@@ -287,3 +287,84 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeStatusDate();
   else if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') { e.preventDefault(); saveStatusDate(); }
 });
+
+// ----- Progres rapid pe rândurile selectate (ca butoanele 0–100% și „Mark on Track" din MS Project) -----
+const _progTargets = () => selIds().map(id => T.find(x => x.id === id)).filter(t => t && !hasK(t.id));
+function setProgSel(p) {
+  const list = _progTargets();
+  if (!list.length) { toast('⚠️ Selectează una sau mai multe activități (nu capitole)'); return; }
+  pushHistory();
+  let n = 0;
+  list.forEach(t => {
+    const v = t.isMilestone ? (p >= 100 ? 100 : 0) : clamp(Math.round(p), 0, 100);   // reperul e atins sau nu
+    if (t.prog === v) return;
+    const old = t.prog; t.prog = v; _syncActuals(t, old); n++;
+  });
+  syncTabData(); renderAll();
+  const msNote = (p > 0 && p < 100 && list.some(t => t.isMilestone)) ? ' (reperele: doar 0 sau 100%)' : '';
+  toast((n ? '📊 Progres ' + p + '%' + (list.length > 1 ? ' pe ' + n + ' activități' : '') : 'ℹ️ Nimic de schimbat la ' + p + '%') + msNote);
+}
+// „Pe drum": progresul = partea din activitate care ar fi trebuit lucrată până la data de status (inclusiv)
+function onTrackPct(t) {
+  if (t.isMilestone) return pD(t.sd) <= pD(statusDay()) ? 100 : 0;
+  const s = pD(t.sd), e = endDate(t), st = pD(statusDay());
+  if (st < s) return 0;
+  if (st >= e) return 100;
+  return clamp(Math.round(workDur(s, st) / Math.max(1, t.dur) * 100), 0, 100);
+}
+function markOnTrack() {
+  const list = _progTargets();
+  if (!list.length) { toast('⚠️ Selectează una sau mai multe activități (nu capitole)'); return; }
+  pushHistory();
+  list.forEach(t => { const old = t.prog; t.prog = onTrackPct(t); if (t.prog !== old) _syncActuals(t, old); });
+  syncTabData(); renderAll();
+  toast('🎯 Pe drum la ' + fmtDate(pD(statusDay())) + (list.length === 1 ? ': ' + list[0].prog + '%' : ' (' + list.length + ' activități)'));
+}
+
+// ----- „Mută proiectul" (ca Project › Move Project): tot planul la o nouă dată de început -----
+// Se mută cu același număr de ZILE LUCRĂTOARE: startul, restricțiile, termenele limită și datele reale.
+// Linia de bază rămâne (planul inițial nu se schimbă), la fel data de status.
+const projectStart = () => { const l = T.filter(t => !hasK(t.id)).map(t => t.sd).sort(); return l.length ? l[0] : null; };
+function _workDelta(fromISO, toISO) {
+  const a = nextWork(pD(fromISO)), b = nextWork(pD(toISO));
+  if (+a === +b) return 0;
+  return b > a ? workDur(a, b) - 1 : -(workDur(b, a) - 1);
+}
+function moveProject(toISO, moveDeadlines) {
+  const from = projectStart();
+  if (!from || !ISO_RE.test(toISO || '')) return 0;
+  const n = _workDelta(from, toISO);
+  if (!n) return 0;
+  const sh = iso => fD(addWorkDays(pD(iso), n));
+  pushHistory();
+  T.forEach(t => {
+    if (!hasK(t.id) && t.sd) t.sd = sh(t.sd);
+    if (t.cons && t.cons.date) { t.cons.date = sh(t.cons.date); if (t.cons.o) t.cons.o = sh(t.cons.o); }
+    if (moveDeadlines && t.deadline) t.deadline = sh(t.deadline);
+    if (t.as) t.as = sh(t.as);
+    if (t.af) t.af = sh(t.af);
+  });
+  syncTabData(); renderAll();
+  return n;
+}
+function openMoveProject() {
+  if (!tabs.length || !T.length) { toast('ℹ️ Proiectul nu are activități'); return; }
+  const s = projectStart();
+  $('mvCur').textContent = s ? fmtDate(pD(s)) : '—';
+  dtSet('mvDate', s || fD(new Date()));
+  $('mvDeadlines').checked = true;
+  $('moveModal').classList.add('open');
+}
+function closeMoveProject() { $('moveModal').classList.remove('open'); }
+function saveMoveProject() {
+  const v = $('mvDate').value;
+  if (!ISO_RE.test(v)) { toast('⚠️ Alege data nouă de început'); return; }
+  const n = moveProject(v, $('mvDeadlines').checked);
+  closeMoveProject();
+  toast(n ? '📆 Proiectul începe pe ' + fmtDate(pD(projectStart())) + ' (' + (n > 0 ? '+' : '') + n + ' zile lucrătoare)' : 'ℹ️ Proiectul începe deja la această dată');
+}
+document.addEventListener('keydown', e => {
+  const m = $('moveModal'); if (!m || !m.classList.contains('open')) return;
+  if (e.key === 'Escape') closeMoveProject();
+  else if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') { e.preventDefault(); saveMoveProject(); }
+});

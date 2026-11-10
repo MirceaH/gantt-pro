@@ -18,12 +18,35 @@ let _summaryOnly = false;     // toggle per tab
 // ============================================================
 function cutTask() {
   if (!sel) { toast('⚠️ Selectează un task'); return; }
+  if (selIds().length > 1) { copyTask(); return; }   // același mesaj: un singur rând
   // la un capitol, copierea și mesajul vin abia după confirmarea ștergerii
   delSel(() => { copyTask(); setTimeout(() => toast('✂️ Tăiat în clipboard'), 0); });
 }
 
+// ----- Sortare (ca View › Sort din MS Project, „păstrează structura"): rândurile se ordonează în fiecare capitol -----
+const SORT_KEYS = {
+  sd:   { nm: 'Start',            v: t => t.sd },
+  fin:  { nm: 'Final',            v: t => fD(endDate(t)) },
+  dur:  { nm: 'Durată',           v: t => (t.isMilestone && !hasK(t.id)) ? 0 : t.dur },
+  nm:   { nm: 'Nume',             v: t => String(t.nm || ''), txt: true },
+  prog: { nm: 'Progres',          v: t => t.prog || 0 },
+  fl:   { nm: 'Rezervă',          v: t => hasK(t.id) ? Math.min(1e9, ...allD(t.id).map(id => cpm[id] ? cpm[id].float : 1e9)) : (cpm[t.id] ? cpm[t.id].float : 1e9) },   // capitolul: cea mai mică rezervă din el
+  cost: { nm: 'Cost',             v: t => (typeof costMap !== 'undefined' && costMap[t.id]) || 0 }
+};
+function sortTasks(key, desc) {
+  const k = SORT_KEYS[key]; if (!k || !T.length) return;
+  if (typeof structLocked === 'function' && structLocked()) return;
+  const cmp = (a, b) => { const x = k.v(a), y = k.v(b); const r = k.txt ? x.localeCompare(y, 'ro', { sensitivity: 'base', numeric: true }) : (x < y ? -1 : x > y ? 1 : 0); return desc ? -r : r; };
+  const before = T.map(t => t.id).join();
+  const sorted = T.slice().sort(cmp);              // sortare stabilă: în fiecare capitol (kids păstrează ordinea din T) rândurile ajung în ordinea cerută
+  if (sorted.map(t => t.id).join() === before) { toast('ℹ️ Rândurile sunt deja în ordinea „' + k.nm + '"'); return; }
+  pushHistory(); T = sorted; syncTabData(); renderAll();
+  toast('↕ Sortat după ' + k.nm + (desc ? ' (descrescător)' : '') + ' · Ctrl+Z anulează');
+}
+
 function copyTask() {
   if (!sel) { toast('⚠️ Selectează un task'); return; }
+  if (selIds().length > 1) { toast('ℹ️ Copierea / tăierea merge pe un rând (un capitol se copiază cu tot ce conține)'); return; }
   const ids = [sel, ...allD(sel)];
   const tasks = T.filter(t => ids.includes(t.id)).map(t => JSON.parse(JSON.stringify(t)));
   _clipboard = { tasks, rootId: sel };
@@ -289,8 +312,38 @@ function toggleSummaryOnly() {
 // ============================================================
 // UNLINK — șterge toate dependențele task-ului selectat
 // ============================================================
+// „Leagă activitățile" (Ctrl+F2, ca în MS Project): rândurile selectate, în ordinea din tabel, se leagă în lanț FS
+function linkSelected() {
+  const ids = selIds();
+  if (ids.length < 2) { toast('⚠️ Selectează cel puțin două activități (Ctrl+click sau Shift+click pe rânduri)'); return; }
+  const h0 = _history.slice(), f0 = _future.slice();
+  pushHistory();
+  let added = 0, bad = 0, had = 0;
+  for (let i = 0; i + 1 < ids.length; i++) {
+    const pred = ids[i], t = T.find(x => x.id === ids[i + 1]); if (!t) continue;
+    if (!t.deps) t.deps = [];
+    if (t.deps.some(d => d.id === pred)) { had++; continue; }
+    if (isD(t.id, pred) || isD(pred, t.id) || wouldCreateCycle(pred, t.id)) { bad++; continue; }
+    t.deps.push({ id: pred, type: 'FS', lag: 0 }); added++;
+  }
+  if (!added) { _history = h0; _future = f0; updateUndoRedoBtns(); }
+  else { syncTabData(); renderAll(); }
+  toast(added ? '🔗 ' + added + (added === 1 ? ' legătură FS' : ' legături FS') + ' create' + (bad ? ' · ' + bad + ' ignorate (buclă sau capitolul propriu)' : '')
+              : (bad ? '🚫 Legăturile ar crea o buclă sau ar lega o activitate de capitolul ei' : 'ℹ️ Activitățile sunt deja legate'));
+}
+
 function unlinkSelected() {
   if (!sel) { toast('⚠️ Selectează un task'); return; }
+  const many = selIds();
+  if (many.length > 1) {          // mai multe rânduri: se șterg doar legăturile dintre ele (ca în MS Project)
+    const S = new Set(many); let n = 0;
+    T.forEach(x => { if (S.has(x.id) && x.deps) n += x.deps.filter(d => S.has(d.id)).length; });
+    if (!n) { toast('ℹ️ Nicio legătură între rândurile selectate'); return; }
+    pushHistory();
+    T.forEach(x => { if (S.has(x.id) && x.deps) x.deps = x.deps.filter(d => !S.has(d.id)); });
+    syncTabData(); renderAll(); toast('🔓 ' + n + (n === 1 ? ' legătură ștearsă' : ' legături șterse') + ' între rândurile selectate');
+    return;
+  }
   const t = T.find(x => x.id === sel);
   if (!t) return;
   if (!t.deps) t.deps = [];
@@ -580,7 +633,7 @@ function exportMSProject() {
 }
 
 function _msXmlEscape(s) {
-  return String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+  return String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 }
 
 function _msXmlDate(s) {
@@ -788,4 +841,16 @@ document.addEventListener('keydown', function(e) {
   if ((e.ctrlKey || e.metaKey) && e.key === 'x' && sel) { e.preventDefault(); cutTask(); }
   else if ((e.ctrlKey || e.metaKey) && e.key === 'c' && sel) { e.preventDefault(); copyTask(); }
   else if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); pasteTask(); }
+  else if (document.querySelector('.modal-overlay.open') || !tabs.length) return;
+  else if ((e.ctrlKey || e.metaKey) && e.key === 'F2') { e.preventDefault(); if (e.shiftKey) unlinkSelected(); else linkSelected(); }
+  else if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'a' || e.key === 'A') && view === 'gantt') { e.preventDefault(); selectAllRows(); }
 });
+
+// Ctrl+A: toate rândurile vizibile
+function selectAllRows() {
+  const o = viewRows(); if (!o.length) return;
+  msel = new Set(o.map(t => t.id));
+  if (sel == null || !msel.has(sel)) sel = o[0].id;
+  _selAnchor = o[0].id; refreshSelection();
+  toast('☑ ' + o.length + ' rânduri selectate');
+}
