@@ -1645,7 +1645,9 @@
     let err = ''; try { _parseMSProjectXML('<Project><Tasks>'); } catch (e) { err = e.message; } ok(/XML valid/.test(err), 'XML stricat: ' + err);
     err = ''; try { _parseMSProjectXML('<?xml version="1.0"?><Workbook/>'); } catch (e) { err = e.message; } ok(/MS Project/.test(err), 'alt fel de XML: ' + err);
     const pct = _parseMSProjectXML('<Project><Tasks><Task><UID>1</UID><Name>X</Name><OutlineLevel>1</OutlineLevel><Start>2026-11-02T08:00:00</Start><Duration>PT16H0M0S</Duration></Task><Task><UID>2</UID><Name>Y</Name><OutlineLevel>1</OutlineLevel><Start>2026-11-04T08:00:00</Start><Duration>PT8H0M0S</Duration><PredecessorLink><PredecessorUID>1</PredecessorUID><Type>1</Type><LinkLag>500</LinkLag><LagFormat>19</LagFormat></PredecessorLink><PredecessorLink><PredecessorUID>99</PredecessorUID></PredecessorLink></Task></Tasks></Project>');
-    eq(pct.tasks.map(t => t.dur), [2, 1]); eq(pct.tasks[1].deps, [{ id: 1, type: 'FS', lag: 0 }]); ok(pct.warn.some(w => /procente/.test(w)) && pct.warn.some(w => /alte proiecte/.test(w)), 'avertismente');
+    eq(pct.tasks.map(t => t.dur), [2, 1]); eq(pct.tasks[1].deps, [{ id: 1, type: 'FS', lag: 500, pct: true }], 'decalajul în procente (LagFormat 19)');
+    const pc2 = _parseMSProjectXML('<Project><Tasks><Task><UID>1</UID><Name>X</Name><OutlineLevel>1</OutlineLevel><Start>2026-11-02T08:00:00</Start><Duration>PT8H0M0S</Duration></Task><Task><UID>2</UID><Name>Y</Name><OutlineLevel>1</OutlineLevel><Start>2026-11-04T08:00:00</Start><Duration>PT8H0M0S</Duration><PredecessorLink><PredecessorUID>1</PredecessorUID><Type>1</Type><LinkLag>99999</LinkLag><LagFormat>20</LagFormat></PredecessorLink></Task></Tasks></Project>');
+    eq(pc2.tasks[1].deps, [{ id: 1, type: 'FS', lag: 1000, pct: true }], 'procentul plafonat la import'); ok(pc2.warn.some(w => /calendaristic/.test(w)), 'procentul „scurs” are avertisment'); ok(pct.warn.some(w => /alte proiecte/.test(w)), 'avertismente');
     // costurile MS Project sunt în bani (×100): costul de bază 2400 RON se scrie 240000 și se citește înapoi 2400
     ok(/<Baseline><Number>0<\/Number>[^]*?<Cost>\d+00<\/Cost>/.test(xml), 'costul de bază în bani');
     const bx = _parseMSProjectXML('<Project><Tasks><Task><UID>1</UID><Name>A</Name><OutlineLevel>1</OutlineLevel><Start>2026-11-02T08:00:00</Start><Duration>PT8H0M0S</Duration><Baseline><Number>0</Number><Start>2026-11-02T08:00:00</Start><Duration>PT8H0M0S</Duration><Cost>240000</Cost></Baseline></Task></Tasks></Project>');
@@ -1751,11 +1753,21 @@
     const h = _history.length; upd(3, 'dur', '2s'); eq(byId(3).dur, 10, '2 săptămâni = 10 zile lucrătoare'); upd(3, 'dur', 'xyz'); eq(byId(3).dur, 10); eq(_history.length, h + 1, 'durata greșită nu lasă pas de anulare');
     openTaskInfo(3); $('tiDur').value = '1l'; $('tiDur').dispatchEvent(new Event('input')); eq($('tiEnd').value, fD(endDate({ sd: byId(3).sd, dur: 20 })), 'Detalii: 1 lună'); $('tiSaveBtn').click(); eq(byId(3).dur, 20);
     const doc = new DOMParser().parseFromString(_buildMSProjectXML('UN'), 'application/xml');
-    eq([...doc.getElementsByTagName('LinkLag')].map(x => x.textContent), ['24000'], 'exportul: 5 zile = 24000 zecimi de minut');
+    eq([...doc.getElementsByTagName('LinkLag')].map(x => x.textContent), ['50'], 'exportul: procentul, ca în MS Project'); eq([...doc.getElementsByTagName('LagFormat')].map(x => x.textContent), ['19']);
     renderAll(); const row = document.querySelector('.t-row[data-tid="2"] .dep-count'); ok(/SS\+50%/.test(row.getAttribute('title')), 'tabelul arată SS+50%');
     eq(_parseDepToken('1.2' + depLabel({ type: 'SS', lag: 50, pct: true })), { wbs: '1.2', type: 'SS', lag: 50, pct: true }, 'textul din Excel / CSV se citește înapoi');
     moveStartTo(byId(2), '2026-11-11'); eq(byId(2).deps[0], { id: 1, type: 'SS', lag: 7 }, 'mutarea cu mâna transformă procentul în zile');
     newTabWith('UN2', [mk(1, 'A', 10, null, [], '2026-11-02'), mk(2, 'Cap', 1, null, [{ id: 1, type: 'SS', lag: 50, pct: true }]), mk(3, 'X', 2, 2)]); settle(); eq(byId(3).sd, '2026-11-09', 'procentul și pe legătura moștenită de la capitol');
+  });
+
+  test('import MS Project: calendar 7 din 7, concediu de resursă și decalaj în procente (fișier salvat de MS Project)', async () => {
+    const txt = await (await fetch('tests/fixtures/msproject-saved-cal.xml', { cache: 'no-store' })).text();
+    importMSProjectText(txt, 'x'); settle();
+    const by = n => T.find(t => t.nm === n);
+    eq(CAL.cals.map(c => [c.nm, c.days.join('')]), [['7 din 7', '1111111']]); eq(by('Betonare 7/7').cal, CAL.cals[0].id); ok(!by('Decofrare').cal);
+    eq(RES.list[0].off, ['2026-11-04', '2026-11-05'], 'concediul lui Ion, din calendarul resursei');
+    eq(by('Tencuiala').deps.map(d => [d.type, d.lag, !!d.pct]), [['SS', 50, true]], 'SS+50% rămâne în procente');
+    eq([fD(endDate(by('Betonare 7/7'))), by('Decofrare').sd, fD(endDate(by('Zidarie Ion'))), fD(endDate(by('Tencuiala')))], ['2026-11-10', '2026-11-11', '2026-11-09', '2026-11-10'], 'aceleași finaluri ca în MS Project');
   });
 
   // ---------- extensie pentru funcții viitoare ----------

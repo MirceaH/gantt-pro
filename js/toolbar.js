@@ -713,7 +713,7 @@ function _parseMSProjectXML(text) {
   const raw = kidsOf(one(root, 'Tasks'), 'Task').filter(x => val(x, 'IsNull') !== '1' && val(x, 'UID') !== '' && val(x, 'UID') !== '0' && num(x, 'OutlineLevel', 1) >= 1);
   const uid2id = {}, tasks = [], stack = [], fileStart = {};
   raw.forEach((x, i) => { uid2id[val(x, 'UID')] = i + 1; });
-  let lagPct = 0, lagEl = 0, lagFrac = 0, extLinks = 0;
+  let lagEl = 0, lagFrac = 0, extLinks = 0;
   raw.forEach((x, i) => {
     const id = i + 1, lvl = Math.max(1, Math.round(num(x, 'OutlineLevel', 1)));
     while (stack.length && stack[stack.length - 1].lvl >= lvl) stack.pop();
@@ -745,16 +745,17 @@ function _parseMSProjectXML(text) {
     kidsOf(x, 'PredecessorLink').forEach(l => {
       const pred = val(l, 'CrossProject') === '1' ? null : uid2id[val(l, 'PredecessorUID')];
       if (!pred) { extLinks++; return; }
-      const fmt = num(l, 'LagFormat', 7);
+      const fmt = num(l, 'LagFormat', 7), type = typeRev[val(l, 'Type')] || 'FS';
+      // decalaj în procente din durata predecesorului: LinkLag = procentul simplu (verificat în MS Project: SS+50% → LinkLag 50, LagFormat 19)
+      if (fmt === 20 || fmt === 52) lagEl++;                                          // procent „scurs" (calendaristic): îl luăm ca procent obișnuit, cu avertisment
+      if (fmt === 19 || fmt === 20 || fmt === 51 || fmt === 52) { t.deps.push({ id: pred, type, lag: clamp(Math.round(num(l, 'LinkLag', 0)), -1000, 1000), pct: true }); return; }
       let lag = num(l, 'LinkLag', 0) / (minPerDay * 10);        // zecimi de minut → zile lucrătoare
-      if (fmt === 19 || fmt === 20 || fmt === 51 || fmt === 52) { lagPct++; lag = 0; }   // decalaj în procente: încă nu îl avem
-      else if ([6, 8, 10, 12, 54, 56, 58, 60].includes(fmt)) lagEl++;                     // decalaj în timp „scurs" (calendaristic): îl luăm în zile lucrătoare
+      if ([6, 8, 10, 12, 54, 56, 58, 60].includes(fmt)) lagEl++;                     // decalaj în timp „scurs" (calendaristic): îl luăm în zile lucrătoare
       if (Math.abs(lag - Math.round(lag)) > 0.01) lagFrac++;                               // decalaj în ore: se rotunjește la zile întregi
-      t.deps.push({ id: pred, type: typeRev[val(l, 'Type')] || 'FS', lag: clamp(Math.round(lag), -36500, 36500) });
+      t.deps.push({ id: pred, type, lag: clamp(Math.round(lag), -36500, 36500) });
     });
     tasks.push(t);
   });
-  if (lagPct) warn.push(lagPct + (lagPct === 1 ? ' decalaj în procente pus pe 0' : ' decalaje în procente puse pe 0'));
   if (lagEl) warn.push(lagEl + (lagEl === 1 ? ' decalaj calendaristic luat' : ' decalaje calendaristice luate') + ' în zile lucrătoare');
   if (lagFrac) warn.push(lagFrac + (lagFrac === 1 ? ' decalaj în ore rotunjit' : ' decalaje în ore rotunjite') + ' la zile întregi');
   if (extLinks) warn.push(extLinks + ' legături către alte proiecte ignorate');
@@ -868,7 +869,7 @@ function _buildMSProjectXML(projectName) {
       // Datele reale: MS Project le cere pentru progres > 0 (altfel le inventează și raportează conflicte de planificare)
       const aS = !isSumm ? (t.as || (t.prog > 0 ? t.sd : '')) : '', aF = !isSumm ? (t.af || (t.prog >= 100 ? end : '')) : '';
       const bl = (!isSumm && t.bl) ? `<Baseline><Number>0</Number><Start>${_msXmlDate(t.bl.sd)}</Start><Finish>${_msFin(fD(endDate({ sd: t.bl.sd, dur: t.bl.dur })))}</Finish><Duration>${_msDur(isMs ? 0 : t.bl.dur)}</Duration>${t.bl.cost != null ? `<Cost>${Math.round(t.bl.cost * 100)}</Cost>` : ''}</Baseline>` : '';
-      const links = (t.deps || []).map(d => `<PredecessorLink><PredecessorUID>${d.id}</PredecessorUID><Type>${typeMap[d.type] ?? 1}</Type><CrossProject>0</CrossProject><LinkLag>${Math.round(lagDays(d) * 4800)}</LinkLag><LagFormat>7</LagFormat></PredecessorLink>`).join('');   // decalajul în procente iese în zile (sigur la import în MS Project)
+      const links = (t.deps || []).map(d => `<PredecessorLink><PredecessorUID>${d.id}</PredecessorUID><Type>${typeMap[d.type] ?? 1}</Type><CrossProject>0</CrossProject>${d.pct ? `<LinkLag>${Math.round(+d.lag || 0)}</LinkLag><LagFormat>19</LagFormat>` : `<LinkLag>${Math.round((+d.lag || 0) * 4800)}</LinkLag><LagFormat>7</LagFormat>`}</PredecessorLink>`).join('');   // procentul: LinkLag = procentul simplu, LagFormat 19 (ca MS Project)
       tasksXml += `
     <Task><UID>${t.id}</UID><ID>${ids[t.id] || t.id}</ID><Name>${X(t.nm)}</Name><Type>${ttMap[t.ttype] ?? 0}</Type><IsNull>0</IsNull><CreateDate>${now}</CreateDate>
       <WBS>${X(w[t.id] || '')}</WBS><OutlineNumber>${X(w[t.id] || '')}</OutlineNumber><OutlineLevel>${dep(t.id) + 1}</OutlineLevel><Priority>500</Priority>
