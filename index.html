@@ -149,11 +149,12 @@
               </div>
             </div>
             <div class="rb-dd keep">
-              <button class="rb-btn rb-btn-big keep" onclick="toggleDD(this)" title="Importă o listă de activități din Excel / CSV sau un proiect salvat (JSON) — într-un tab nou">
+              <button class="rb-btn rb-btn-big keep" onclick="toggleDD(this)" title="Importă o listă de activități din Excel / CSV, un proiect din MS Project (XML) sau o copie JSON — într-un tab nou">
                 <svg class="ic"><use href="#i-folder"/></svg><span class="rb-lbl">Import</span><svg class="ic ic-s"><use href="#i-chevdown"/></svg>
               </button>
               <div class="rb-menu">
                 <button title="Citește activități dintr-un fișier Excel sau CSV, într-un proiect nou" onclick="closeDD();importSheet()"><span>Din Excel / CSV…</span></button>
+                <button title="Deschide un proiect salvat din Microsoft Project ca XML (Fișier › Salvare ca › XML): activități, legături, calendar, resurse, progres și linia de bază, într-un proiect nou" onclick="closeDD();importMSProject()"><span>Din MS Project (XML)…</span></button>
                 <button title="Redeschide o copie de siguranță JSON, într-un proiect nou" onclick="closeDD();importJSONasTab()"><span>Din JSON (copie de siguranță)…</span></button>
               </div>
             </div>

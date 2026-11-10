@@ -632,6 +632,167 @@ function exportMSProject() {
   });
 }
 
+
+// ============================================================
+// IMPORT DIN MS PROJECT (XML, schema „http://schemas.microsoft.com/project") — inversul exportului de mai sus
+// ============================================================
+// Citește: activitățile (ierarhia din OutlineLevel, durate, repere, progres, restricții, termene, note, date reale, linia de bază 0),
+// legăturile (tip + decalaj în zecimi de minut), calendarul proiectului (zile lucrătoare + zile libere), resursele și atribuirile.
+// Rezultatul trece prin aceeași sanitizare ca orice fișier (addNewTab → loadTabData → _sanitizeTasks / setCal / setRes).
+function _parseMSProjectXML(text) {
+  const doc = new DOMParser().parseFromString(String(text || ''), 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('Fișierul nu e un XML valid');
+  const root = doc.documentElement;
+  if (!root || root.localName !== 'Project') throw new Error('Nu e un fișier MS Project XML (lipsește <Project>)');
+  const kidsOf = (el, tag) => el ? [...el.children].filter(c => c.localName === tag) : [];
+  const one = (el, tag) => kidsOf(el, tag)[0] || null;
+  const val = (el, tag) => { const c = one(el, tag); return c ? c.textContent.trim() : ''; };
+  const num = (el, tag, d) => { const v = parseFloat(val(el, tag)); return Number.isFinite(v) ? v : d; };
+  const day = s => (/^\d{4}-\d{2}-\d{2}/.test(s || '') ? s.slice(0, 10) : '');
+  const mpd = num(root, 'MinutesPerDay', 480), minPerDay = mpd > 0 ? mpd : 480;
+  // durată ISO 8601 (PT40H0M0S, P2DT4H…) → ore
+  const hours = s => { const m = /^-?P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(s || ''); return m ? (+m[1] || 0) * 24 + (+m[2] || 0) + (+m[3] || 0) / 60 + (+m[4] || 0) / 3600 : null; };
+  const warn = [];
+
+  // --- calendarul proiectului ---
+  const cals = kidsOf(one(root, 'Calendars'), 'Calendar'), calUid = val(root, 'CalendarUID');
+  const first = cals.find(c => val(c, 'UID') === calUid) || cals.find(c => val(c, 'IsBaseCalendar') === '1') || cals[0];
+  const cal = { days: [0, 1, 1, 1, 1, 1, 0], hol: [] }, hol = new Set();
+  let holCap = false;                                        // fișier ostil: plafon de zile libere
+  const addRange = (from, to) => { const a = day(from), b = day(to) || a; if (!a) return; for (let d = pD(a), n = 0; fD(d) <= b && n < 3660; d = aD(d, 1), n++) { if (hol.size >= 20000) { holCap = true; return; } hol.add(fD(d)); } };
+  // un calendar derivat moștenește din calendarul lui de bază: aplicăm întâi baza, apoi ce schimbă el
+  const chain = [];
+  for (let c = first; c && !chain.includes(c) && chain.length < 10; c = cals.find(x => val(x, 'UID') === val(c, 'BaseCalendarUID') && x !== c)) chain.unshift(c);
+  let rec = 0;
+  chain.forEach(base => {
+    kidsOf(one(base, 'WeekDays'), 'WeekDay').forEach(w => {
+      const t = num(w, 'DayType', -1), work = val(w, 'DayWorking') === '1';
+      if (t >= 1 && t <= 7) cal.days[t - 1] = work ? 1 : 0;
+      else if (t === 0 && !work) { const tp = one(w, 'TimePeriod'); if (tp) addRange(val(tp, 'FromDate'), val(tp, 'ToDate')); }
+    });
+    // formatul nou (Project 2007+): <Exceptions><Exception> — doar excepțiile nelucrătoare pe un interval (fără recurență)
+    kidsOf(one(base, 'Exceptions'), 'Exception').forEach(x => {
+      if (val(x, 'DayWorking') === '1') return;
+      const tp = one(x, 'TimePeriod'); if (!tp) return;
+      if (!val(x, 'Type') || num(x, 'Type', 1) === 1) addRange(val(tp, 'FromDate'), val(tp, 'ToDate')); else rec++;
+    });
+  });
+  if (rec) warn.push(rec + ' excepții recurente din calendar ignorate (adaugă-le din Calendar)');
+  if (!cal.days.some(Boolean)) cal.days = [0, 1, 1, 1, 1, 1, 0];
+  cal.hol = [...hol].sort();
+  if (holCap) warn.push('prea multe zile libere în calendar: s-au păstrat primele 20 000');
+
+  // --- activitățile ---
+  const consRev = { 1: 'ALAP', 2: 'MSO', 3: 'MFO', 4: 'SNET', 5: 'SNLT', 6: 'FNET', 7: 'FNLT' };
+  const typeRev = { 0: 'FF', 1: 'FS', 2: 'SF', 3: 'SS' }, ttRev = { 0: 'fu', 1: 'fd', 2: 'fw' };
+  const raw = kidsOf(one(root, 'Tasks'), 'Task').filter(x => val(x, 'IsNull') !== '1' && val(x, 'UID') !== '' && val(x, 'UID') !== '0' && num(x, 'OutlineLevel', 1) >= 1);
+  const uid2id = {}, tasks = [], stack = [], fileStart = {};
+  raw.forEach((x, i) => { uid2id[val(x, 'UID')] = i + 1; });
+  let lagPct = 0, lagEl = 0, lagFrac = 0, extLinks = 0;
+  raw.forEach((x, i) => {
+    const id = i + 1, lvl = Math.max(1, Math.round(num(x, 'OutlineLevel', 1)));
+    while (stack.length && stack[stack.length - 1].lvl >= lvl) stack.pop();
+    const pid = stack.length ? stack[stack.length - 1].id : null;
+    stack.push({ id, lvl });
+    const h = hours(val(x, 'Duration')), start = day(val(x, 'Start')), finish = day(val(x, 'Finish'));
+    const ms = val(x, 'Milestone') === '1' || (h === 0 && val(x, 'Summary') !== '1');   // durată 0 = reper (ca în MS Project)
+    let dur = h != null ? Math.min(36500, Math.round(Math.max(0, h) * 60 / minPerDay)) : 0;
+    if (!ms && dur < 1) dur = 1;
+    const nm = (val(x, 'Name') || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 250) || 'Activitate';
+    const t = { id, nm, sd: start || finish, dur: ms ? 1 : dur, prog: Math.round(num(x, 'PercentComplete', 0)), pid, deps: [] };
+    if (ms) { t.isMilestone = true; if (finish) t.sd = finish; }     // reperul (durată 0) stă la finalul zilei lui
+    fileStart[id] = t.sd;
+    const tt = ttRev[val(x, 'Type')]; if (tt && tt !== 'fu') t.ttype = tt;
+    const notes = val(x, 'Notes'); if (notes) t.notes = notes.slice(0, 5000);
+    const dl = day(val(x, 'Deadline')); if (dl) t.deadline = dl;
+    const ct = consRev[val(x, 'ConstraintType')], cd = day(val(x, 'ConstraintDate'));
+    if (ct === 'ALAP') t.cons = { type: 'ALAP' }; else if (ct && cd) t.cons = { type: ct, date: cd };
+    const as = day(val(x, 'ActualStart')), af = day(val(x, 'ActualFinish'));
+    if (!ms && as) t.as = as;
+    if (!ms && af) t.af = af;
+    const bl = kidsOf(x, 'Baseline').find(b => val(b, 'Number') === '0' || val(b, 'Number') === '');
+    if (bl && day(val(bl, 'Start'))) {
+      const bh = hours(val(bl, 'Duration')), b = { sd: day(val(bl, 'Start')), dur: Math.max(1, bh != null ? Math.round(bh * 60 / minPerDay) : 1) };
+      const bc = parseFloat(val(bl, 'Cost')); if (Number.isFinite(bc)) b.cost = Math.max(0, bc) / 100;   // MS Project ține costurile în bani (×100)
+      t.bl = b;
+    }
+    kidsOf(x, 'PredecessorLink').forEach(l => {
+      const pred = val(l, 'CrossProject') === '1' ? null : uid2id[val(l, 'PredecessorUID')];
+      if (!pred) { extLinks++; return; }
+      const fmt = num(l, 'LagFormat', 7);
+      let lag = num(l, 'LinkLag', 0) / (minPerDay * 10);        // zecimi de minut → zile lucrătoare
+      if (fmt === 19 || fmt === 20 || fmt === 51 || fmt === 52) { lagPct++; lag = 0; }   // decalaj în procente: încă nu îl avem
+      else if ([6, 8, 10, 12, 54, 56, 58, 60].includes(fmt)) lagEl++;                     // decalaj în timp „scurs" (calendaristic): îl luăm în zile lucrătoare
+      if (Math.abs(lag - Math.round(lag)) > 0.01) lagFrac++;                               // decalaj în ore: se rotunjește la zile întregi
+      t.deps.push({ id: pred, type: typeRev[val(l, 'Type')] || 'FS', lag: clamp(Math.round(lag), -36500, 36500) });
+    });
+    tasks.push(t);
+  });
+  if (lagPct) warn.push(lagPct + (lagPct === 1 ? ' decalaj în procente pus pe 0' : ' decalaje în procente puse pe 0'));
+  if (lagEl) warn.push(lagEl + (lagEl === 1 ? ' decalaj calendaristic luat' : ' decalaje calendaristice luate') + ' în zile lucrătoare');
+  if (lagFrac) warn.push(lagFrac + (lagFrac === 1 ? ' decalaj în ore rotunjit' : ' decalaje în ore rotunjite') + ' la zile întregi');
+  if (extLinks) warn.push(extLinks + ' legături către alte proiecte ignorate');
+  const hasKid = new Set(tasks.map(t => t.pid).filter(p => p != null));
+  tasks.forEach(t => {
+    // capitolele își iau datele din activități; pe ele rămân doar legăturile FS / SS (ca la noi)
+    if (hasKid.has(t.id)) { ['cons', 'as', 'af', 'bl', 'ttype', 'isMilestone', 'deadline'].forEach(k => delete t[k]); t.dur = 1; t.deps = t.deps.filter(d => d.type === 'FS' || d.type === 'SS'); return; }
+    // fără legături, „nu începe înainte de" exact la start e doar felul în care MS Project fixează data (la noi startul rămâne oricum)
+    if (t.cons && t.cons.type === 'SNET' && !t.deps.length && t.cons.date <= t.sd) delete t.cons;
+  });
+
+  // --- resursele și atribuirile ---
+  const rTypeRev = { 1: 'work', 0: 'material', 2: 'cost' }, rid = {}, list = [];
+  kidsOf(one(root, 'Resources'), 'Resource').forEach(r => {
+    if (val(r, 'IsNull') === '1' || val(r, 'UID') === '0' || !val(r, 'Name')) return;
+    const type = rTypeRev[val(r, 'Type')] || 'work', id = list.length + 1;
+    rid[val(r, 'UID')] = { id, type };
+    const n = { id, name: val(r, 'Name'), type, rate: type === 'cost' ? 0 : Math.max(0, num(r, 'StandardRate', 0)) };
+    if (type === 'work') n.max = Math.round(Math.max(0, num(r, 'MaxUnits', 1)) * 100);
+    if (type === 'material' && val(r, 'MaterialLabel')) n.unit = val(r, 'MaterialLabel');
+    list.push(n);
+  });
+  const byUid = new Map(tasks.map(t => [t.id, t]));
+  kidsOf(one(root, 'Assignments'), 'Assignment').forEach(a => {
+    const t = byUid.get(uid2id[val(a, 'TaskUID')]), r = rid[val(a, 'ResourceUID')];
+    if (!t || !r || hasKid.has(t.id)) return;
+    let units;
+    if (r.type === 'work') units = Math.round(num(a, 'Units', 1) * 100);
+    else if (r.type === 'material') { units = num(a, 'Units', NaN); if (!Number.isFinite(units)) { const wh = hours(val(a, 'Work')); units = wh != null ? wh : 0; } }
+    else units = num(a, 'Cost', 0) / 100;                               // costul: în bani (×100)
+    if (!t.assign) t.assign = [];
+    if (!t.assign.some(x => x.rid === r.id)) t.assign.push({ rid: r.id, units: Math.max(0, units) });
+  });
+  const res = { list, next: list.length + 1, cur: val(root, 'CurrencySymbol') || 'RON' };
+  const sdate = day(val(root, 'StatusDate'));
+  const name = (val(root, 'Title') || val(root, 'Name').replace(/\.(xml|mpp)$/i, '')).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 80);
+  return { name, tasks, cal, res, meta: { sdate: sdate || null }, fileStart, warn };
+}
+
+// Încarcă textul unui fișier MS Project XML într-o filă nouă; întoarce fila.
+function importMSProjectText(text, fallbackName) {
+  const p = _parseMSProjectXML(text);
+  if (!p.tasks.length) throw new Error('Fișierul nu conține activități');
+  const tab = addNewTab(p.name || fallbackName || 'Proiect MS Project', p.tasks, p.tasks.length + 1, p.cal, p.res, p.meta);
+  // după recalculare: câte activități au alt start decât în MS Project (calendare de resursă / activitate, nivelare, programare manuală…)
+  const diff = T.filter(t => !hasK(t.id) && p.fileStart[t.id] && t.sd !== p.fileStart[t.id]).length;
+  const msg = ['📥 Importat din MS Project: ' + T.length + ' rânduri' + (RES.list.length ? ', ' + RES.list.length + ' resurse' : '')];
+  if (diff) msg.push('⚠️ ' + diff + (diff === 1 ? ' activitate are' : ' activități au') + ' alt start decât în MS Project (calendare de resursă, nivelare sau programare manuală)');
+  if (p.warn.length) msg.push(p.warn.join(' · '));
+  toast(msg.join(' · '));
+  return tab;
+}
+
+function importMSProject() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.xml';
+  input.onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try { importMSProjectText(await f.text(), f.name.replace(/\.xml$/i, '')); }
+    catch (err) { toast('❌ ' + (err && err.message ? err.message : 'Fișier invalid')); }
+  };
+  document.body.appendChild(input); input.click(); document.body.removeChild(input);
+}
+
 function _msXmlEscape(s) {
   return String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 }
@@ -673,7 +834,7 @@ function _buildMSProjectXML(projectName) {
       }
       // Datele reale: MS Project le cere pentru progres > 0 (altfel le inventează și raportează conflicte de planificare)
       const aS = !isSumm ? (t.as || (t.prog > 0 ? t.sd : '')) : '', aF = !isSumm ? (t.af || (t.prog >= 100 ? end : '')) : '';
-      const bl = (!isSumm && t.bl) ? `<Baseline><Number>0</Number><Start>${_msXmlDate(t.bl.sd)}</Start><Finish>${_msFin(fD(endDate({ sd: t.bl.sd, dur: t.bl.dur })))}</Finish><Duration>${_msDur(isMs ? 0 : t.bl.dur)}</Duration>${t.bl.cost != null ? `<Cost>${t.bl.cost}</Cost>` : ''}</Baseline>` : '';
+      const bl = (!isSumm && t.bl) ? `<Baseline><Number>0</Number><Start>${_msXmlDate(t.bl.sd)}</Start><Finish>${_msFin(fD(endDate({ sd: t.bl.sd, dur: t.bl.dur })))}</Finish><Duration>${_msDur(isMs ? 0 : t.bl.dur)}</Duration>${t.bl.cost != null ? `<Cost>${Math.round(t.bl.cost * 100)}</Cost>` : ''}</Baseline>` : '';
       const links = (t.deps || []).map(d => `<PredecessorLink><PredecessorUID>${d.id}</PredecessorUID><Type>${typeMap[d.type] ?? 1}</Type><CrossProject>0</CrossProject><LinkLag>${Math.round((+d.lag || 0) * 4800)}</LinkLag><LagFormat>7</LagFormat></PredecessorLink>`).join('');
       tasksXml += `
     <Task><UID>${t.id}</UID><ID>${ids[t.id] || t.id}</ID><Name>${X(t.nm)}</Name><Type>${ttMap[t.ttype] ?? 0}</Type><IsNull>0</IsNull><CreateDate>${now}</CreateDate>
@@ -692,7 +853,7 @@ function _buildMSProjectXML(projectName) {
     + (r.type === 'material' ? `<MaterialLabel>${X(r.unit || '')}</MaterialLabel>` : '')
     + (r.type === 'work' ? `<MaxUnits>${(r.max || 100) / 100}</MaxUnits>` : '')
     + (r.type !== 'cost' ? `<StandardRate>${r.rate || 0}</StandardRate><StandardRateFormat>${r.type === 'work' ? 2 : 7}</StandardRateFormat>` : '')
-    + `<CalendarUID>1</CalendarUID></Resource>`).join('');
+    + `</Resource>`).join('');   // fără CalendarUID: MS Project îi face resursei calendarul ei (cu 1 ar redenumi calendarul proiectului)
   let aUid = 1;
   const asgXml = T.filter(t => !hasK(t.id)).flatMap(t => (t.assign || []).filter(a => resById(a.rid)).map(a => {
     const r = resById(a.rid);
@@ -700,7 +861,7 @@ function _buildMSProjectXML(projectName) {
     // munca: ore; materialul: cantitatea totală (MS Project o ține tot în câmpul Work, câte o „oră" pe unitate)
     const work = r.type === 'work' ? `<Work>${_msDur(Math.max(1, t.dur) * (a.units || 0) / 100)}</Work>` : (r.type === 'material' ? `<Work>PT${a.units || 0}H0M0S</Work>` : '');
     // Start / Finish pe atribuire: fără ele MS Project le pune la începutul proiectului și mută activitatea (conflict de planificare)
-    return `<Assignment><UID>${aUid++}</UID><TaskUID>${t.id}</TaskUID><ResourceUID>${r.id}</ResourceUID><Start>${_msXmlDate(t.sd)}</Start><Finish>${_msFin(fD(endDate(t)))}</Finish><Units>${units}</Units>${work}${r.type === 'cost' ? `<Cost>${a.units || 0}</Cost>` : ''}</Assignment>`;
+    return `<Assignment><UID>${aUid++}</UID><TaskUID>${t.id}</TaskUID><ResourceUID>${r.id}</ResourceUID><Start>${_msXmlDate(t.sd)}</Start><Finish>${_msFin(fD(endDate(t)))}</Finish><Units>${units}</Units>${work}${r.type === 'cost' ? `<Cost>${Math.round((a.units || 0) * 100)}</Cost>` : ''}</Assignment>`;
   })).join('');
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

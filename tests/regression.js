@@ -1598,6 +1598,58 @@
     undo(); undo(); undo(); eq(order(), [1, 2, 3, 4, 5, 6]);
   });
 
+  test('import MS Project: fișierul salvat de MS Project (XML) se deschide cu aceleași date, legături, calendar și resurse', async () => {
+    const txt = await (await fetch('tests/fixtures/msproject-saved.xml', { cache: 'no-store' })).text();
+    const p = _parseMSProjectXML(txt); toasts.length = 0;
+    importMSProjectText(txt, 'x'); settle();
+    eq(tabs.find(t => t.id === activeTabId).name, 'Export test 2', 'numele din <Title>');
+    eq(T.map(t => t.nm), ['Faza 1', 'A', 'B', 'C', 'Reper', 'Faza 2', 'D', 'E', 'G']);
+    const by = n => T.find(t => t.nm === n);
+    eq(by('A').pid, by('Faza 1').id); eq(by('G').pid, by('Faza 2').id);
+    eq([by('A').sd, by('A').dur], ['2026-11-02', 5]); eq(by('B').deps.map(d => [d.type, d.lag]), [['FS', 2]]); eq(by('B').sd, '2026-11-11');
+    eq(by('C').deps.map(d => [d.type, d.lag]), [['SS', 1]]); eq(by('C').sd, '2026-11-03');
+    ok(by('Reper').isMilestone); eq(by('Reper').sd, '2026-11-18', 'reperul la finalul zilei predecesorului');
+    eq(by('Faza 2').deps.map(d => [d.id, d.type]), [[by('Reper').id, 'FS']], 'legătura pe capitol'); eq(by('D').sd, '2026-11-19');
+    eq(by('E').deps.map(d => d.type), ['FF']); eq(by('G').deps.map(d => d.type), ['SF']);
+    ok(T.filter(t => !hasK(t.id)).every(t => t.sd === p.fileStart[t.id]), 'fiecare activitate începe exact ca în MS Project');
+    ok(!toasts.some(m => /alt start/.test(m)), 'fără avertismentul de date diferite');
+    ok(CAL.hol.includes('2026-11-30') && CAL.hol.includes('2026-12-01'), 'zilele libere'); eq(CAL.days, [0, 1, 1, 1, 1, 1, 0]);
+    eq(RES.list.map(r => [r.name, r.type]), [['Echipa', 'work'], ['Ciment', 'material']]); eq(RES.list[1].unit, 'sac');
+    eq(by('A').assign, [{ rid: 1, units: 100 }], 'Echipa 100%'); eq(by('C').assign, [{ rid: 2, units: 20 }], 'Ciment: 20 sac'); ok(!by('B').assign, 'atribuirile goale ale MS Project (resursa -65535) se ignoră');
+    ok(!T.some(t => hasK(t.id) && t.cons), 'capitolele fără restricții'); ok(!by('A').cons, 'SNET-ul de la start (felul în care MS Project fixează data) nu devine restricție');
+    const p2 = _parseMSProjectXML(await (await fetch('tests/fixtures/msproject-saved-2.xml', { cache: 'no-store' })).text());   // exportat fără calendar pe resurse: MS Project păstrează „Standard” + calendare derivate
+    eq(p2.cal, { days: [0, 1, 1, 1, 1, 1, 0], hol: CAL.hol }, 'calendarul de bază, cu zilele libere'); eq(p2.tasks.map(t => [t.nm, t.sd, t.dur]), p.tasks.map(t => [t.nm, t.sd, t.dur]));
+  });
+
+  test('import MS Project: dus-întors export → import păstrează structura, legăturile, restricțiile, progresul, baza, resursele; fișierele stricate dau eroare clară', () => {
+    const res = { cur: 'EUR', next: 3, list: [{ id: 1, name: 'Echipă <b>', type: 'work', rate: 60, max: 200 }, { id: 2, name: 'Ciment', type: 'material', rate: 35, unit: 'sac' }] };
+    newTabWith('RT', [mk(1, 'Cap', 1), mk(2, 'A & B', 5, 1, [], '2026-11-02', { assign: [{ rid: 1, units: 150 }, { rid: 2, units: 12 }], notes: 'notă\nrândul 2', prog: 40 }), mk(3, 'B', 4, 1, [F(2, 'SS', 2)], null, { deadline: '2026-12-01' }), mk(4, 'M', 1, 1, [F(3)], null, { isMilestone: true }), mk(5, 'C', 2, null, [], '2026-11-03', { cons: { type: 'MSO', date: '2026-11-04' } }), mk(6, 'D', 3, null, [F(5, 'FF', 1)], null, { cons: { type: 'FNLT', date: '2026-12-20' } })], { days: [0, 1, 1, 1, 1, 1, 1], hol: ['2026-11-30'] }, res); settle(); saveBaseline();
+    const before = T.map(t => [t.nm, t.sd, hasK(t.id) ? 0 : t.dur, t.pid, (t.deps || []).map(d => [d.id, d.type, d.lag]), t.cons || null, t.deadline || null, t.prog]);
+    const xml = _buildMSProjectXML('Dus-întors'); importMSProjectText(xml); settle();
+    eq(tabs.find(t => t.id === activeTabId).name, 'Dus-întors');
+    eq(T.map(t => [t.nm, t.sd, hasK(t.id) ? 0 : t.dur, t.pid, (t.deps || []).map(d => [d.id, d.type, d.lag]), t.cons || null, t.deadline || null, t.prog]), before);
+    eq(byId(2).notes, 'notă\nrândul 2'); eq(byId(2).assign, [{ rid: 1, units: 150 }, { rid: 2, units: 12 }]); eq(byId(2).as, '2026-11-02', 'început real dedus din progres');
+    eq(byId(3).bl.sd, byId(3).sd, 'linia de bază'); ok(byId(2).bl.cost > 0, 'costul de bază');
+    eq(CAL, { days: [0, 1, 1, 1, 1, 1, 1], hol: ['2026-11-30'] }); eq(RES.cur, 'EUR'); eq(RES.list[0].name, 'Echipă <b>'); eq(RES.list[0].max, 200); eq(RES.list[0].rate, 60);
+    let err = ''; try { _parseMSProjectXML('<Project><Tasks>'); } catch (e) { err = e.message; } ok(/XML valid/.test(err), 'XML stricat: ' + err);
+    err = ''; try { _parseMSProjectXML('<?xml version="1.0"?><Workbook/>'); } catch (e) { err = e.message; } ok(/MS Project/.test(err), 'alt fel de XML: ' + err);
+    const pct = _parseMSProjectXML('<Project><Tasks><Task><UID>1</UID><Name>X</Name><OutlineLevel>1</OutlineLevel><Start>2026-11-02T08:00:00</Start><Duration>PT16H0M0S</Duration></Task><Task><UID>2</UID><Name>Y</Name><OutlineLevel>1</OutlineLevel><Start>2026-11-04T08:00:00</Start><Duration>PT8H0M0S</Duration><PredecessorLink><PredecessorUID>1</PredecessorUID><Type>1</Type><LinkLag>500</LinkLag><LagFormat>19</LagFormat></PredecessorLink><PredecessorLink><PredecessorUID>99</PredecessorUID></PredecessorLink></Task></Tasks></Project>');
+    eq(pct.tasks.map(t => t.dur), [2, 1]); eq(pct.tasks[1].deps, [{ id: 1, type: 'FS', lag: 0 }]); ok(pct.warn.some(w => /procente/.test(w)) && pct.warn.some(w => /alte proiecte/.test(w)), 'avertismente');
+    // costurile MS Project sunt în bani (×100): costul de bază 2400 RON se scrie 240000 și se citește înapoi 2400
+    ok(/<Baseline><Number>0<\/Number>[^]*?<Cost>\d+00<\/Cost>/.test(xml), 'costul de bază în bani');
+    const bx = _parseMSProjectXML('<Project><Tasks><Task><UID>1</UID><Name>A</Name><OutlineLevel>1</OutlineLevel><Start>2026-11-02T08:00:00</Start><Duration>PT8H0M0S</Duration><Baseline><Number>0</Number><Start>2026-11-02T08:00:00</Start><Duration>PT8H0M0S</Duration><Cost>240000</Cost></Baseline></Task></Tasks></Project>');
+    eq(bx.tasks[0].bl.cost, 2400);
+    // fișier ostil: durate / decalaje uriașe, durată 0 (= reper), procent peste 100, nivel sărit, nume lung, dată invalidă, legătură spre sine
+    const evil = '<Project><Calendars><Calendar><UID>1</UID><WeekDays>' + Array.from({ length: 30 }, (_, i) => '<WeekDay><DayType>0</DayType><DayWorking>0</DayWorking><TimePeriod><FromDate>' + (1700 + i * 10) + '-01-01T00:00:00</FromDate><ToDate>' + (1709 + i * 10) + '-12-31T23:59:00</ToDate></TimePeriod></WeekDay>').join('') + '</WeekDays></Calendar></Calendars><CalendarUID>1</CalendarUID><Tasks>'
+      + '<Task><UID>1</UID><Name>' + 'x'.repeat(400) + '</Name><OutlineLevel>1</OutlineLevel><Start>nu-e-data</Start><Duration>PT99999999H</Duration><PercentComplete>250</PercentComplete><PredecessorLink><PredecessorUID>1</PredecessorUID><LinkLag>999999999999</LinkLag></PredecessorLink></Task>'
+      + '<Task><UID>2</UID><Name>Z</Name><OutlineLevel>4</OutlineLevel><Start>2026-11-02T08:00:00</Start><Duration>PT0H0M0S</Duration></Task></Tasks></Project>';
+    const ev = _parseMSProjectXML(evil);
+    ok(ev.tasks[0].dur <= 36500 && Math.abs(ev.tasks[0].deps[0].lag) <= 36500, 'plafoane'); ok(ev.tasks[0].nm.length <= 250); ok(ev.tasks[1].isMilestone, 'durată 0 = reper'); eq(ev.tasks[1].pid, 1, 'nivelul sărit se agață de rândul de deasupra');
+    ok(ev.cal.hol.length <= 20000 && ev.warn.some(w => /zile libere/.test(w)), 'plafonul de zile libere');
+    importMSProjectText(evil, 'ostil'); settle();
+    ok(T.every(t => t.prog >= 0 && t.prog <= 100), 'progresul plafonat'); ok(validISO(byId(1).sd), 'data invalidă înlocuită'); eq(byId(1).deps.length, 0, 'legătura spre sine scoasă');
+  });
+
   // ---------- extensie pentru funcții viitoare ----------
   const extra = window.__regressionExtra;
   if (typeof extra === 'function') extra({ test, ok, eq, near, skip, wait, F, mk, settle, snap, setProject, confirmYes, key, newTabWith, noTransitions, toasts });
